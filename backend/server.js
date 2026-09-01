@@ -71,6 +71,14 @@ app.use((err, req, res, next) => {
 
 const PORT = process.env.PORT || 5000;
 
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err.stack || err);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 // Initialize Database and Start Server
 async function startServer() {
   await connectDB();
@@ -86,13 +94,21 @@ async function startServer() {
     console.warn('Initial seeding check warning:', seedErr.message);
   }
 
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
     console.log(`🌾 KRISHI DRISHTI – AI for Smarter Farming API`);
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
     console.log(`====================================================`);
   });
+
+  server.on('error', (err) => {
+    console.error('HTTP Server Error:', err.message);
+  });
+
+  // Keep-alive timer
+  setInterval(() => {}, 1000 * 60 * 60);
 }
 
 startServer();
+
