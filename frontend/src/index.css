@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F4F7F4] text-slate-800 antialiased;
+    font-family: 'Inter', 'Noto Sans Devanagari', system-ui, sans-serif;
+  }
+}
+
+/* Custom mobile card style */
+.agri-card {
+  @apply bg-white rounded-2xl border border-slate-100 shadow-sm transition-all duration-200;
+}
+
+.agri-card-hover {
+  @apply hover:shadow-md hover:border-agri-200 transition-all duration-200;
+}
+
+/* Touch friendly button style */
+.agri-btn-primary {
+  @apply bg-gradient-to-r from-agri-700 to-agri-600 hover:from-agri-800 hover:to-agri-700 text-white font-medium px-5 py-3 rounded-xl shadow-sm active:scale-[0.98] transition-all flex items-center justify-center gap-2;
+}
+
+.agri-btn-secondary {
+  @apply bg-white hover:bg-slate-50 text-agri-800 border border-agri-300 font-medium px-5 py-3 rounded-xl shadow-xs active:scale-[0.98] transition-all flex items-center justify-center gap-2;
+}
+
+/* Custom scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
