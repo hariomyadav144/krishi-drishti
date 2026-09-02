@@ -1,43 +1,26 @@
 const mongoose = require('mongoose');
 
-let mongoMemoryServer = null;
-
 const connectDB = async () => {
-  try {
-    let uri = process.env.MONGODB_URI;
+  const uri = process.env.MONGODB_URI;
 
-    if (uri && uri.trim() !== '') {
-      console.log('Connecting to provided MongoDB URI...');
-      await mongoose.connect(uri);
-      console.log('MongoDB connected successfully to external instance.');
-    } else {
-      console.log('No external MongoDB URI specified. Initializing embedded in-memory MongoDB Server...');
-      const { MongoMemoryServer } = require('mongodb-memory-server');
-      mongoMemoryServer = await MongoMemoryServer.create();
-      uri = mongoMemoryServer.getUri();
-      await mongoose.connect(uri);
-      console.log(`Embedded MongoDB connected successfully at ${uri}`);
-    }
-  } catch (error) {
-    console.error('Error connecting to MongoDB:', error.message);
+  if (uri && uri.trim() !== '') {
     try {
-      console.log('Attempting fallback to embedded MongoMemoryServer...');
-      const { MongoMemoryServer } = require('mongodb-memory-server');
-      mongoMemoryServer = await MongoMemoryServer.create();
-      const fallbackUri = mongoMemoryServer.getUri();
-      await mongoose.connect(fallbackUri);
-      console.log(`Fallback embedded MongoDB connected successfully at ${fallbackUri}`);
-    } catch (fallbackError) {
-      console.warn('Warning: Could not start in-memory MongoDB server:', fallbackError.message);
-      console.warn('Server will continue running in in-memory / stateless mode for AI Advice and Health checks.');
+      console.log('Connecting to provided MongoDB URI...');
+      await mongoose.connect(uri, { serverSelectionTimeoutMS: 5000 });
+      console.log('MongoDB connected successfully to database.');
+      return;
+    } catch (error) {
+      console.warn('External MongoDB connection failed:', error.message);
+      console.warn('Krishi Drishti API continuing in resilient stateless cloud mode.');
     }
+  } else {
+    console.log('No external MONGODB_URI specified. Operating in high-performance cloud mode for AI Advisory & Tools.');
   }
 };
 
 const disconnectDB = async () => {
-  await mongoose.disconnect();
-  if (mongoMemoryServer) {
-    await mongoMemoryServer.stop();
+  if (mongoose.connection.readyState !== 0) {
+    await mongoose.disconnect();
   }
 };
 
