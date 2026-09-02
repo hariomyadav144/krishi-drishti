@@ -32,7 +32,7 @@ const resolveApiBaseUrl = () => {
     return import.meta.env.VITE_API_BASE_URL;
   }
   if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
-    return 'https://krishi-drishti-api.onrender.com/api';
+    return 'https://krishi-drishti.onrender.com/api';
   }
   return '/api';
 };

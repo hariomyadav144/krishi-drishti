@@ -317,12 +317,22 @@ export default function AiAdvisor({ setActiveTab }) {
             <button
               type="button"
               onClick={() => {
+                setCustomBackendUrlState('https://krishi-drishti.onrender.com/api');
+                handleSaveBackendUrl('https://krishi-drishti.onrender.com/api');
+              }}
+              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-200 transition font-medium"
+            >
+              🚀 Render (krishi-drishti)
+            </button>
+            <button
+              type="button"
+              onClick={() => {
                 setCustomBackendUrlState('https://krishi-drishti-api.onrender.com/api');
                 handleSaveBackendUrl('https://krishi-drishti-api.onrender.com/api');
               }}
               className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg border border-amber-200 transition font-medium"
             >
-              🚀 Render Default
+              🚀 Render (krishi-drishti-api)
             </button>
             <button
               type="button"

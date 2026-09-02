@@ -28,8 +28,8 @@ const connectDB = async () => {
       await mongoose.connect(fallbackUri);
       console.log(`Fallback embedded MongoDB connected successfully at ${fallbackUri}`);
     } catch (fallbackError) {
-      console.error('Fatal: Could not start in-memory MongoDB server:', fallbackError.message);
-      process.exit(1);
+      console.warn('Warning: Could not start in-memory MongoDB server:', fallbackError.message);
+      console.warn('Server will continue running in in-memory / stateless mode for AI Advice and Health checks.');
     }
   }
 };

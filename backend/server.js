@@ -105,32 +105,37 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Initialize Database and Start Server
-async function startServer() {
-  await connectDB();
-
-  // Auto-seed if database is empty for seamless out-of-the-box experience
-  try {
-    const count = await User.countDocuments();
-    if (count === 0) {
-      console.log('Empty database detected. Auto-populating realistic agricultural demo dataset...');
-      await seedDatabase();
-    }
-  } catch (seedErr) {
-    console.warn('Initial seeding check warning:', seedErr.message);
-  }
-
+// Initialize HTTP Server immediately for instant Render health checks
+function startServer() {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
     console.log(`🌾 KRISHI DRISHTI – AI for Smarter Farming API`);
     console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
+    console.log(`📡 Health Check: http://0.0.0.0:${PORT}/health`);
+    console.log(`📡 API Health:   http://0.0.0.0:${PORT}/api/health`);
     console.log(`====================================================`);
   });
 
   server.on('error', (err) => {
     console.error('HTTP Server Error:', err.message);
   });
+
+  // Connect to Database asynchronously so port binding is never blocked
+  connectDB()
+    .then(async () => {
+      try {
+        const count = await User.countDocuments();
+        if (count === 0) {
+          console.log('Empty database detected. Auto-populating realistic agricultural demo dataset...');
+          await seedDatabase();
+        }
+      } catch (seedErr) {
+        console.warn('Initial seeding check warning:', seedErr.message);
+      }
+    })
+    .catch((err) => {
+      console.warn('Database initialization warning (API active and responsive):', err.message);
+    });
 
   // Keep-alive timer
   setInterval(() => {}, 1000 * 60 * 60);
