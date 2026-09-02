@@ -1,30 +1,61 @@
 import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../services/api';
+import { fetchOpenMeteoWeather } from '../services/weatherService';
+import FarmLocationMap from '../components/FarmLocationMap';
 import { 
   CloudSun, 
   CloudRain, 
   Sun, 
   Droplets, 
   Wind, 
-  Compass, 
+  Thermometer, 
   AlertCircle, 
-  RefreshCw, 
-  Thermometer,
-  ShieldCheck
+  ShieldCheck, 
+  RefreshCw,
+  MapPin,
+  Sparkles
 } from 'lucide-react';
 
 export default function WeatherPage() {
   const { lang, t } = useLanguage();
   const [weatherData, setWeatherData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showMap, setShowMap] = useState(true);
 
-  const fetchWeather = async () => {
+  const fetchWeather = async (customLat, customLng, customName) => {
     try {
       setLoading(true);
-      const res = await api.get('/weather');
-      if (res.data.success) {
-        setWeatherData(res.data.data);
+
+      let lat = customLat;
+      let lng = customLng;
+      let name = customName;
+
+      if (!lat || !lng) {
+        try {
+          const stored = localStorage.getItem('krishi_farm_coords');
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            lat = parsed.lat;
+            lng = parsed.lng;
+            name = parsed.name || name;
+          }
+        } catch (_) {}
+      }
+
+      lat = lat || 20.00;
+      lng = lng || 73.78;
+      name = name || 'Nashik, Maharashtra';
+
+      try {
+        const liveData = await fetchOpenMeteoWeather(lat, lng, name);
+        setWeatherData(liveData);
+      } catch (err) {
+        console.warn('Direct Open-Meteo call fallback, querying api:', err);
+        const res = await api.get('/weather');
+        if (res.data.success) {
+          setWeatherData(res.data.data);
+        }
       }
     } catch (e) {
       console.error('Failed to load weather:', e);
@@ -36,6 +67,10 @@ export default function WeatherPage() {
   useEffect(() => {
     fetchWeather();
   }, []);
+
+  const handleLocationSelect = ({ lat, lng, locationName }) => {
+    fetchWeather(lat, lng, locationName);
+  };
 
   if (loading && !weatherData) {
     return (
@@ -54,18 +89,48 @@ export default function WeatherPage() {
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="text-2xl font-black text-slate-900">{t('weather.title')}</h2>
-          <p className="text-xs text-slate-600 mt-0.5">📍 {typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra')}</p>
+          <div className="flex items-center gap-2">
+            <h2 className="text-2xl font-black text-slate-900">{t('weather.title')}</h2>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-800 border border-emerald-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              Live Open-Meteo API
+            </span>
+          </div>
+          <p className="text-xs text-slate-600 mt-0.5">
+            📍 {typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra')}
+          </p>
         </div>
 
-        <button
-          onClick={fetchWeather}
-          className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
-          title="Refresh Weather"
-        >
-          <RefreshCw className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowMap(!showMap)}
+            className={`px-3 py-2 rounded-xl text-xs font-bold border transition flex items-center gap-1.5 ${
+              showMap 
+                ? 'bg-emerald-50 text-emerald-800 border-emerald-300' 
+                : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+            }`}
+          >
+            <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+            <span>{showMap ? (lang === 'hi' ? 'नक्शा छिपाएं' : 'Hide Map') : (lang === 'hi' ? 'नक्शा देखें / स्थान बदलें' : 'View / Change Map')}</span>
+          </button>
+
+          <button
+            onClick={() => fetchWeather()}
+            className="p-2.5 rounded-xl bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 transition"
+            title="Refresh Live Weather"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+        </div>
       </div>
+
+      {/* Free OpenStreetMap Location Picker & Viewer */}
+      {showMap && (
+        <FarmLocationMap 
+          onLocationSelect={handleLocationSelect}
+          initialName={typeof location === 'string' ? location : 'Nashik, Maharashtra'}
+        />
+      )}
 
       {/* Current Agro-Weather Big Card */}
       {current && (

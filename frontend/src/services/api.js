@@ -20,6 +20,7 @@ import {
   generateMockScanResult,
   generateMockAiAnswer,
 } from './mockFallback';
+import { fetchOpenMeteoWeather } from './weatherService';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 
@@ -320,6 +321,35 @@ api.interceptors.response.use(
     }
 
     console.warn(`[Krishi Drishti] Backend unavailable at ${url}. Seamlessly activating resilient agricultural fallback.`);
+
+    // Live Open-Meteo Weather Integration
+    if (url.includes('/weather')) {
+      try {
+        let lat = 20.00;
+        let lng = 73.78;
+        let name = 'Nashik, Maharashtra';
+        const stored = localStorage.getItem('krishi_farm_coords');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.lat && parsed.lng) {
+            lat = parsed.lat;
+            lng = parsed.lng;
+            name = parsed.name || name;
+          }
+        }
+        const liveWeather = await fetchOpenMeteoWeather(lat, lng, name);
+        return Promise.resolve({
+          data: { success: true, data: liveWeather },
+          status: 200,
+          statusText: 'OK (Open-Meteo Live)',
+          headers: {},
+          config: error.config,
+        });
+      } catch (err) {
+        console.warn('Live weather fallback failed, using safe mock dataset:', err.message);
+      }
+    }
+
     const fallbackData = handleFallbackResponse(url, method, requestData);
 
     return Promise.resolve({

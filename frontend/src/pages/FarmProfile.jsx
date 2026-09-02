@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import api from '../services/api';
+import FarmLocationMap from '../components/FarmLocationMap';
 import { 
   User, 
   MapPin, 
@@ -294,6 +295,14 @@ export default function FarmProfile() {
         </div>
 
       </div>
+
+      {/* Interactive OpenStreetMap Farm Location Viewer */}
+      <FarmLocationMap 
+        initialName={profile?.village ? `${profile.village}, ${profile.district || ''}` : 'Pimpalgaon, Nashik'}
+        onLocationSelect={({ lat, lng, locationName }) => {
+          console.log('Profile location updated to:', locationName, lat, lng);
+        }}
+      />
 
       {/* Cultivated Crops Management */}
       <div className="agri-card p-5 bg-white border-slate-200 shadow-sm space-y-4">

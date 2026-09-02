@@ -35,9 +35,15 @@ export default function WeatherWidget({ weatherData, onSeeFullForecast }) {
           <CloudSun className="w-5 h-5 text-sky-600" />
           <h4 className="font-bold text-slate-900 text-sm">{t('weather.title')}</h4>
         </div>
-        <span className="text-[11px] font-semibold text-sky-800 bg-sky-100/80 px-2 py-0.5 rounded-full">
-          📍 {typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra')}
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            Open-Meteo
+          </span>
+          <span className="text-[11px] font-semibold text-sky-800 bg-sky-100/80 px-2 py-0.5 rounded-full">
+            📍 {typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra')}
+          </span>
+        </div>
       </div>
 
       {/* Main Temperature and Current Info */}

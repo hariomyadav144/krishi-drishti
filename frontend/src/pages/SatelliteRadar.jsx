@@ -229,6 +229,26 @@ export default function SatelliteRadar() {
         </div>
       </div>
 
+      {/* Copernicus Sentinel-2 Architecture Information */}
+      <div className="p-4 rounded-2xl bg-indigo-50/70 border border-indigo-200/80 text-xs space-y-2">
+        <div className="flex items-center gap-2 text-indigo-950 font-bold">
+          <Satellite className="w-4 h-4 text-indigo-600" />
+          <span>{lang === 'hi' ? 'ESA कॉपरनिकस सेंटिनल-2 सैटेलाइट आर्किटेक्चर' : 'ESA Copernicus Sentinel-2 Satellite Architecture'}</span>
+        </div>
+        <p className="text-indigo-900/80 leading-relaxed">
+          {lang === 'hi'
+            ? 'यह प्रणाली यूरोपीय अंतरिक्ष एजेंसी (ESA) के कॉपरनिकस डेटा स्पेस इकोसिस्टम (Sentinel-2 L2A) के लिए तैयार की गई है। इसमें 10-मीटर रिज़ॉल्यूशन पर बैंड 8 (NIR) और बैंड 4 (Red) से सटीक वनस्पति सूचकांक (NDVI) की गणना की जाती है।'
+            : 'Engineered for the European Space Agency (ESA) Copernicus Data Space Ecosystem (Sentinel-2 L2A). Computes high-resolution (10m) Normalized Difference Vegetation Index (NDVI) from Band 8 (NIR) and Band 4 (Red) to detect crop vigor and moisture stress.'}
+        </p>
+        <div className="flex items-center gap-3 pt-1 text-[11px] text-indigo-700 font-medium flex-wrap">
+          <span>📡 Constellation: Sentinel-2A/B</span>
+          <span>•</span>
+          <span>🌐 Resolution: 10m Ground Sampling</span>
+          <span>•</span>
+          <span>🛰️ Revisit Time: 5 Days</span>
+        </div>
+      </div>
+
     </div>
   );
 }
