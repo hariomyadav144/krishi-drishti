@@ -36,4 +36,24 @@ const authorize = (...roles) => {
   };
 };
 
-module.exports = { protect, authorize };
+const optionalProtect = async (req, res, next) => {
+  let token;
+  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    token = req.headers.authorization.split(' ')[1];
+  }
+
+  if (!token) {
+    return next();
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'krishi_drishti_secret_key_2026_smart_farming');
+    const user = await User.findById(decoded.id).select('-password');
+    if (user) req.user = user;
+  } catch (err) {
+    // Gracefully continue for demo tokens or unverified guests
+  }
+  next();
+};
+
+module.exports = { protect, optionalProtect, authorize };

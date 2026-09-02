@@ -20,15 +20,28 @@ import {
   MOCK_PREDEFINED_QUERIES,
   calculateMockFertilizer,
   generateMockScanResult,
-  generateMockAiAnswer,
 } from './mockFallback';
 import { fetchOpenMeteoWeather } from './weatherService';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const resolveApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('krishi_backend_url');
+    if (custom && custom.trim()) return custom.trim();
+  }
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL;
+  }
+  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
+    return 'https://krishi-drishti-api.onrender.com/api';
+  }
+  return '/api';
+};
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 10000, // 10 second timeout for network calls
+  timeout: 30000, // 30 second timeout for Gemini AI generation
   headers: {
     'Content-Type': 'application/json',
   },
@@ -279,9 +292,6 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     };
   }
 
-  if (cleanUrl.startsWith('/recommendations/ask')) {
-    return generateMockAiAnswer(data?.query || data?.queryText || '', data?.cropName || 'Tomato');
-  }
 
   // Expert Advisory
   if (cleanUrl.startsWith('/expert/cases')) {
@@ -342,6 +352,15 @@ api.interceptors.response.use(
       requestData = typeof error.config?.data === 'string' ? JSON.parse(error.config.data) : error.config?.data;
     } catch {
       requestData = null;
+    }
+
+    // CRITICAL: DO NOT serve fake fallback for real AI Advisor questions!
+    // The application must NOT silently display a hardcoded answer when real AI fails.
+    if (url.includes('/recommendations/ask') || url.includes('/ai-advice')) {
+      const serverMsg = error.response?.data?.message || error.message || 'Unable to connect to Google Gemini AI service. Please ensure the backend server is running with a valid GEMINI_API_KEY.';
+      const customErr = new Error(serverMsg);
+      customErr.response = error.response;
+      return Promise.reject(customErr);
     }
 
     console.warn(`[Krishi Drishti] Backend unavailable at ${url}. Seamlessly activating resilient agricultural fallback.`);

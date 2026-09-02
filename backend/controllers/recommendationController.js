@@ -2,47 +2,106 @@ const Recommendation = require('../models/Recommendation');
 const Crop = require('../models/Crop');
 const Farm = require('../models/Farm');
 const ActionPlan = require('../models/ActionPlan');
-const { generateSmartAdvice } = require('../services/aiAdvisoryService');
+const { askGeminiAdvisor } = require('../services/geminiService');
 const { getFarmWeather } = require('../services/weatherService');
 
 // @desc Ask AI Advisor for personalized agronomy recommendations
 // @route POST /api/recommendations/ask
 const askAdvisor = async (req, res) => {
   try {
-    const { queryText, cropName, cropStage } = req.body;
-    const userId = req.user._id;
+    const { queryText, question, cropName, crop, cropStage, language, conversationHistory } = req.body;
+    const userId = req.user ? req.user._id : null;
+    const actualQuery = (queryText || question || '').trim();
 
-    if (!queryText || queryText.trim() === '') {
+    if (!actualQuery) {
       return res.status(400).json({ success: false, message: 'Please provide a farming question or topic.' });
     }
 
-    // Fetch farmer context
-    const [activeCrop, farm] = await Promise.all([
-      Crop.findOne({ farmerId: userId, isCurrent: true }),
-      Farm.findOne({ farmerId: userId }),
-    ]);
+    // Fetch farmer context if user is logged in
+    let activeCrop = null;
+    let farm = null;
+    if (userId) {
+      try {
+        [activeCrop, farm] = await Promise.all([
+          Crop.findOne({ farmerId: userId, isCurrent: true }),
+          Farm.findOne({ farmerId: userId }),
+        ]);
+      } catch (dbErr) {
+        console.warn('DB lookup skipped in askAdvisor:', dbErr.message);
+      }
+    }
 
-    const targetCropName = cropName || (activeCrop ? activeCrop.cropName : 'Tomato');
+    const targetCropName = crop || cropName || (activeCrop ? activeCrop.cropName : 'Tomato');
     const targetCropStage = cropStage || (activeCrop ? activeCrop.cropStage : 'Flowering Stage');
 
-    // Fetch localized weather
-    const weather = await getFarmWeather();
-
-    // Generate 5-part Structured Advisory
-    const advice = await generateSmartAdvice({
-      queryText,
-      cropName: targetCropName,
+    // Call Real Google Gemini API
+    const geminiResult = await askGeminiAdvisor({
+      question: actualQuery,
+      crop: targetCropName,
       cropStage: targetCropStage,
-      farm,
-      weather,
+      location: farm ? (farm.district || farm.state || '') : '',
+      language: language || 'en',
+      conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : []
     });
 
-    // Save Recommendation
-    const savedRec = await Recommendation.create({
-      farmerId: userId,
-      cropId: activeCrop ? activeCrop._id : null,
+    const advice = {
+      category: 'AI Agronomist Consultation',
+      issue: `Advisory for ${targetCropName}`,
+      issueHi: `${targetCropName} फसल हेतु सलाह`,
+      reason: 'Generated dynamically based on specific query and agricultural context.',
+      reasonHi: 'आपके प्रश्न और कृषि संदर्भ के आधार पर तैयार की गई सलाह।',
+      whatToDo: geminiResult.answer,
+      whatToDoHi: geminiResult.answer,
+      whenToDo: 'Review and apply according to instructions.',
+      whenToDoHi: 'सुझाए गए निर्देशों के अनुसार लागू करें।',
+      whatToAvoid: 'Follow safety precautions and avoid overdose.',
+      whatToAvoidHi: 'सावधानियों का पालन करें और अनुचित मात्रा से बचें।',
+      answer: geminiResult.answer,
+    };
+
+    // Save Recommendation if farmer is logged in
+    let savedRec = null;
+    if (userId) {
+      try {
+        savedRec = await Recommendation.create({
+          farmerId: userId,
+          cropId: activeCrop ? activeCrop._id : null,
+          cropName: targetCropName,
+          queryText: actualQuery,
+          category: advice.category,
+          issue: advice.issue,
+          issueHi: advice.issueHi,
+          reason: advice.reason,
+          reasonHi: advice.reasonHi,
+          whatToDo: advice.whatToDo,
+          whatToDoHi: advice.whatToDoHi,
+          whenToDo: advice.whenToDo,
+          whenToDoHi: advice.whenToDoHi,
+          whatToAvoid: advice.whatToAvoid,
+          whatToAvoidHi: advice.whatToAvoidHi,
+          actionPlanCreated: true,
+        });
+
+        if (advice.actionTasks && advice.actionTasks.length > 0) {
+          const tasksToInsert = advice.actionTasks.map(t => ({
+            farmerId: userId,
+            cropId: activeCrop ? activeCrop._id : null,
+            recommendationId: savedRec._id,
+            title: t.title,
+            dayLabel: t.dayLabel,
+            priority: 'Medium',
+            category: t.category || 'General',
+          }));
+          await ActionPlan.insertMany(tasksToInsert);
+        }
+      } catch (saveErr) {
+        console.warn('Could not save recommendation to DB:', saveErr.message);
+      }
+    }
+
+    const recData = savedRec ? savedRec.toObject() : {
+      queryText: actualQuery,
       cropName: targetCropName,
-      queryText,
       category: advice.category,
       issue: advice.issue,
       issueHi: advice.issueHi,
@@ -54,28 +113,15 @@ const askAdvisor = async (req, res) => {
       whenToDoHi: advice.whenToDoHi,
       whatToAvoid: advice.whatToAvoid,
       whatToAvoidHi: advice.whatToAvoidHi,
-      actionPlanCreated: true,
-    });
+    };
 
-    // Generate Action Plan Tasks
-    if (advice.actionTasks && advice.actionTasks.length > 0) {
-      const tasksToInsert = advice.actionTasks.map(t => ({
-        farmerId: userId,
-        cropId: activeCrop ? activeCrop._id : null,
-        recommendationId: savedRec._id,
-        title: t.title,
-        dayLabel: t.dayLabel,
-        priority: 'Medium',
-        category: t.category || 'General',
-      }));
-      await ActionPlan.insertMany(tasksToInsert);
-    }
+    recData.answer = geminiResult.answer;
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
-      message: 'AI Recommendation generated successfully!',
-      data: savedRec,
-      generatedTasks: advice.actionTasks,
+      message: 'AI Recommendation generated successfully via Gemini API!',
+      data: recData,
+      answer: geminiResult.answer,
     });
   } catch (error) {
     console.error('Advisor error:', error);

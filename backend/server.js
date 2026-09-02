@@ -20,6 +20,7 @@ const expertRoutes = require('./routes/expertRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const mandiRoutes = require('./routes/mandiRoutes');
 const toolsRoutes = require('./routes/toolsRoutes');
+const aiAdviceRoutes = require('./routes/aiAdviceRoutes');
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/farmer', farmerRoutes);
 app.use('/api/crops', cropRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/api/ai-advice', aiAdviceRoutes);
 app.use('/api/action-plans', actionPlanRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/alerts', alertRoutes);

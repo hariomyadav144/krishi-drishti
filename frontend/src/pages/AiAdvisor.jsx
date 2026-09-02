@@ -106,28 +106,66 @@ export default function AiAdvisor({ setActiveTab }) {
     }
   };
 
+  const [chatHistory, setChatHistory] = useState([]);
+
   const handleAsk = async (textToQuery) => {
     const query = textToQuery || queryText;
     if (!query || query.trim() === '') return;
 
     setLoading(true);
     setError('');
-    setAdvisoryResult(null);
 
     try {
-      const res = await api.post('/recommendations/ask', {
-        queryText: query,
-        cropName: selectedCrop,
-        cropStage: currentCrop?.cropStage || 'Flowering Stage',
-      });
+      // First call /ai-advice, fallback to /recommendations/ask
+      let res;
+      try {
+        res = await api.post('/ai-advice', {
+          question: query,
+          queryText: query,
+          crop: selectedCrop,
+          cropName: selectedCrop,
+          cropStage: currentCrop?.cropStage || 'Flowering Stage',
+          location: farm?.district || farm?.state || 'Nashik, Maharashtra',
+          language: lang,
+          conversationHistory: chatHistory.slice(-6),
+        });
+      } catch (err1) {
+        // Fallback to /recommendations/ask
+        res = await api.post('/recommendations/ask', {
+          queryText: query,
+          question: query,
+          crop: selectedCrop,
+          cropName: selectedCrop,
+          cropStage: currentCrop?.cropStage || 'Flowering Stage',
+          location: farm?.district || farm?.state || 'Nashik, Maharashtra',
+          language: lang,
+          conversationHistory: chatHistory.slice(-6),
+        });
+      }
 
-      if (res.data.success) {
-        setAdvisoryResult(res.data.data);
+      if (res.data && (res.data.success || res.data.answer)) {
+        const answerText = res.data.answer || res.data.data?.answer || res.data.data?.whatToDo || '';
+        const updatedResult = res.data.data || {
+          answer: answerText,
+          queryText: query,
+          cropName: selectedCrop,
+        };
+        if (!updatedResult.answer) updatedResult.answer = answerText;
+        if (!updatedResult.queryText) updatedResult.queryText = query;
+        if (!updatedResult.cropName) updatedResult.cropName = selectedCrop;
+
+        setAdvisoryResult(updatedResult);
+        setChatHistory(prev => [
+          ...prev,
+          { role: 'user', content: query },
+          { role: 'model', content: answerText }
+        ]);
         setQueryText('');
       }
     } catch (err) {
       console.error('Advisor query error:', err);
-      setError(err.response?.data?.message || 'Error generating AI recommendation.');
+      const msg = err.response?.data?.message || err.message || 'Error generating AI recommendation from Google Gemini.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
@@ -276,29 +314,56 @@ export default function AiAdvisor({ setActiveTab }) {
 
       </div>
 
-      {/* Structured 5-Part AI Advice Result */}
+      {/* Real Conversational Gemini AI Advice Result */}
       {advisoryResult && (
-        <div className="agri-card p-5 bg-white border-amber-300 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3">
+        <div className="agri-card p-5 bg-white border-emerald-400 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3">
           
           {/* Header */}
           <div className="flex items-start justify-between pb-3 border-b border-slate-100 gap-2">
             <div>
-              <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                {advisoryResult.category || 'Agronomy Advisory'} • {advisoryResult.cropName}
-              </span>
-              <h3 className="text-base font-extrabold text-slate-900 mt-1">
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                  <Sparkles className="w-3 h-3 text-emerald-600" />
+                  <span>Google Gemini AI • {advisoryResult.cropName || selectedCrop}</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
+                  Live Response
+                </span>
+              </div>
+              <h3 className="text-base font-extrabold text-slate-900 mt-2">
                 "{advisoryResult.queryText}"
               </h3>
             </div>
 
             <VoiceReader
-              textToRead={`${advisoryResult.issue}. ${advisoryResult.whatToDo}. When: ${advisoryResult.whenToDo}. Avoid: ${advisoryResult.whatToAvoid}`}
-              textToReadHi={`${advisoryResult.issueHi || advisoryResult.issue}। ${advisoryResult.whatToDoHi || advisoryResult.whatToDo}। समय: ${advisoryResult.whenToDoHi || advisoryResult.whenToDo}। क्या न करें: ${advisoryResult.whatToAvoidHi || advisoryResult.whatToAvoid}`}
+              textToRead={advisoryResult.answer || advisoryResult.whatToDo || 'Here is your agricultural recommendation.'}
+              textToReadHi={advisoryResult.answer || advisoryResult.whatToDoHi || advisoryResult.whatToDo || 'यहाँ आपकी कृषि सलाह है।'}
             />
           </div>
 
-          {/* 5-Part Card Structure */}
-          <div className="space-y-3">
+          {/* Natural Conversational Answer from Gemini */}
+          {advisoryResult.answer && (
+            <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 text-slate-900 leading-relaxed space-y-2">
+              <div className="font-bold text-emerald-950 flex items-center gap-1.5 text-xs">
+                <span>🌱 कृषि दृष्टि AI सलाह (Real-Time Agricultural Advice):</span>
+              </div>
+              <div className="text-xs sm:text-sm text-slate-800 font-normal leading-relaxed whitespace-pre-line">
+                {advisoryResult.answer}
+              </div>
+            </div>
+          )}
+
+          {/* Follow-up Context Indicator */}
+          <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-1">
+            <span>💬 आप फॉलो-अप सवाल पूछ सकते हैं (जैसे "इसके लिए क्या करूं?" या "कहाँ मिलेगा?")</span>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+              Context Active ({chatHistory.length} msgs)
+            </span>
+          </div>
+
+          {/* Structured 5-Part Card Structure (Shown if structured breakdown is present) */}
+          {advisoryResult.issue && advisoryResult.issue !== advisoryResult.answer && (
+            <div className="space-y-3 pt-2">
             
             {/* 1. What is the issue? */}
             <div className="p-3 bg-red-50/70 rounded-xl border border-red-200">
@@ -356,6 +421,7 @@ export default function AiAdvisor({ setActiveTab }) {
             </div>
 
           </div>
+          )}
 
           {/* Action Plan Task CTA */}
           <div className="p-3 bg-agri-100 text-agri-950 rounded-xl flex items-center justify-between gap-2 text-xs">
