@@ -39,6 +39,16 @@ const resolveApiBaseUrl = () => {
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
+export function setCustomBackendUrl(url) {
+  if (url && url.trim()) {
+    localStorage.setItem('krishi_backend_url', url.trim());
+    api.defaults.baseURL = url.trim();
+  } else {
+    localStorage.removeItem('krishi_backend_url');
+    api.defaults.baseURL = resolveApiBaseUrl();
+  }
+}
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000, // 30 second timeout for Gemini AI generation
@@ -47,8 +57,12 @@ const api = axios.create({
   },
 });
 
-// Interceptor to attach JWT token to outgoing requests
+// Interceptor to attach JWT token and ensure latest baseURL
 api.interceptors.request.use((config) => {
+  const custom = localStorage.getItem('krishi_backend_url');
+  if (custom && custom.trim()) {
+    config.baseURL = custom.trim();
+  }
   const token = localStorage.getItem('krishi_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -355,11 +369,28 @@ api.interceptors.response.use(
     }
 
     // CRITICAL: DO NOT serve fake fallback for real AI Advisor questions!
-    // The application must NOT silently display a hardcoded answer when real AI fails.
+    // Diagnose and present the actual cause instead of generic "Network Error"
     if (url.includes('/recommendations/ask') || url.includes('/ai-advice')) {
-      const serverMsg = error.response?.data?.message || error.message || 'Unable to connect to Google Gemini AI service. Please ensure the backend server is running with a valid GEMINI_API_KEY.';
-      const customErr = new Error(serverMsg);
+      let detailedMsg = '';
+      const activeBaseUrl = error.config?.baseURL || api.defaults.baseURL || resolveApiBaseUrl();
+
+      if (!error.response) {
+        // Network error / CORS failure / DNS failure / Offline
+        detailedMsg = `Backend Unreachable / CORS Blocked: Could not reach backend API at "${activeBaseUrl}". The server may be waking up, not yet deployed, or CORS is blocking the request.`;
+      } else if (error.response.status === 503) {
+        detailedMsg = `Backend Key Missing (503): ${error.response.data?.message || 'GEMINI_API_KEY is not configured on the backend server.'}`;
+      } else if (error.response.status === 502) {
+        detailedMsg = `Google Gemini Error (502): ${error.response.data?.message || 'Gemini model rejected request.'}`;
+      } else if (error.response.status === 404) {
+        detailedMsg = `Endpoint Not Found (404): Route ${url} not found on backend "${activeBaseUrl}".`;
+      } else {
+        detailedMsg = error.response.data?.message || error.response.data?.error || `Server responded with HTTP ${error.response.status}`;
+      }
+
+      const customErr = new Error(detailedMsg);
       customErr.response = error.response;
+      customErr.status = error.response?.status;
+      customErr.baseURL = activeBaseUrl;
       return Promise.reject(customErr);
     }
 

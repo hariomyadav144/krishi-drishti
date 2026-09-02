@@ -24,12 +24,28 @@ const aiAdviceRoutes = require('./routes/aiAdviceRoutes');
 
 const app = express();
 
-// Middleware
+// Robust CORS configuration supporting production GitHub Pages and localhost
+const allowedOrigins = [
+  'https://hariomyadav144.github.io',
+  'http://localhost:5173',
+  'http://localhost:3000',
+  'http://127.0.0.1:5173',
+];
+
 app.use(cors({
-  origin: '*',
+  origin: (origin, callback) => {
+    // Allow server-to-server, mobile app, and all github.io pages
+    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.github.io')) {
+      return callback(null, true);
+    }
+    return callback(null, true); // Permissive for production cloud deployments
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  credentials: true,
 }));
+
+app.options('*', cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
