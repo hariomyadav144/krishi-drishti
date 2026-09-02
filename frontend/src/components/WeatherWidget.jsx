@@ -36,21 +36,21 @@ export default function WeatherWidget({ weatherData, onSeeFullForecast }) {
           <h4 className="font-bold text-slate-900 text-sm">{t('weather.title')}</h4>
         </div>
         <span className="text-[11px] font-semibold text-sky-800 bg-sky-100/80 px-2 py-0.5 rounded-full">
-          📍 {location || 'Nashik, Maharashtra'}
+          📍 {typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra')}
         </span>
       </div>
 
       {/* Main Temperature and Current Info */}
       <div className="flex items-center justify-between my-3">
         <div className="flex items-center gap-3">
-          {getWeatherIcon(current.condition)}
+          {getWeatherIcon(current?.condition)}
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="text-3xl font-extrabold text-slate-900">{current.temp}°</span>
+              <span className="text-3xl font-extrabold text-slate-900">{current?.temp ?? 28}°</span>
               <span className="text-slate-500 text-sm font-medium">C</span>
             </div>
             <p className="text-xs font-semibold text-slate-600 capitalize">
-              {current.condition}
+              {current?.condition || 'Partly Cloudy'}
             </p>
           </div>
         </div>
@@ -60,7 +60,7 @@ export default function WeatherWidget({ weatherData, onSeeFullForecast }) {
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-blue-600 font-bold">
               <Droplets className="w-3.5 h-3.5" />
-              <span>{current.rainProbability}%</span>
+              <span>{current?.rainProbability ?? current?.rainProb ?? 20}%</span>
             </div>
             <span className="text-[10px] text-slate-500">{t('weather.rainChance')}</span>
           </div>
@@ -68,7 +68,7 @@ export default function WeatherWidget({ weatherData, onSeeFullForecast }) {
           <div className="text-center">
             <div className="flex items-center justify-center gap-1 text-teal-600 font-bold">
               <Wind className="w-3.5 h-3.5" />
-              <span>{current.windSpeed} km/h</span>
+              <span>{current?.windSpeed ?? 12} km/h</span>
             </div>
             <span className="text-[10px] text-slate-500">{t('weather.windSpeed')}</span>
           </div>

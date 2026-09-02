@@ -55,7 +55,7 @@ export default function WeatherPage() {
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h2 className="text-2xl font-black text-slate-900">{t('weather.title')}</h2>
-          <p className="text-xs text-slate-600 mt-0.5">📍 {location || 'Nashik, Maharashtra'}</p>
+          <p className="text-xs text-slate-600 mt-0.5">📍 {typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra')}</p>
         </div>
 
         <button
