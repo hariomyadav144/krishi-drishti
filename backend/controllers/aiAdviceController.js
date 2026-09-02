@@ -59,6 +59,7 @@ const getAiAdvice = async (req, res) => {
     return res.status(statusCode).json({
       success: false,
       message: error.message || 'Failed to connect to Google Gemini AI service.',
+      error: error.message || 'Failed to connect to Google Gemini AI service.',
       errorDetails: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }

@@ -45,25 +45,50 @@ export default function AiAdvisor({ setActiveTab }) {
   const [pingMessage, setPingMessage] = useState('');
 
   const testBackendConnection = async (urlToTest) => {
-    const target = (urlToTest || customBackendUrl || '').trim().replace(/\/$/, '');
-    if (!target) return;
+    const raw = (urlToTest || customBackendUrl || '').trim().replace(/\/+$/, '');
+    if (!raw) return;
     setPingStatus('testing');
     setPingMessage('Testing connection to backend...');
     const start = Date.now();
-    try {
-      const res = await fetch(`${target}/health`, { method: 'GET', mode: 'cors' });
-      const latency = Date.now() - start;
-      setPingLatency(latency);
-      if (res.ok) {
-        setPingStatus('online');
-        setPingMessage(`Connected successfully in ${latency}ms! (HTTP ${res.status})`);
-      } else {
-        setPingStatus('failed');
-        setPingMessage(`Server responded with HTTP ${res.status}`);
+
+    // Try both /api/health and /health without duplicate slashes
+    const targetsToTry = [];
+    if (raw.endsWith('/api')) {
+      targetsToTry.push(`${raw}/health`); // https://.../api/health
+      targetsToTry.push(`${raw.replace(/\/api$/, '')}/health`); // https://.../health
+    } else {
+      targetsToTry.push(`${raw}/api/health`); // https://.../api/health
+      targetsToTry.push(`${raw}/health`);     // https://.../health
+    }
+
+    let connected = false;
+    let lastStatus = 0;
+
+    for (const targetUrl of targetsToTry) {
+      try {
+        const res = await fetch(targetUrl, { method: 'GET', mode: 'cors' });
+        const latency = Date.now() - start;
+        setPingLatency(latency);
+        lastStatus = res.status;
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          setPingStatus('online');
+          setPingMessage(`Connected successfully in ${latency}ms! Status: ${data.status || 'online'} (${targetUrl})`);
+          connected = true;
+          break;
+        }
+      } catch (err) {
+        // Continue to fallback endpoint
       }
-    } catch (err) {
+    }
+
+    if (!connected) {
       setPingStatus('failed');
-      setPingMessage('Could not connect. Server is offline, waking up, or CORS blocked.');
+      if (lastStatus === 404) {
+        setPingMessage(`HTTP 404: Endpoint not found at ${targetsToTry[0]}. Check service URL.`);
+      } else {
+        setPingMessage(`Could not connect to ${raw}. Server is offline, waking up (Render cold-start takes ~50s), or domain is not deployed.`);
+      }
     }
   };
 

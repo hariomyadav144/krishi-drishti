@@ -52,13 +52,16 @@ app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 // Static uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Mount API routes
+// Mount API routes (support both /api/* and root /* to prevent 404 route mismatches)
 app.use('/api/auth', authRoutes);
+app.use('/auth', authRoutes);
 app.use('/api/farmer', farmerRoutes);
 app.use('/api/crops', cropRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/recommendations', recommendationRoutes);
+app.use('/recommendations', recommendationRoutes);
 app.use('/api/ai-advice', aiAdviceRoutes);
+app.use('/ai-advice', aiAdviceRoutes);
 app.use('/api/action-plans', actionPlanRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/alerts', alertRoutes);
@@ -68,15 +71,20 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/mandi', mandiRoutes);
 app.use('/api/tools', toolsRoutes);
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({
+// Health check endpoints (supports both /health and /api/health)
+const healthHandler = (req, res) => {
+  res.status(200).json({
+    success: true,
     status: 'online',
     app: 'KRISHI DRISHTI API',
     tagline: 'From Space to Soil',
+    environment: process.env.NODE_ENV || 'production',
     timestamp: new Date().toISOString(),
   });
-});
+};
+
+app.get('/health', healthHandler);
+app.get('/api/health', healthHandler);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
