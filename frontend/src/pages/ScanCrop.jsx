@@ -85,45 +85,88 @@ export default function ScanCrop({ setActiveTab }) {
     };
   }, []);
 
-  const startCameraStream = async () => {
+  // Connect stream to video element whenever camera becomes active and element mounts
+  useEffect(() => {
+    if (isCameraActive && videoRef.current && streamRef.current) {
+      videoRef.current.srcObject = streamRef.current;
+      videoRef.current.play().catch((err) => {
+        console.warn('Video auto-play catch:', err);
+      });
+    }
+  }, [isCameraActive]);
+
+  const startCameraStream = async (mode = facingMode) => {
     try {
       setError('');
       stopCameraStream();
-      const constraints = {
-        video: {
-          facingMode: facingMode,
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
-      };
-      const stream = await navigator.mediaDevices.getUserMedia(constraints);
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
+
+      // If mediaDevices is not supported in this browser context, launch native camera directly
+      if (!navigator?.mediaDevices?.getUserMedia) {
+        console.info('getUserMedia not supported, opening native camera input');
+        openNativeCamera();
+        return;
       }
-      setIsCameraActive(true);
+
+      let stream = null;
+      try {
+        // Try preferred camera facing mode with relaxed ideal constraints
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: { ideal: mode },
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
+          audio: false
+        });
+      } catch (err1) {
+        console.warn('Specific video constraints failed, trying generic video:', err1);
+        try {
+          // Fallback to basic video constraint without resolution restrictions
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        } catch (err2) {
+          console.warn('Basic getUserMedia failed, opening native camera input:', err2);
+          // Launch native phone camera input directly
+          openNativeCamera();
+          return;
+        }
+      }
+
+      if (stream) {
+        streamRef.current = stream;
+        setIsCameraActive(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          videoRef.current.play().catch(() => {});
+        }
+      }
     } catch (err) {
       console.warn('Camera access error:', err);
-      setError(lang === 'hi' ? 'कैमरा खोलने में असमर्थ। कृपया फोटो अपलोड विकल्प का उपयोग करें।' : 'Could not access camera stream. Please use the file upload or gallery button.');
-      setIsCameraActive(false);
+      openNativeCamera();
     }
   };
 
   const stopCameraStream = () => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
     setIsCameraActive(false);
   };
 
+  const openNativeCamera = () => {
+    stopCameraStream();
+    setError('');
+    if (cameraInputRef.current) {
+      cameraInputRef.current.click();
+    } else if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
   const switchCameraMode = () => {
     const nextMode = facingMode === 'environment' ? 'user' : 'environment';
     setFacingMode(nextMode);
-    setTimeout(() => {
-      startCameraStream();
-    }, 100);
+    startCameraStream(nextMode);
   };
 
   const captureSnapshot = () => {
@@ -359,71 +402,125 @@ export default function ScanCrop({ setActiveTab }) {
               </div>
             ) : previewUrl ? (
               /* 2. Photo Preview Mode */
-              <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500 bg-slate-900 group shadow-md">
-                <img
-                  src={previewUrl}
-                  alt="Crop preview"
-                  className="w-full h-60 object-cover object-center"
-                />
+              <div className="space-y-2">
+                <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500 bg-slate-900 shadow-md">
+                  <img
+                    src={previewUrl}
+                    alt="Crop preview"
+                    className="w-full h-64 sm:h-72 object-cover object-center"
+                  />
 
-                {/* Heatmap overlay bounding box indicator if diagnosis exists */}
-                {analysisResult && (
-                  <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-                    <div className="w-48 h-36 border-2 border-dashed border-red-400 bg-red-500/20 rounded-xl flex items-start justify-end p-1.5 animate-pulse">
-                      <span className="text-[10px] font-black uppercase tracking-wider bg-red-600 text-white px-2 py-0.5 rounded shadow-sm">
-                        Pathology Zone: {analysisResult.severity}
-                      </span>
+                  {/* Heatmap overlay bounding box indicator if diagnosis exists */}
+                  {analysisResult && (
+                    <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+                      <div className="w-48 h-36 border-2 border-dashed border-red-400 bg-red-500/20 rounded-xl flex items-start justify-end p-1.5 animate-pulse">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-red-600 text-white px-2 py-0.5 rounded shadow-sm">
+                          Pathology Zone: {analysisResult.severity}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+                </div>
 
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center gap-2">
+                {/* Always-visible touch action bar for mobile & desktop */}
+                <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={startCameraStream}
-                    className="bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold shadow-md hover:bg-emerald-500 flex items-center gap-1"
+                    onClick={openNativeCamera}
+                    className="flex-1 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white py-2.5 px-3 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
                   >
-                    <Camera className="w-3.5 h-3.5" />
-                    <span>{t('diagnose.openLiveCam')}</span>
+                    <Camera className="w-4 h-4" />
+                    <span>{lang === 'hi' ? 'कैमरा से दूसरी फोटो लें' : 'Retake with Camera'}</span>
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => startCameraStream()}
+                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition"
+                    title={t('diagnose.openLiveCam')}
+                  >
+                    <Video className="w-4 h-4 text-emerald-700" />
+                    <span className="hidden sm:inline">{lang === 'hi' ? 'लाइव स्कैनर' : 'Live Cam'}</span>
+                  </button>
+
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="bg-white/90 text-slate-800 px-3 py-1.5 rounded-lg text-xs font-bold shadow-md hover:bg-white"
+                    className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition"
                   >
-                    {lang === 'hi' ? 'गैलरी से बदलें' : 'Change Image'}
+                    <Upload className="w-4 h-4 text-slate-600" />
+                    <span>{lang === 'hi' ? 'गैलरी' : 'Gallery'}</span>
                   </button>
                 </div>
               </div>
             ) : (
               /* 3. Initial Choose Camera or Upload Buttons */
-              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-3xl p-6 text-center bg-slate-50/50 hover:bg-emerald-50/30 transition">
-                <div className="flex justify-center gap-3 mb-2">
+              <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-3xl p-5 sm:p-6 text-center bg-slate-50/50 hover:bg-emerald-50/30 transition">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                  
+                  {/* Button 1: Native Phone Camera (100% Works on all Smartphones) */}
                   <button
                     type="button"
-                    onClick={startCameraStream}
-                    className="p-3.5 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white rounded-2xl transition flex flex-col items-center gap-1.5 text-xs font-bold shadow-md active:scale-95"
+                    onClick={openNativeCamera}
+                    className="p-4 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-md active:scale-95 group"
                   >
-                    <Video className="w-6 h-6 animate-pulse" />
-                    <span>{t('diagnose.openLiveCam')}</span>
+                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-110 transition">
+                      <Camera className="w-7 h-7" />
+                    </div>
+                    <span className="text-sm font-black">{lang === 'hi' ? 'कैमरा से फोटो खींचें' : 'Take Photo (Camera)'}</span>
+                    <span className="text-[10px] text-emerald-100 font-normal">
+                      {lang === 'hi' ? 'मोबाइल कैमरा तुरंत खुलेगा' : 'Opens phone camera directly'}
+                    </span>
                   </button>
 
+                  {/* Button 2: Interactive Live WebRTC Viewfinder */}
+                  <button
+                    type="button"
+                    onClick={() => startCameraStream()}
+                    className="p-4 bg-white hover:bg-emerald-50 text-emerald-950 border border-emerald-300 rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-xs active:scale-95 group"
+                  >
+                    <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition">
+                      <Video className="w-7 h-7 animate-pulse" />
+                    </div>
+                    <span className="text-sm font-black">{lang === 'hi' ? 'लाइव वीडियो स्कैनर' : 'Live Viewfinder'}</span>
+                    <span className="text-[10px] text-emerald-700 font-normal">
+                      {lang === 'hi' ? 'स्क्रीन पर लाइव व्यू' : 'Interactive video scanner'}
+                    </span>
+                  </button>
+
+                  {/* Button 3: Upload from Gallery / Files */}
                   <button
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
-                    className="p-3.5 bg-sky-100 hover:bg-sky-200 text-sky-900 rounded-2xl transition flex flex-col items-center gap-1.5 text-xs font-bold active:scale-95 border border-sky-200"
+                    className="p-4 bg-white hover:bg-sky-50 text-sky-950 border border-sky-200 rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-xs active:scale-95 group"
                   >
-                    <Upload className="w-6 h-6" />
-                    <span>{lang === 'hi' ? 'गैलरी / फाइल' : 'Upload Image'}</span>
+                    <div className="w-12 h-12 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center group-hover:scale-110 transition">
+                      <Upload className="w-7 h-7 text-sky-700" />
+                    </div>
+                    <span className="text-sm font-black">{lang === 'hi' ? 'गैलरी से फोटो चुनें' : 'Upload from Gallery'}</span>
+                    <span className="text-[10px] text-sky-700 font-normal">
+                      {lang === 'hi' ? 'फोटो या फाइल चुनें' : 'Browse saved photos'}
+                    </span>
                   </button>
+
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {lang === 'hi' ? 'स्पष्ट रोशनी में पत्ती के दोनों तरफ की फोटो लें' : 'Upload or capture clear leaf image under good lighting for best diagnosis'}
+                  {lang === 'hi' ? '💡 सलाह: बेहतर AI जांच के लिए पत्ती के रोगग्रस्त भाग की स्पष्ट रोशनी में फोटो लें।' : '💡 Tip: Capture a clear, close photo of the affected leaf surface under good light.'}
                 </p>
               </div>
             )}
 
-            {/* Hidden file inputs */}
+            {/* Hidden hardware camera input for native mobile capture */}
+            <input
+              type="file"
+              ref={cameraInputRef}
+              accept="image/*"
+              capture="environment"
+              className="hidden"
+              onChange={handleFileChange}
+            />
+
+            {/* Hidden file input for photo library / upload */}
             <input
               type="file"
               ref={fileInputRef}
