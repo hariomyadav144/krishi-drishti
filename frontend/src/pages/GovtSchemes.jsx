@@ -28,10 +28,9 @@ export default function GovtSchemes() {
     const fetchSchemes = async () => {
       try {
         const res = await api.get('/tools/schemes');
-        if (res.data.success) {
-          setSchemes(res.data.data);
-          if (res.data.data.length > 0) setSelectedScheme(res.data.data[0]);
-        }
+        const list = Array.isArray(res.data?.data) ? res.data.data : (Array.isArray(res.data?.schemes) ? res.data.schemes : []);
+        setSchemes(list);
+        if (list.length > 0) setSelectedScheme(list[0]);
       } catch (e) {
         console.error('Failed to load schemes:', e);
       }
@@ -39,10 +38,10 @@ export default function GovtSchemes() {
     fetchSchemes();
   }, []);
 
-  const filteredSchemes = schemes.filter(s =>
-    s.title.toLowerCase().includes(search.toLowerCase()) ||
-    s.titleHi.includes(search) ||
-    s.category.toLowerCase().includes(search.toLowerCase())
+  const filteredSchemes = (schemes || []).filter(s =>
+    (s?.title || '').toLowerCase().includes(search.toLowerCase()) ||
+    (s?.titleHi || '').includes(search) ||
+    (s?.category || '').toLowerCase().includes(search.toLowerCase())
   );
 
   return (
@@ -155,7 +154,7 @@ export default function GovtSchemes() {
                   {t('schemes.requiredDocs')}:
                 </span>
                 <div className="space-y-1.5">
-                  {selectedScheme.requiredDocs.map((doc, idx) => (
+                  {(selectedScheme?.requiredDocs || []).map((doc, idx) => (
                     <div key={idx} className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100 text-[11px] text-slate-700">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                       <span>{doc}</span>

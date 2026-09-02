@@ -33,9 +33,17 @@ export default function ActionPlansPage() {
     try {
       setLoading(true);
       const res = await api.get('/action-plans');
-      if (res.data.success) {
-        setTasks(res.data.data.tasks);
-        setStats(res.data.data.stats);
+      if (res.data?.success) {
+        const taskList = Array.isArray(res.data?.data?.tasks) 
+          ? res.data.data.tasks 
+          : (Array.isArray(res.data?.data) ? res.data.data : []);
+        setTasks(taskList);
+        setStats(res.data?.data?.stats || {
+          total: taskList.length,
+          completed: taskList.filter(t => t.isCompleted).length,
+          pending: taskList.filter(t => !t.isCompleted).length,
+          completionRate: taskList.length > 0 ? Math.round((taskList.filter(t => t.isCompleted).length / taskList.length) * 100) : 0
+        });
       }
     } catch (e) {
       console.error('Failed to load action plans:', e);
@@ -81,9 +89,9 @@ export default function ActionPlansPage() {
     }
   };
 
-  const filteredTasks = tasks.filter(t => {
-    if (filter === 'pending') return !t.isCompleted;
-    if (filter === 'completed') return t.isCompleted;
+  const filteredTasks = (tasks || []).filter(t => {
+    if (filter === 'pending') return !t?.isCompleted;
+    if (filter === 'completed') return t?.isCompleted;
     return true;
   });
 

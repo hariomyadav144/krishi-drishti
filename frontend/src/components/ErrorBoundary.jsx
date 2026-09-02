@@ -15,9 +15,8 @@ export default class ErrorBoundary extends React.Component {
   }
 
   handleReset = () => {
-    localStorage.removeItem('krishi_token');
-    localStorage.removeItem('krishi_demo_role');
     this.setState({ hasError: false, error: null });
+    window.location.hash = '#/home';
     window.location.reload();
   };
 

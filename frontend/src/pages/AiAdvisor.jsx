@@ -42,8 +42,9 @@ export default function AiAdvisor({ setActiveTab }) {
     const fetchPredefined = async () => {
       try {
         const res = await api.get('/recommendations/predefined-queries');
-        if (res.data.success) {
-          setPredefinedQueries(res.data.data);
+        if (res.data?.success) {
+          const list = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data.queries) ? res.data.queries : []);
+          setPredefinedQueries(list);
         }
       } catch (e) {
         console.warn('Failed to load predefined queries:', e.message);
@@ -254,17 +255,22 @@ export default function AiAdvisor({ setActiveTab }) {
             💡 {t('advisor.popularQuestions')}:
           </span>
           <div className="flex flex-wrap gap-2">
-            {predefinedQueries.map((q) => (
-              <button
-                key={q.id}
-                type="button"
-                onClick={() => handleAsk(lang === 'hi' && q.titleHi ? q.titleHi : q.title)}
-                className="text-xs bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700 hover:text-amber-900 border border-slate-200 px-3 py-2 rounded-xl text-left transition font-medium active:scale-95 flex items-center gap-1.5"
-              >
-                <span>💬</span>
-                <span>{lang === 'hi' && q.titleHi ? q.titleHi : q.title}</span>
-              </button>
-            ))}
+            {(predefinedQueries || []).map((q, idx) => {
+              const text = (lang === 'hi' && (q.titleHi || q.queryHi || q.qHi))
+                ? (q.titleHi || q.queryHi || q.qHi)
+                : (q.title || q.query || q.q || 'Crop question');
+              return (
+                <button
+                  key={q.id || idx}
+                  type="button"
+                  onClick={() => handleAsk(text)}
+                  className="text-xs bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700 hover:text-amber-900 border border-slate-200 px-3 py-2 rounded-xl text-left transition font-medium active:scale-95 flex items-center gap-1.5"
+                >
+                  <span>💬</span>
+                  <span>{text}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 

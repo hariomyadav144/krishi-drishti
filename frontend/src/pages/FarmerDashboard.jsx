@@ -45,10 +45,10 @@ export default function FarmerDashboard({ setActiveTab }) {
         api.get('/tools/outbreaks')
       ]);
 
-      if (dashRes.data.success) setDashboardData(dashRes.data.data);
-      if (weatherRes.data.success) setWeatherData(weatherRes.data.data);
-      if (mandiRes.data.success && mandiRes.data.data.length > 0) setMandiSpotlight(mandiRes.data.data[0]);
-      if (outbreakRes.data.success) setOutbreakAlerts(outbreakRes.data);
+      if (dashRes?.data?.success) setDashboardData(dashRes.data.data);
+      if (weatherRes?.data?.success) setWeatherData(weatherRes.data.data);
+      if (mandiRes?.data?.success && Array.isArray(mandiRes.data?.data) && mandiRes.data.data.length > 0) setMandiSpotlight(mandiRes.data.data[0]);
+      if (outbreakRes?.data?.success) setOutbreakAlerts(outbreakRes.data);
     } catch (e) {
       console.error('Failed to load dashboard:', e);
     } finally {

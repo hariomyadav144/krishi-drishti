@@ -238,7 +238,7 @@ export default function ScanCrop({ setActiveTab }) {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      if (res.data.success) {
+      if (res.data?.success && res.data?.data) {
         setAnalysisResult(res.data.data);
       }
     } catch (err) {

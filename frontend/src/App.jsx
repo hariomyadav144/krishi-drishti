@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AlertProvider } from './context/AlertContext';
 
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
+import TabErrorBoundary from './components/TabErrorBoundary';
 
 import Login from './pages/Login';
 import Register from './pages/Register';
@@ -25,11 +26,50 @@ import FarmInsights from './pages/FarmInsights';
 import ExpertDashboard from './pages/ExpertDashboard';
 import AdminDashboard from './pages/AdminDashboard';
 
+const VALID_TABS = [
+  'home', 'diagnose', 'advice', 'mandi', 'fertilizer', 
+  'satellite', 'schemes', 'outbreak', 'plans', 'weather', 
+  'alerts', 'profile', 'insights', 'expert', 'admin'
+];
+
+function getTabFromHash() {
+  if (typeof window === 'undefined') return 'home';
+  const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0].trim().toLowerCase();
+  return VALID_TABS.includes(raw) ? raw : 'home';
+}
+
 function MainApp() {
   const { user, isAuthenticated, isLoading } = useAuth();
   const { t } = useLanguage();
   const [authView, setAuthView] = useState('login'); // 'login' | 'register'
-  const [activeTab, setActiveTab] = useState('home');
+  const [activeTab, setActiveTabState] = useState(() => getTabFromHash());
+
+  const setActiveTab = useCallback((tab) => {
+    setActiveTabState(tab);
+    if (window.location.hash !== `#/${tab}`) {
+      window.location.hash = `#/${tab}`;
+    }
+  }, []);
+
+  useEffect(() => {
+    const handleHashChange = () => {
+      const tab = getTabFromHash();
+      setActiveTabState(tab);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    window.addEventListener('popstate', handleHashChange);
+
+    // Initial hash sync if empty
+    if (!window.location.hash || window.location.hash === '#' || window.location.hash === '#/') {
+      window.location.hash = '#/home';
+    }
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+      window.removeEventListener('popstate', handleHashChange);
+    };
+  }, []);
 
   if (isLoading) {
     return (
@@ -235,21 +275,23 @@ function MainApp() {
 
       {/* Main Content Area */}
       <main className="flex-1">
-        {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
-        {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
-        {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
-        {activeTab === 'mandi' && <MandiPrices />}
-        {activeTab === 'fertilizer' && <FertilizerCalculator />}
-        {activeTab === 'satellite' && <SatelliteRadar />}
-        {activeTab === 'schemes' && <GovtSchemes />}
-        {activeTab === 'outbreak' && <OutbreakRadar />}
-        {activeTab === 'plans' && <ActionPlansPage />}
-        {activeTab === 'weather' && <WeatherPage />}
-        {activeTab === 'alerts' && <AlertsPage />}
-        {activeTab === 'profile' && <FarmProfile />}
-        {activeTab === 'insights' && <FarmInsights />}
-        {activeTab === 'expert' && <ExpertDashboard />}
-        {activeTab === 'admin' && <AdminDashboard />}
+        <TabErrorBoundary tabKey={activeTab} onNavigateHome={() => setActiveTab('home')}>
+          {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
+          {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
+          {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
+          {activeTab === 'mandi' && <MandiPrices />}
+          {activeTab === 'fertilizer' && <FertilizerCalculator />}
+          {activeTab === 'satellite' && <SatelliteRadar />}
+          {activeTab === 'schemes' && <GovtSchemes />}
+          {activeTab === 'outbreak' && <OutbreakRadar />}
+          {activeTab === 'plans' && <ActionPlansPage />}
+          {activeTab === 'weather' && <WeatherPage />}
+          {activeTab === 'alerts' && <AlertsPage />}
+          {activeTab === 'profile' && <FarmProfile />}
+          {activeTab === 'insights' && <FarmInsights />}
+          {activeTab === 'expert' && <ExpertDashboard />}
+          {activeTab === 'admin' && <AdminDashboard />}
+        </TabErrorBoundary>
       </main>
 
       {/* Mobile Sticky Bottom Navigation */}

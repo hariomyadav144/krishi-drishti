@@ -94,7 +94,7 @@ export default function FarmInsights() {
           <span className="text-[11px] text-slate-500 font-semibold block">Action Plan Rate</span>
           <span className="text-2xl font-black text-emerald-600 block mt-1">{taskCompletionRate || 100}%</span>
           <span className="text-[10px] text-emerald-700 font-bold bg-emerald-50 px-2 py-0.5 rounded-full inline-block mt-1">
-            {completedTasks}/{totalTasks} Tasks
+            {(completedTasks || 0)}/{(totalTasks || 0)} Tasks
           </span>
         </div>
 

@@ -75,15 +75,17 @@ export default function MandiPrices() {
   };
 
   const getActionText = (forecast) => {
+    if (!forecast) return 'HOLD';
     if (lang === 'hi' && forecast.actionHi) return forecast.actionHi;
     if (lang === 'mr' && forecast.actionMr) return forecast.actionMr;
     if (lang === 'pa' && forecast.actionPa) return forecast.actionPa;
-    return forecast.action;
+    return forecast.action || 'HOLD';
   };
 
   const getRationaleText = (forecast) => {
+    if (!forecast) return 'Market rates steady.';
     if (lang === 'hi' && forecast.rationaleHi) return forecast.rationaleHi;
-    return forecast.rationale;
+    return forecast.rationale || 'Market rates steady.';
   };
 
   return (
@@ -236,11 +238,11 @@ export default function MandiPrices() {
                     <span>Range: ₹{item.minPrice} - ₹{item.maxPrice}</span>
                     <span className="font-semibold text-slate-700">Arrivals: {item.arrivalQuantity}</span>
                     <span className={`px-2 py-0.5 rounded font-extrabold text-[10px] uppercase ${
-                      item.aiForecast.action.includes('HOLD')
+                      (item?.aiForecast?.action || '').includes('HOLD')
                         ? 'bg-amber-100 text-amber-900'
                         : 'bg-emerald-100 text-emerald-900'
                     }`}>
-                      AI: {item.aiForecast.action}
+                      AI: {item?.aiForecast?.action || 'HOLD'}
                     </span>
                   </div>
                 </div>
@@ -317,7 +319,7 @@ export default function MandiPrices() {
                 <div className="pt-2 flex items-center justify-between text-[11px] text-amber-800 font-semibold">
                   <span>AI Confidence Score:</span>
                   <span className="bg-white/80 px-2 py-0.5 rounded border border-amber-200">
-                    {selectedItem.aiForecast.confidence}% High
+                    {(selectedItem?.aiForecast?.confidence ?? 85)}% High
                   </span>
                 </div>
               </div>

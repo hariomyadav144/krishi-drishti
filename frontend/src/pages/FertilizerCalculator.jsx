@@ -173,7 +173,7 @@ export default function FertilizerCalculator() {
             <div className="flex items-center justify-between">
               <div>
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
-                  {calcResult.cropName} • {calcResult.enteredArea} {calcResult.enteredUnit} ({calcResult.normalizedAcres} Acres Normalized)
+                  {calcResult.cropName || 'Crop'} • {calcResult.enteredArea || 1} {calcResult.enteredUnit || 'Acres'} ({calcResult.normalizedAcres || 1} Acres Normalized)
                 </span>
                 <h3 className="text-lg font-black mt-1">
                   {t('fertilizer.totalBagsSummary')}
@@ -183,7 +183,7 @@ export default function FertilizerCalculator() {
               <div className="text-right">
                 <span className="text-xs text-emerald-200 block">{t('fertilizer.estimatedCost')}</span>
                 <span className="text-2xl font-black text-amber-300">
-                  ₹{calcResult.recommendation.estimatedCostINR.toLocaleString()}
+                  ₹{(calcResult.recommendation?.estimatedCostINR || 0).toLocaleString()}
                 </span>
               </div>
             </div>
@@ -192,26 +192,26 @@ export default function FertilizerCalculator() {
             <div className="grid grid-cols-3 gap-3 pt-2">
               <div className="bg-white/10 rounded-2xl p-3 text-center border border-white/15">
                 <span className="text-xs font-bold text-emerald-200 block">UREA (46% N)</span>
-                <span className="text-2xl font-black block my-0.5">{calcResult.recommendation.ureaBags}</span>
-                <span className="text-[11px] text-white/80 block">Bags ({calcResult.recommendation.totalUreaKg} kg)</span>
+                <span className="text-2xl font-black block my-0.5">{calcResult.recommendation?.ureaBags ?? 0}</span>
+                <span className="text-[11px] text-white/80 block">Bags ({calcResult.recommendation?.totalUreaKg ?? 0} kg)</span>
               </div>
 
               <div className="bg-white/10 rounded-2xl p-3 text-center border border-white/15">
                 <span className="text-xs font-bold text-amber-200 block">DAP (18:46:0)</span>
-                <span className="text-2xl font-black block my-0.5">{calcResult.recommendation.dapBags}</span>
-                <span className="text-[11px] text-white/80 block">Bags ({calcResult.recommendation.totalDapKg} kg)</span>
+                <span className="text-2xl font-black block my-0.5">{calcResult.recommendation?.dapBags ?? 0}</span>
+                <span className="text-[11px] text-white/80 block">Bags ({calcResult.recommendation?.totalDapKg ?? 0} kg)</span>
               </div>
 
               <div className="bg-white/10 rounded-2xl p-3 text-center border border-white/15">
                 <span className="text-xs font-bold text-sky-200 block">MOP (60% K)</span>
-                <span className="text-2xl font-black block my-0.5">{calcResult.recommendation.mopBags}</span>
-                <span className="text-[11px] text-white/80 block">Bags ({calcResult.recommendation.totalMopKg} kg)</span>
+                <span className="text-2xl font-black block my-0.5">{calcResult.recommendation?.mopBags ?? 0}</span>
+                <span className="text-[11px] text-white/80 block">Bags ({calcResult.recommendation?.totalMopKg ?? 0} kg)</span>
               </div>
             </div>
 
             <div className="text-[11px] text-emerald-200/90 flex items-center gap-1.5 bg-black/20 p-2.5 rounded-xl">
               <Info className="w-4 h-4 shrink-0 text-amber-300" />
-              <span>{calcResult.soilAdjustment}</span>
+              <span>{calcResult.soilAdjustment || 'Standard recommended dosage'}</span>
             </div>
           </div>
 
@@ -223,7 +223,7 @@ export default function FertilizerCalculator() {
             </h4>
 
             <div className="space-y-3">
-              {calcResult.recommendation.stageBreakup.map((stageItem, idx) => (
+              {(calcResult.recommendation?.stageBreakup || []).map((stageItem, idx) => (
                 <div key={idx} className="p-3.5 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-2">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <span className="font-black text-xs text-slate-900">
@@ -235,22 +235,22 @@ export default function FertilizerCalculator() {
                   </div>
 
                   <div className="flex flex-wrap gap-2 text-xs">
-                    {stageItem.scaledDoses.ureaKg > 0 && (
+                    {(stageItem?.scaledDoses?.ureaKg || 0) > 0 && (
                       <span className="bg-emerald-50 text-emerald-900 border border-emerald-200 font-bold px-2.5 py-1 rounded-lg">
                         Urea: {stageItem.scaledDoses.ureaKg} kg
                       </span>
                     )}
-                    {stageItem.scaledDoses.dapKg > 0 && (
+                    {(stageItem?.scaledDoses?.dapKg || 0) > 0 && (
                       <span className="bg-amber-50 text-amber-900 border border-amber-200 font-bold px-2.5 py-1 rounded-lg">
                         DAP: {stageItem.scaledDoses.dapKg} kg
                       </span>
                     )}
-                    {stageItem.scaledDoses.mopKg > 0 && (
+                    {(stageItem?.scaledDoses?.mopKg || 0) > 0 && (
                       <span className="bg-sky-50 text-sky-900 border border-sky-200 font-bold px-2.5 py-1 rounded-lg">
                         MOP Potash: {stageItem.scaledDoses.mopKg} kg
                       </span>
                     )}
-                    {stageItem.scaledDoses.specialKg > 0 && (
+                    {(stageItem?.scaledDoses?.specialKg || 0) > 0 && (
                       <span className="bg-purple-50 text-purple-900 border border-purple-200 font-bold px-2.5 py-1 rounded-lg">
                         Special / Micronutrient: {stageItem.scaledDoses.specialKg} kg/L
                       </span>
@@ -258,7 +258,7 @@ export default function FertilizerCalculator() {
                   </div>
 
                   <p className="text-[11px] text-slate-600 italic">
-                    💡 {stageItem.notes}
+                    💡 {stageItem?.notes || ''}
                   </p>
                 </div>
               ))}
@@ -273,7 +273,7 @@ export default function FertilizerCalculator() {
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {calcResult.recommendation.organicAlternatives.map((org, i) => (
+              {(calcResult.recommendation?.organicAlternatives || []).map((org, i) => (
                 <div key={i} className="p-3 bg-green-50/60 rounded-xl border border-green-100 text-xs">
                   <span className="font-bold text-green-900 block">{org.name}</span>
                   <span className="text-green-800 text-[11px] mt-0.5 block">{org.dosePerAcre}</span>

@@ -90,12 +90,13 @@ export default function OutbreakRadar() {
 
       {/* Outbreak Alert List */}
       <div className="space-y-4">
-        {radarData?.data?.map((outbreak) => {
-          const isHigh = outbreak.riskLevel.includes('HIGH');
+        {((radarData?.data || radarData?.alerts || [])).map((outbreak) => {
+          const risk = outbreak?.riskLevel || outbreak?.severity || 'MODERATE';
+          const isHigh = risk.toUpperCase().includes('HIGH') || risk.toUpperCase().includes('CRITICAL');
 
           return (
             <div
-              key={outbreak.id}
+              key={outbreak.id || Math.random()}
               className={`agri-card p-5 bg-white border shadow-sm space-y-3 ${
                 isHigh ? 'border-red-300 ring-1 ring-red-100' : 'border-amber-200'
               }`}
@@ -109,12 +110,12 @@ export default function OutbreakRadar() {
                   </div>
                   <div>
                     <h4 className="font-extrabold text-sm text-slate-900">
-                      {lang === 'hi' && outbreak.pestNameHi ? outbreak.pestNameHi : outbreak.pestName}
+                      {lang === 'hi' && (outbreak.pestNameHi || outbreak.threatHi) ? (outbreak.pestNameHi || outbreak.threatHi) : (outbreak.pestName || outbreak.threat || 'Crop Pest Alert')}
                     </h4>
                     <p className="text-xs text-slate-500 flex items-center gap-1.5 mt-0.5">
                       <MapPin className="w-3.5 h-3.5 text-slate-400" />
-                      <span>{outbreak.location}</span>
-                      <span className="font-bold text-rose-700">({outbreak.distanceKm})</span>
+                      <span>{outbreak.location || 'Nashik Region'}</span>
+                      <span className="font-bold text-rose-700">({outbreak.distanceKm || outbreak.distance || 'Nearby'})</span>
                     </p>
                   </div>
                 </div>
@@ -122,7 +123,7 @@ export default function OutbreakRadar() {
                 <span className={`text-[10px] font-black uppercase px-3 py-1 rounded-full shadow-2xs ${
                   isHigh ? 'bg-red-600 text-white' : 'bg-amber-500 text-white'
                 }`}>
-                  {outbreak.riskLevel}
+                  {risk}
                 </span>
               </div>
 
@@ -130,7 +131,7 @@ export default function OutbreakRadar() {
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-500 font-semibold">{t('outbreak.affectedCrops')}:</span>
                 <div className="flex flex-wrap gap-1.5">
-                  {outbreak.affectedCrops.map((crop, i) => (
+                  {(Array.isArray(outbreak.affectedCrops) ? outbreak.affectedCrops : [outbreak.crop || 'Tomato, Chilli']).map((crop, i) => (
                     <span key={i} className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[11px] font-semibold">
                       {crop}
                     </span>

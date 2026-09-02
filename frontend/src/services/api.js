@@ -16,7 +16,9 @@ import {
   MOCK_ALERTS,
   MOCK_EXPERT_CASES,
   MOCK_ADMIN_STATS,
+  MOCK_FARMER_INSIGHTS,
   MOCK_PREDEFINED_QUERIES,
+  calculateMockFertilizer,
   generateMockScanResult,
   generateMockAiAnswer,
 } from './mockFallback';
@@ -129,7 +131,7 @@ function handleFallbackResponse(url, method = 'get', data = null) {
         currentCrop: MOCK_CURRENT_CROP,
         crops: MOCK_CROPS,
         healthScore: 91,
-        pendingTasks: MOCK_ACTION_PLANS.filter((p) => !p.isCompleted),
+        pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
         recentAnalyses: [generateMockScanResult('Tomato').data],
         recentRecommendations: [
           {
@@ -147,19 +149,7 @@ function handleFallbackResponse(url, method = 'get', data = null) {
   if (cleanUrl.startsWith('/farmer/insights')) {
     return {
       success: true,
-      data: {
-        farmHealthScore: 91,
-        ndviAverage: 0.78,
-        soilMoistureAvg: 68,
-        estimatedYieldTons: '24.5 MT / Acre',
-        soilHealth: {
-          nitrogen: 'Medium (280 kg/ha)',
-          phosphorus: 'Optimal (22 kg/ha)',
-          potassium: 'High (310 kg/ha)',
-          ph: '7.2 (Ideal)',
-          organicCarbon: '0.62%',
-        },
-      },
+      data: MOCK_FARMER_INSIGHTS,
     };
   }
 
@@ -218,21 +208,53 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 
   // Fertilizer Calculator
   if (cleanUrl.startsWith('/tools/fertilizer-calc')) {
-    const area = Number(data?.acreage) || 1;
-    return {
-      success: true,
-      data: {
-        ureaKg: Math.round(area * 45),
-        dapKg: Math.round(area * 50),
-        mopKg: Math.round(area * 30),
-        zincSulfateKg: Math.round(area * 10),
-        schedule: 'Split application: 50% basal dose during transplanting, remaining 50% at 30 & 60 days.',
-      },
-    };
+    return calculateMockFertilizer(data || {});
   }
 
   // Action Plans
   if (cleanUrl.startsWith('/action-plans')) {
+    if (cleanUrl.includes('/toggle')) {
+      const parts = cleanUrl.split('/');
+      const taskId = parts[2];
+      const task = MOCK_ACTION_PLANS.tasks.find(t => t._id === taskId);
+      if (task) {
+        task.isCompleted = !task.isCompleted;
+        MOCK_ACTION_PLANS.stats.completed = MOCK_ACTION_PLANS.tasks.filter(t => t.isCompleted).length;
+        MOCK_ACTION_PLANS.stats.pending = MOCK_ACTION_PLANS.stats.total - MOCK_ACTION_PLANS.stats.completed;
+        MOCK_ACTION_PLANS.stats.completionRate = Math.round((MOCK_ACTION_PLANS.stats.completed / MOCK_ACTION_PLANS.stats.total) * 100);
+      }
+      return { success: true, data: task };
+    }
+
+    if (method.toLowerCase() === 'delete') {
+      const parts = cleanUrl.split('/');
+      const taskId = parts[2];
+      MOCK_ACTION_PLANS.tasks = MOCK_ACTION_PLANS.tasks.filter(t => t._id !== taskId);
+      MOCK_ACTION_PLANS.stats.total = MOCK_ACTION_PLANS.tasks.length;
+      MOCK_ACTION_PLANS.stats.completed = MOCK_ACTION_PLANS.tasks.filter(t => t.isCompleted).length;
+      MOCK_ACTION_PLANS.stats.pending = MOCK_ACTION_PLANS.stats.total - MOCK_ACTION_PLANS.stats.completed;
+      MOCK_ACTION_PLANS.stats.completionRate = MOCK_ACTION_PLANS.stats.total > 0 ? Math.round((MOCK_ACTION_PLANS.stats.completed / MOCK_ACTION_PLANS.stats.total) * 100) : 0;
+      return { success: true, message: 'Task deleted' };
+    }
+
+    if (method.toLowerCase() === 'post') {
+      const newTask = {
+        _id: 'task_' + Date.now(),
+        title: data?.title || 'Custom Action Item',
+        titleHi: data?.title || 'कस्टम कार्य',
+        description: data?.description || '',
+        dayLabel: data?.dayLabel || 'TODAY',
+        isCompleted: false,
+        priority: data?.priority || 'Medium',
+        category: data?.category || 'Inspection',
+      };
+      MOCK_ACTION_PLANS.tasks.unshift(newTask);
+      MOCK_ACTION_PLANS.stats.total = MOCK_ACTION_PLANS.tasks.length;
+      MOCK_ACTION_PLANS.stats.pending++;
+      MOCK_ACTION_PLANS.stats.completionRate = Math.round((MOCK_ACTION_PLANS.stats.completed / MOCK_ACTION_PLANS.stats.total) * 100);
+      return { success: true, data: newTask };
+    }
+
     return {
       success: true,
       data: MOCK_ACTION_PLANS,
@@ -244,6 +266,7 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     return {
       success: true,
       data: MOCK_ALERTS,
+      unreadCount: MOCK_ALERTS.filter(a => !a.isRead).length,
     };
   }
 
@@ -251,12 +274,13 @@ function handleFallbackResponse(url, method = 'get', data = null) {
   if (cleanUrl.startsWith('/recommendations/predefined-queries')) {
     return {
       success: true,
+      data: MOCK_PREDEFINED_QUERIES,
       queries: MOCK_PREDEFINED_QUERIES,
     };
   }
 
   if (cleanUrl.startsWith('/recommendations/ask')) {
-    return generateMockAiAnswer(data?.query || '');
+    return generateMockAiAnswer(data?.query || data?.queryText || '', data?.cropName || 'Tomato');
   }
 
   // Expert Advisory

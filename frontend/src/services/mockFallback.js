@@ -274,125 +274,231 @@ export const MOCK_MANDI_PRICES = [
 
 export const MOCK_OUTBREAKS = {
   success: true,
-  count: 2,
-  activeAlertsCount: 2,
-  alerts: [
+  count: 3,
+  activeAlertsCount: 3,
+  district: 'Nashik District (25km Geo-Fence)',
+  data: [
     {
-      id: 'outbreak_01',
-      threat: 'Whitefly & Leaf Curl Virus',
-      threatHi: 'सफेद मक्खी एवं पर्ण कुंचन विषाणु',
-      crop: 'Tomato & Chilli',
-      severity: 'Moderate',
-      distance: '18 km away',
-      recommendedAction: 'Install yellow sticky traps (15 traps/acre) and spray Neem oil 1500 ppm @ 3ml/L water.',
-      recommendedActionHi: 'प्रति एकड़ 15 पीले चिपचिपे ट्रैप लगाएं और नीम का तेल 1500 ppm @ 3 मिली/लीटर पानी में छिड़कें।',
+      id: 'outbreak-1',
+      pestName: 'Fall Armyworm (FAW)',
+      pestNameHi: 'फॉल आर्मीवर्म सुंडी चेतावनी',
+      affectedCrops: ['Maize / Corn', 'Sugarcane', 'Sorghum'],
+      distanceKm: '14 km away',
+      location: 'Dindori Block, Nashik',
+      riskLevel: 'HIGH ALERT',
+      riskColor: 'red',
+      reportedCases: 23,
+      firstDetected: '3 days ago',
+      preventiveGuideline: 'Install 5 FAW pheromone traps per acre immediately. If whorl damage >5%, spray Emamectin Benzoate 5% SG @ 0.5g/L.',
+      preventiveGuidelineHi: 'प्रति एकड़ 5 फेरोमोन ट्रैप लगाएं। 5% से अधिक नुकसान पर इमामेक्टिन बेंजोएट (0.5 ग्राम/लीटर) का छिड़काव करें।'
     },
     {
-      id: 'outbreak_02',
-      threat: 'Fall Armyworm (FAW)',
-      threatHi: 'फॉल आर्मीवर्म कीट चेतावनी',
-      crop: 'Maize & Sweet Corn',
-      severity: 'Watch',
-      distance: '35 km away',
-      recommendedAction: 'Inspect crop whorls early morning. Pheromone traps recommended.',
-      recommendedActionHi: 'सुबह के समय पौधों के ऊपरी हिस्सों की जांच करें। फेरोमोन ट्रैप लगाएं।',
+      id: 'outbreak-2',
+      pestName: 'Downy Mildew Spore Warning',
+      pestNameHi: 'डाउनी मिल्ड्यू (तुलसिता) कवक चेतावनी',
+      affectedCrops: ['Grapes', 'Cucumber', 'Melons', 'Tomato'],
+      distanceKm: '8 km away',
+      location: 'Niphad Taluka, Nashik',
+      riskLevel: 'MEDIUM RISK',
+      riskColor: 'amber',
+      reportedCases: 14,
+      firstDetected: 'Yesterday',
+      preventiveGuideline: 'High morning humidity (>85%) favoring fungal sporulation. Apply preventive spray of Mancozeb 75% WP @ 2.5g/L.',
+      preventiveGuidelineHi: 'सुबह की उच्च आर्द्रता से फफूंद पनप रही है। मेंकोजेब (2.5 ग्राम/लीटर) का सुरक्षात्मक छिड़काव करें।'
     },
-  ],
+    {
+      id: 'outbreak-3',
+      pestName: 'Whitefly Surge & Leaf Curl Risk',
+      pestNameHi: 'सफेद मक्खी व लीफ कर्ल संक्रमण',
+      affectedCrops: ['Chilli', 'Cotton', 'Tomato'],
+      distanceKm: '19 km away',
+      location: 'Sinnar Block',
+      riskLevel: 'MODERATE',
+      riskColor: 'blue',
+      reportedCases: 31,
+      firstDetected: '5 days ago',
+      preventiveGuideline: 'Erect 20 yellow sticky traps per acre at canopy level. Spray Neem Oil 10,000 ppm @ 4ml/L.',
+      preventiveGuidelineHi: 'प्रति एकड़ 20 पीले स्टिकी ट्रैप लगाएं। 10,000 PPM नीम तेल का 4 मिली/लीटर की दर से छिड़काव करें।'
+    }
+  ]
 };
 
 export const MOCK_SATELLITE_NDVI = {
   success: true,
   data: {
-    fieldArea: '5.0 Acres',
-    currentNdvi: 0.78,
-    ndviStatus: 'Healthy Dense Canopy',
-    ndviStatusHi: 'स्वस्थ हरी सघन फसल',
-    soilMoistureIndex: 68,
-    moistureStatus: 'Adequate Moisture',
-    canopyCover: '86%',
-    lastSatellitePass: 'Sentinel-2 (Yesterday 10:45 AM)',
-    zones: [
-      { name: 'North Zone (2.0 Ac)', ndvi: 0.82, status: 'Vigorous Growth' },
-      { name: 'Central Zone (1.8 Ac)', ndvi: 0.78, status: 'Optimal Vigor' },
-      { name: 'South Slope (1.2 Ac)', ndvi: 0.71, status: 'Slight Nitrogen Need' },
+    satellite: 'Sentinel-2B Multispectral MSI (ESA Copernicus)',
+    lastPassDate: 'Yesterday, 10:42 AM IST',
+    nextPassDate: 'Tomorrow, 10:38 AM IST',
+    resolution: '10m Ground Resolution',
+    overallNDVIScore: 0.78,
+    healthStatus: 'High Vegetative Vigour',
+    healthStatusHi: 'उत्कृष्ट वानस्पतिक स्वास्थ्य (स्वस्थ फसल)',
+    cloudCover: '4.2%',
+    fieldSectors: [
+      {
+        sectorId: 'Plot-North (2.0 Ac)',
+        name: 'Plot-North (2.0 Ac)',
+        crop: 'Tomato (Abhinav Hybrid)',
+        ndvi: 0.82,
+        status: 'Optimal Health',
+        statusHi: 'उत्कृष्ट स्वास्थ्य',
+        statusColor: '#10B981',
+        moistureIndex: '88% Adequate',
+        stressWarning: 'None',
+        recommendedAction: 'Maintain current fertigation schedule.'
+      },
+      {
+        sectorId: 'Plot-Central (1.8 Ac)',
+        name: 'Plot-Central (1.8 Ac)',
+        crop: 'Tomato (Abhinav Hybrid)',
+        ndvi: 0.77,
+        status: 'Good Canopy',
+        statusHi: 'अच्छा सघन आवरण',
+        statusColor: '#10B981',
+        moistureIndex: '82% Adequate',
+        stressWarning: 'None',
+        recommendedAction: 'Normal drip irrigation cycle.'
+      },
+      {
+        sectorId: 'Plot-South Slope (1.2 Ac)',
+        name: 'Plot-South Slope (1.2 Ac)',
+        crop: 'Onion (Bhima Super)',
+        ndvi: 0.68,
+        status: 'Slight Moisture Stress',
+        statusHi: 'हल्की नमी की कमी',
+        statusColor: '#F59E0B',
+        moistureIndex: '62% Low',
+        stressWarning: 'Moisture Deficit',
+        recommendedAction: 'Schedule 40 min supplementary drip irrigation.'
+      }
     ],
-  },
+    historicalNDVI: [
+      { date: '10 Aug', score: 0.58 },
+      { date: '15 Aug', score: 0.65 },
+      { date: '20 Aug', score: 0.71 },
+      { date: '25 Aug', score: 0.75 },
+      { date: '30 Aug', score: 0.78 }
+    ]
+  }
 };
 
 export const MOCK_SCHEMES = {
   success: true,
-  schemes: [
+  count: 5,
+  data: [
     {
-      id: 'scheme_pm_kisan',
-      title: 'PM-KISAN Samman Nidhi Yojana',
+      id: 'scheme-1',
+      title: 'PM-Kisan Samman Nidhi Yojana',
       titleHi: 'प्रधानमंत्री किसान सम्मान निधि योजना',
-      benefits: '₹6,000 / year in 3 direct bank transfers',
-      eligibility: 'All small & marginal landholder farmer families',
-      link: 'https://pmkisan.gov.in',
-      status: 'Active / Open',
+      category: 'Direct Income Support',
+      categoryHi: 'प्रत्यक्ष आय सहायता',
+      benefit: '₹6,000 / Year (₹2,000 per 4 months directly to Bank A/c)',
+      benefitHi: '₹6,000 प्रति वर्ष (₹2,000 की 3 किस्तों में सीधे बैंक खाते में)',
+      eligibility: 'All small & marginal landholding farmer families with cultivable landholding in their name.',
+      eligibilityHi: 'सभी छोटे और सीमांत किसान परिवार जिनके नाम पर कृषि भूमि दर्ज है।',
+      requiredDocs: ['Aadhaar Card', 'Land Ownership Record (7/12 or Khatauni)', 'Active Bank Passbook with NPCI Aadhaar Seeding'],
+      portalUrl: 'https://pmkisan.gov.in',
+      status: 'Active / 17th Installment Disbursed'
     },
     {
-      id: 'scheme_pmfby',
-      title: 'Pradhan Mantri Fasal Bima Yojana (PMFBY)',
+      id: 'scheme-2',
+      title: 'PM Fasal Bima Yojana (PMFBY)',
       titleHi: 'प्रधानमंत्री फसल बीमा योजना',
-      benefits: 'Comprehensive crop insurance coverage against natural calamities & pests',
-      eligibility: 'All farmers growing notified crops in notified areas',
-      link: 'https://pmfby.gov.in',
-      status: 'Enrolling for Kharif/Rabi',
+      category: 'Crop Insurance & Risk Shield',
+      categoryHi: 'फसल बीमा व सुरक्षा कवच',
+      benefit: 'Comprehensive coverage against drought, flood, pests, unseasonal hail (Farmer premium: only 1.5% - 2%)',
+      benefitHi: 'सूखा, बाढ़, कीट व बेमौसम ओलावृष्टि से व्यापक सुरक्षा (किसान प्रीमियम: केवल 1.5% से 2%)',
+      eligibility: 'All farmers growing notified crops in notified areas (both loanee and non-loanee).',
+      eligibilityHi: 'अधिसूचित क्षेत्रों में अधिसूचित फसल उगाने वाले सभी किसान।',
+      requiredDocs: ['Land Record', 'Sowing Certificate / Sowing Declaration', 'Bank Account Details', 'Aadhaar Card'],
+      portalUrl: 'https://pmfby.gov.in',
+      status: 'Open for Kharif / Rabi Enrollment'
     },
     {
-      id: 'scheme_shc',
-      title: 'Soil Health Card Scheme',
-      titleHi: 'मृदा स्वास्थ्य कार्ड योजना',
-      benefits: 'Free testing of 12 soil parameters every 2 years with tailored nutrient advice',
-      eligibility: 'All agricultural landowners',
-      link: 'https://soilhealth.dac.gov.in',
-      status: 'Available at local KVK',
+      id: 'scheme-3',
+      title: 'PM Krishi Sinchayee Yojana (Micro-Irrigation Subsidy)',
+      titleHi: 'प्रधानमंत्री कृषि सिंचाई योजना (ड्रिप/स्प्रिंकलर सब्सिडी)',
+      category: 'Irrigation & Water Tech',
+      categoryHi: 'सूक्ष्म सिंचाई तकनीक',
+      benefit: '55% to 80% direct subsidy on Drip and Sprinkler Irrigation systems.',
+      benefitHi: 'ड्रिप और स्प्रिंकलर सिस्टम लगाने पर 55% से 80% तक सरकारी सब्सिडी।',
+      eligibility: 'Farmers having assured water source (well, borewell, farm pond) and agricultural land.',
+      eligibilityHi: 'जिन किसानों के पास सुनिश्चित जल स्रोत (कुआं, बोरवेल, तालाब) और कृषि भूमि है।',
+      requiredDocs: ['7/12 Land Extract & 8A', 'Electricity Bill / Water Source Proof', 'Quotation from authorized Micro-irrigation vendor'],
+      portalUrl: 'https://pmksy.gov.in',
+      status: 'Accepting Online Applications'
     },
     {
-      id: 'scheme_drip',
-      title: 'Per Drop More Crop (Micro-Irrigation Subsidy)',
-      titleHi: 'प्रति बूंद अधिक फसल (ड्रिप/स्प्रिंकलर सब्सिडी)',
-      benefits: '45% to 55% subsidy on Drip & Sprinkler irrigation installations',
-      eligibility: 'Individual farmers with verified land records',
-      link: 'https://pmksy.gov.in',
-      status: 'State Agriculture Dept Portal',
+      id: 'scheme-4',
+      title: 'PM-KUSUM Solar Agriculture Pump Scheme',
+      titleHi: 'पीएम-कुसुम सौर ऊर्जा पंप योजना',
+      category: 'Renewable Power',
+      categoryHi: 'सौर ऊर्जा कृषि पंप',
+      benefit: '60% subsidy (30% Central + 30% State) for 3HP, 5HP & 7.5HP Solar Water Pumps.',
+      benefitHi: '3HP, 5HP और 7.5HP सोलर पंप पर 60% तक सब्सिडी (किसान अंशदान केवल 10%)।',
+      eligibility: 'Farmers without grid electricity or farmers wishing to replace existing diesel pumps.',
+      eligibilityHi: 'ग्रिड बिजली से वंचित किसान अथवा डीजल पंप को सोलर पंप में बदलने के इच्छुक किसान।',
+      requiredDocs: ['Land Ownership papers', 'Identity Proof', 'Bank statement', 'Water source certificate'],
+      portalUrl: 'https://pmkusum.mnre.gov.in',
+      status: 'Phase II Active'
     },
-  ],
+    {
+      id: 'scheme-5',
+      title: 'Soil Health Card Scheme (मृदा स्वास्थ्य कार्ड)',
+      titleHi: 'राष्ट्रीय मृदा स्वास्थ्य कार्ड योजना',
+      category: 'Soil & Fertility',
+      categoryHi: 'मिट्टी परीक्षण',
+      benefit: '100% Free laboratory chemical testing of 12 soil parameters with customized crop fertilizer chart.',
+      benefitHi: '12 मिट्टी मापदंडों की 100% निशुल्क सरकारी लैब जांच व फसल अनुसार खाद सिफारिश कार्ड।',
+      eligibility: 'Every farmer in India once every 2 years.',
+      eligibilityHi: 'भारत का प्रत्येक किसान (हर 2 वर्ष में एक बार)।',
+      requiredDocs: ['GPS location of soil sample', 'Farmer contact & land plot identification'],
+      portalUrl: 'https://soilhealth.dac.gov.in',
+      status: 'Free Soil Testing Available at Local KVK'
+    }
+  ]
 };
 
-export const MOCK_ACTION_PLANS = [
-  {
-    _id: 'task_01',
-    title: 'Morning Foliar Nutrition Spray (19:19:19 NPK + Micronutrients)',
-    titleHi: 'सुबह का पर्ण पोषण छिड़काव (19:19:19 NPK + सूक्ष्म पोषक तत्व)',
-    description: 'Dissolve 5g/L water and spray before peak sunlight hours.',
-    dayLabel: 'TODAY',
-    isCompleted: false,
-    priority: 'High',
-    category: 'Nutrition',
-  },
-  {
-    _id: 'task_02',
-    title: 'Inspect Drip Emitters & Clean Secondary Disc Filter',
-    titleHi: 'ड्रिप उत्सर्जकों की जांच करें और डिस्क फ़िल्टर साफ़ करें',
-    description: 'Ensure uniform water discharge rate of 2.4 LPH across Block B.',
-    dayLabel: 'TOMORROW',
-    isCompleted: true,
-    priority: 'Medium',
-    category: 'Irrigation',
-  },
-  {
-    _id: 'task_03',
-    title: 'Apply Trichoderma Viride Organic Root Drenching',
-    titleHi: 'ट्राइकोडर्मा विरिडी का जैविक रूट ड्रेन्चिंग करें',
-    description: 'Biological control against root-knot nematode and soil pathogens.',
-    dayLabel: 'FRIDAY',
-    isCompleted: false,
-    priority: 'Normal',
-    category: 'Bio-Protection',
-  },
-];
+export const MOCK_ACTION_PLANS = {
+  tasks: [
+    {
+      _id: 'task_01',
+      title: 'Morning Foliar Nutrition Spray (19:19:19 NPK + Micronutrients)',
+      titleHi: 'सुबह का पर्ण पोषण छिड़काव (19:19:19 NPK + सूक्ष्म पोषक तत्व)',
+      description: 'Dissolve 5g/L water and spray before peak sunlight hours.',
+      dayLabel: 'TODAY',
+      isCompleted: false,
+      priority: 'High',
+      category: 'Nutrition',
+    },
+    {
+      _id: 'task_02',
+      title: 'Inspect Drip Emitters & Clean Secondary Disc Filter',
+      titleHi: 'ड्रिप उत्सर्जकों की जांच करें और डिस्क फ़िल्टर साफ़ करें',
+      description: 'Ensure uniform water discharge rate of 2.4 LPH across Block B.',
+      dayLabel: 'TOMORROW',
+      isCompleted: true,
+      priority: 'Medium',
+      category: 'Irrigation',
+    },
+    {
+      _id: 'task_03',
+      title: 'Apply Trichoderma Viride Organic Root Drenching',
+      titleHi: 'ट्राइकोडर्मा विरिडी का जैविक रूट ड्रेन्चिंग करें',
+      description: 'Biological control against root-knot nematode and soil pathogens.',
+      dayLabel: 'FRIDAY',
+      isCompleted: false,
+      priority: 'Normal',
+      category: 'Bio-Protection',
+    },
+  ],
+  stats: {
+    total: 3,
+    completed: 1,
+    pending: 2,
+    completionRate: 33,
+  }
+};
 
 export const MOCK_ALERTS = [
   {
@@ -451,12 +557,119 @@ export const MOCK_ADMIN_STATS = {
   mandisIntegrated: 280,
 };
 
+export const MOCK_FARMER_INSIGHTS = {
+  totalAnalyses: 14,
+  criticalIssues: 1,
+  totalTasks: 8,
+  completedTasks: 6,
+  taskCompletionRate: 75,
+  farmHealthScore: 91,
+  ndviAverage: 0.78,
+  soilMoistureAvg: 68,
+  estimatedYieldTons: '24.5 MT / Acre',
+  soilHealth: {
+    nitrogen: 'Medium (280 kg/ha)',
+    phosphorus: 'Optimal (22 kg/ha)',
+    potassium: 'High (310 kg/ha)',
+    ph: '7.2 (Ideal)',
+    organicCarbon: '0.62%',
+  },
+  healthTrends: [
+    { date: 'W1', score: 72 },
+    { date: 'W2', score: 78 },
+    { date: 'W3', score: 85 },
+    { date: 'W4', score: 89 },
+    { date: 'Current', score: 91 },
+  ],
+  severityDistribution: [
+    { name: 'Healthy / Minor', value: 9 },
+    { name: 'Moderate (Blight)', value: 4 },
+    { name: 'Critical', value: 1 },
+  ],
+};
+
 export const MOCK_PREDEFINED_QUERIES = [
-  { q: 'How to control Tomato leaf curl virus?', qHi: 'टमाटर में पत्ती मुड़न (लीफ कर्ल) रोग कैसे रोकें?' },
-  { q: 'What is the best fertilizer dose for flowering stage?', qHi: 'फूल आने की अवस्था में सबसे अच्छा खाद क्या है?' },
-  { q: 'When should I irrigate my crop this week?', qHi: 'इस हफ्ते मुझे अपनी फसल की सिंचाई कब करनी चाहिए?' },
-  { q: 'How to apply for PM-KISAN subsidy for drip irrigation?', qHi: 'ड्रिप सिंचाई सब्सिडी के लिए आवेदन कैसे करें?' },
+  { query: 'How to control Tomato leaf curl virus?', queryHi: 'टमाटर में पत्ती मुड़न (लीफ कर्ल) रोग कैसे रोकें?', category: 'Disease Control', crop: 'Tomato' },
+  { query: 'What is the best fertilizer dose for flowering stage?', queryHi: 'फूल आने की अवस्था में सबसे अच्छा खाद क्या है?', category: 'Nutrition', crop: 'General' },
+  { query: 'When should I irrigate my crop this week?', queryHi: 'इस हफ्ते मुझे अपनी फसल की सिंचाई कब करनी चाहिए?', category: 'Irrigation', crop: 'General' },
+  { query: 'How to apply for PM-KISAN subsidy for drip irrigation?', queryHi: 'ड्रिप सिंचाई सब्सिडी के लिए आवेदन कैसे करें?', category: 'Government Scheme', crop: 'General' },
 ];
+
+/**
+ * Calculates complete agricultural fertilizer requirements
+ */
+export function calculateMockFertilizer({ cropName = 'Tomato', landArea = 2.5, landUnit = 'Acres', soilType = 'Black Soil' }) {
+  const area = parseFloat(landArea) || 1.0;
+  let acreFactor = 1.0;
+  const unit = (landUnit || 'Acres').toLowerCase();
+  if (unit === 'hectares' || unit === 'hectare') acreFactor = 2.471;
+  else if (unit === 'bigha') acreFactor = 0.4;
+  else if (unit === 'guntha') acreFactor = 0.025;
+  const acres = area * acreFactor;
+
+  const totalUreaKg = Math.round(60 * 2.17 * acres);
+  const totalDapKg = Math.round(40 * 2.17 * acres);
+  const totalMopKg = Math.round(40 * 1.67 * acres);
+
+  const ureaBags = Number((totalUreaKg / 45).toFixed(1));
+  const dapBags = Number((totalDapKg / 50).toFixed(1));
+  const mopBags = Number((totalMopKg / 50).toFixed(1));
+  const estimatedCostINR = Math.round(ureaBags * 267 + dapBags * 1350 + mopBags * 1700);
+
+  return {
+    success: true,
+    data: {
+      cropName,
+      enteredArea: area,
+      enteredUnit: landUnit || 'Acres',
+      normalizedAcres: Number(acres.toFixed(2)),
+      soilAdjustment: soilType.includes('Sandy') ? 'Add +15% Potash due to high leaching' : 'Balanced optimal dosage for ' + soilType,
+      recommendation: {
+        totalUreaKg,
+        ureaBags,
+        totalDapKg,
+        dapBags,
+        totalMopKg,
+        mopBags,
+        estimatedCostINR,
+        stageBreakup: [
+          {
+            stage: 'Basal Dose (Land Prep / Transplanting)',
+            notes: 'Incorporate well into soil before creating beds or laying mulch.',
+            scaledDoses: {
+              ureaKg: Math.round(25 * acres),
+              dapKg: Math.round(85 * acres),
+              mopKg: Math.round(35 * acres),
+            }
+          },
+          {
+            stage: 'Vegetative Growth (15-30 Days)',
+            notes: 'Foliar spray + root fertigation via drip.',
+            scaledDoses: {
+              ureaKg: Math.round(30 * acres),
+              dapKg: 0,
+              mopKg: 0,
+            }
+          },
+          {
+            stage: 'Flowering & Fruiting (30-60 Days)',
+            notes: 'Boosts flower retention and fruit size.',
+            scaledDoses: {
+              ureaKg: 0,
+              dapKg: 0,
+              mopKg: Math.round(25 * acres),
+            }
+          }
+        ],
+        organicAlternatives: [
+          { name: 'Well-rotted FYM / Cow Dung Compost', dosePerAcre: '4-5 Tonnes at basal preparation' },
+          { name: 'Vermicompost', dosePerAcre: '1,000 kg at transplanting' },
+          { name: 'Neem Cake (De-oiled)', dosePerAcre: '150 kg for root nematode and pest protection' }
+        ]
+      }
+    }
+  };
+}
 
 /**
  * Generates simulated AI scan result when farmer scans or uploads a crop photo
@@ -516,40 +729,65 @@ export function generateMockScanResult(cropName = 'Tomato') {
 /**
  * Handles mock AI agronomic consultation
  */
-export function generateMockAiAnswer(query) {
+export function generateMockAiAnswer(query = '', cropName = 'Tomato') {
   const qLower = (query || '').toLowerCase();
   
-  if (qLower.includes('fertilizer') || qLower.includes('खाद') || qLower.includes('npk')) {
-    return {
-      success: true,
-      answer: 'For flowering & fruit formation stage: Apply water-soluble NPK 00:52:34 (Mono Potassium Phosphate) @ 5g/L water via fertigation, along with Boron 20% @ 1g/L to prevent flower drop and promote uniform fruit setting.',
-      answerHi: 'फूल और फल बनने की अवस्था के लिए: ड्रिप से 00:52:34 खाद @ 5 ग्राम/लीटर दें, और फूल झड़ने से रोकने के लिए बोरॉन 20% @ 1 ग्राम/लीटर का छिड़काव करें।',
-      recommendations: [
-        'Avoid excessive Nitrogen at flowering to prevent unwanted vegetative foliage growth.',
-        'Ensure steady soil moisture: irregular watering causes fruit cracking and blossom end rot.',
-      ],
-    };
+  let issue = 'Nutrition & Vegetative Management Guidance';
+  let issueHi = 'फसल पोषण एवं वानस्पतिक प्रबंधन मार्गदर्शन';
+  let reason = 'Seasonal environmental transition and crop nutrient demand at current phenological stage.';
+  let reasonHi = 'मौसमी बदलाव और वर्तमान वानस्पतिक अवस्था में पोषक तत्वों की विशेष आवश्यकता।';
+  let whatToDo = 'Apply water-soluble NPK 19:19:19 @ 5g/L or 00:52:34 via drip fertigation. Spray Neem oil (1500 ppm) @ 3ml/L as preventive bio-shield.';
+  let whatToDoHi = 'ड्रिप से 19:19:19 या 00:52:34 खाद @ 5 ग्राम/लीटर दें। सुरक्षा के लिए नीम तेल (1500 ppm) 3 मिली/लीटर का छिड़काव करें।';
+  let whenToDo = 'Early morning between 6:30 AM to 9:30 AM when crop stomata are open and wind speed is calm.';
+  let whenToDoHi = 'सुबह 6:30 से 9:30 के बीच जब पौधों के रंध्र खुले हों और हवा शांत हो।';
+  let whatToAvoid = 'Do not apply heavy irrigation under midday sun or mix copper fungicides with microbial bio-fertilizers.';
+  let whatToAvoidHi = 'दोपहर की तेज धूप में सिंचाई न करें और कॉपर फफूंदनाशक को जैविक जीवाणुओं के साथ न मिलाएं।';
+
+  if (qLower.includes('curl') || qLower.includes('virus') || qLower.includes('मुड़न') || qLower.includes('सफेद मक्खी')) {
+    issue = 'Leaf Curl Viral Vector & Sucking Pest Alert';
+    issueHi = 'पत्ती मुड़न (लीफ कर्ल) विषाणु एवं रसचूषक कीट चेतावनी';
+    reason = 'Spread by Whitefly (Bemisia tabaci) nymph feeding on tender apical shoots.';
+    reasonHi = 'सफेद मक्खी के कोमल पत्तियों से रस चूसने के कारण यह वायरस फैलता है।';
+    whatToDo = 'Erect 20 yellow sticky traps per acre. Spray Diafenthiuron 50% WP @ 1.2g/L or Neem Oil 10,000 ppm @ 3ml/L.';
+    whatToDoHi = 'प्रति एकड़ 20 पीले स्टिकी ट्रैप लगाएं। डायफेंथियूरॉन 50% WP @ 1.2 ग्राम/लीटर या नीम तेल 3 मिली/लीटर का छिड़काव करें।';
+    whenToDo = 'Apply first spray today before 10 AM, repeat after 7 days if vectors persist.';
+    whenToDoHi = 'आज सुबह 10 बजे से पहले पहला छिड़काव करें, 7 दिन बाद आवश्यकता पड़ने पर दोहराएं।';
+    whatToAvoid = 'Do not overdose synthetic pyrethroids which induce resurgence of whiteflies.';
+    whatToAvoidHi = 'सिंथेटिक कीटनाशकों का अत्यधिक उपयोग न करें जिससे कीटों की प्रतिरोधक क्षमता बढ़ती है।';
+  } else if (qLower.includes('water') || qLower.includes('irrigation') || qLower.includes('पानी') || qLower.includes('सिंचाई')) {
+    issue = 'Soil Moisture & Evapotranspiration Optimization';
+    issueHi = 'मृदा नमी एवं वाष्पोत्सर्जन प्रबंधन';
+    reason = 'High daytime temperatures accelerate soil surface evaporation in root zone.';
+    reasonHi = 'दिन के उच्च तापमान से जड़ क्षेत्र में नमी तेजी से कम होती है।';
+    whatToDo = 'Run drip irrigation for 45 minutes every alternate day. Check tensiometer/soil moisture ball before watering.';
+    whatToDoHi = 'हर एक दिन छोड़कर 45 मिनट के लिए ड्रिप चलाएं। पानी देने से पहले मिट्टी की नमी अवश्य जांचें।';
+    whenToDo = 'Early morning between 6:00 AM and 8:30 AM.';
+    whenToDoHi = 'सुबह 6:00 से 8:30 बजे के बीच जब वाष्पीकरण न्यूनतम हो।';
+    whatToAvoid = 'Avoid flood irrigation or watering during peak heat hours (12 PM - 3 PM).';
+    whatToAvoidHi = 'दोपहर 12 से 3 बजे के बीच तेज धूप में पानी न दें और खेत में पानी भरने से बचें।';
   }
 
-  if (qLower.includes('water') || qLower.includes('irrigation') || qLower.includes('पानी') || qLower.includes('सिंचाई')) {
-    return {
-      success: true,
-      answer: 'Based on current soil moisture (68%) and weather forecast, light drip irrigation for 45 minutes in early morning is optimal. Hold back irrigation tomorrow if rainfall occurs as forecasted.',
-      answerHi: 'वर्तमान नमी (68%) और मौसम के अनुसार, कल सुबह 45 मिनट के लिए ड्रिप सिंचाई पर्याप्त है। बारिश होने पर सिंचाई रोक दें।',
-      recommendations: [
-        'Irrigate between 6:00 AM and 8:30 AM to minimize evaporation loss.',
-        'Check emitter discharge along drip lateral ends.',
-      ],
-    };
-  }
+  const cardData = {
+    cropName: cropName || 'Tomato',
+    queryText: query || 'Crop Health Advisory',
+    category: 'AI Agronomist Expert Advice',
+    issue,
+    issueHi,
+    reason,
+    reasonHi,
+    whatToDo,
+    whatToDoHi,
+    whenToDo,
+    whenToDoHi,
+    whatToAvoid,
+    whatToAvoidHi,
+  };
 
   return {
     success: true,
-    answer: `Krishi Drishti AI Agronomist analysis for "${query}": Maintain optimal field hygiene, inspect the underside of leaves for early pest vectors, and follow balanced nutrient fertigation. Local weather in Nashik is favorable for normal crop operations today.`,
-    answerHi: `"${query}" के लिए कृषि दृष्टि AI सलाह: खेत की स्वच्छता बनाए रखें, पत्तियों के नीचे कीटों की जांच करें और संतुलित पोषण दें। आज मौसम खेती के कार्यों के लिए अनुकूल है।`,
-    recommendations: [
-      'Take photos using the Crop Scan tool for instant disease and pest diagnosis.',
-      'Consult nearby KVK scientist Dr. Ananya Sharma via Expert Advisory if symptoms persist.',
-    ],
+    data: cardData,
+    answer: whatToDo,
+    answerHi: whatToDoHi,
+    recommendations: [whatToDo, whenToDo]
   };
 }

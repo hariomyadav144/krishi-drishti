@@ -34,10 +34,11 @@ export default function SatelliteRadar() {
     try {
       setLoading(true);
       const res = await api.get('/tools/satellite-ndvi');
-      if (res.data.success) {
+      if (res.data?.success && res.data?.data) {
         setSatelliteData(res.data.data);
-        if (res.data.data.fieldSectors.length > 0 && !activeSector) {
-          setActiveSector(res.data.data.fieldSectors[0]);
+        const sectors = res.data.data.fieldSectors || [];
+        if (sectors.length > 0 && !activeSector) {
+          setActiveSector(sectors[0]);
         }
       }
     } catch (e) {
