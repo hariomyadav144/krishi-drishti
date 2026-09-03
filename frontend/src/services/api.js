@@ -23,35 +23,66 @@ import {
 } from './mockFallback';
 import { fetchOpenMeteoWeather } from './weatherService';
 
+export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
+
+/**
+ * Standardize and normalize any user or environment provided backend URL:
+ * - Always targets https://krishi-drishti-pykj.onrender.com/api by default
+ * - Migrates any legacy or non-pykj render hostnames
+ * - Normalizes trailing slashes
+ * - Automatically ensures /api suffix without ever duplicating /api/api
+ */
+export function normalizeBackendApiUrl(url) {
+  if (!url || typeof url !== 'string' || !url.trim()) {
+    return DEFAULT_PRODUCTION_API_URL;
+  }
+  let clean = url.trim().replace(/\/+$/, '');
+  if (clean.startsWith('localhost:')) {
+    clean = 'http://' + clean;
+  }
+  // Migrate old render hostnames to the active production backend
+  if (clean.includes('krishi-drishti.onrender.com') && !clean.includes('krishi-drishti-pykj')) {
+    clean = clean.replace('krishi-drishti.onrender.com', 'krishi-drishti-pykj.onrender.com');
+  }
+  // If user entered URL without /api, append /api
+  if (!clean.endsWith('/api')) {
+    clean = clean.replace(/\/api\/+api$/, '/api');
+    if (!clean.endsWith('/api')) {
+      clean = `${clean}/api`;
+    }
+  }
+  // Eliminate any double /api/api
+  clean = clean.replace(/\/api\/api$/, '/api');
+  return clean;
+}
+
 const resolveApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('krishi_backend_url');
-    if (custom && custom.trim()) return custom.trim();
+    if (custom && custom.trim()) {
+      return normalizeBackendApiUrl(custom.trim());
+    }
   }
   if (import.meta.env.VITE_API_BASE_URL) {
-    return import.meta.env.VITE_API_BASE_URL;
+    return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL);
   }
-  if (typeof window !== 'undefined' && window.location.hostname.includes('github.io')) {
-    return 'https://krishi-drishti.onrender.com/api';
-  }
-  return '/api';
+  return DEFAULT_PRODUCTION_API_URL;
 };
 
 export const API_BASE_URL = resolveApiBaseUrl();
 
 export function setCustomBackendUrl(url) {
-  if (url && url.trim()) {
-    localStorage.setItem('krishi_backend_url', url.trim());
-    api.defaults.baseURL = url.trim();
-  } else {
-    localStorage.removeItem('krishi_backend_url');
-    api.defaults.baseURL = resolveApiBaseUrl();
+  const normalized = normalizeBackendApiUrl(url);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('krishi_backend_url', normalized);
   }
+  api.defaults.baseURL = normalized;
+  return normalized;
 }
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 30000, // 30 second timeout for Gemini AI generation
+  timeout: 45000, // 45s timeout for cold-starts and Gemini generation
   headers: {
     'Content-Type': 'application/json',
   },
@@ -59,17 +90,18 @@ const api = axios.create({
 
 // Interceptor to attach JWT token, normalize URLs, and ensure latest baseURL
 api.interceptors.request.use((config) => {
-  const custom = localStorage.getItem('krishi_backend_url');
-  let base = (custom && custom.trim()) ? custom.trim() : resolveApiBaseUrl();
-  base = base.replace(/\/+$/, ''); // Remove trailing slashes
+  const custom = typeof window !== 'undefined' ? localStorage.getItem('krishi_backend_url') : null;
+  const base = normalizeBackendApiUrl(custom || config.baseURL || api.defaults.baseURL);
   config.baseURL = base;
 
   let url = config.url || '';
-  // Fix double /api issue (e.g. baseURL ends with /api and url starts with /api/)
-  if (base.endsWith('/api') && url.startsWith('/api/')) {
+  // Fix double /api issue (config.baseURL already has /api)
+  if (url.startsWith('/api/')) {
     url = url.substring(4);
+  } else if (url.startsWith('api/')) {
+    url = '/' + url.substring(4);
   } else if (url.startsWith('/api/api/')) {
-    url = url.replace('/api/api/', '/api/');
+    url = url.replace('/api/api/', '/');
   }
   config.url = url;
 

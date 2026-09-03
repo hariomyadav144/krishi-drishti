@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import api, { setCustomBackendUrl, API_BASE_URL } from '../services/api';
+import api, { setCustomBackendUrl, API_BASE_URL, normalizeBackendApiUrl, DEFAULT_PRODUCTION_API_URL } from '../services/api';
 import VoiceReader from '../components/VoiceReader';
 import FeedbackModal from '../components/FeedbackModal';
 import { 
@@ -46,69 +46,52 @@ export default function AiAdvisor({ setActiveTab }) {
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
 
-  // Backend API URL Settings
+  // Backend API URL Settings: Default to standardized production API
   const [showApiSettings, setShowApiSettings] = useState(false);
-  const [customBackendUrl, setCustomBackendUrlState] = useState(localStorage.getItem('krishi_backend_url') || API_BASE_URL);
+  const [customBackendUrl, setCustomBackendUrlState] = useState(() => {
+    const stored = typeof window !== 'undefined' ? localStorage.getItem('krishi_backend_url') : null;
+    return normalizeBackendApiUrl(stored || API_BASE_URL);
+  });
   const [pingStatus, setPingStatus] = useState(null); // null | 'testing' | 'online' | 'warning' | 'failed'
   const [pingLatency, setPingLatency] = useState(null);
   const [pingMessage, setPingMessage] = useState('');
 
   const testBackendConnection = async (urlToTest) => {
-    const raw = (urlToTest || customBackendUrl || '').trim().replace(/\/+$/, '');
-    if (!raw) return;
+    const raw = normalizeBackendApiUrl(urlToTest || customBackendUrl);
     setPingStatus('testing');
-    setPingMessage('Testing connection to backend...');
+    setPingMessage('Testing connection to backend API...');
     const start = Date.now();
 
-    const targetsToTry = [];
-    if (raw.endsWith('/api')) {
-      targetsToTry.push(`${raw}/health`);
-      targetsToTry.push(`${raw.replace(/\/api$/, '')}/health`);
-    } else {
-      targetsToTry.push(`${raw}/api/health`);
-      targetsToTry.push(`${raw}/health`);
-    }
+    // Standardized target: /api/health
+    const healthUrl = `${raw}/health`; // e.g. https://krishi-drishti-pykj.onrender.com/api/health
 
-    let connected = false;
-    let lastStatus = 0;
-
-    for (const targetUrl of targetsToTry) {
-      try {
-        const res = await fetch(targetUrl, { method: 'GET', mode: 'cors' });
-        const latency = Date.now() - start;
-        setPingLatency(latency);
-        lastStatus = res.status;
-        if (res.ok) {
-          const data = await res.json().catch(() => ({}));
-          connected = true;
-          if (data.geminiConfigured) {
-            setPingStatus('online');
-            setPingMessage(`Backend Connected ✓ • Gemini AI Configured ✓ (${latency}ms)`);
-          } else {
-            setPingStatus('warning');
-            setPingMessage(`Backend Connected ✓ (${latency}ms) • Warning: GEMINI_API_KEY is not configured in backend environment variables.`);
-          }
-          break;
+    try {
+      const res = await fetch(healthUrl, { method: 'GET', mode: 'cors' });
+      const latency = Date.now() - start;
+      setPingLatency(latency);
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}));
+        if (data.geminiConfigured) {
+          setPingStatus('online');
+          setPingMessage(`Backend Connected ✓ (${latency}ms • Gemini AI Configured ✓)`);
+        } else {
+          setPingStatus('warning');
+          setPingMessage(`Backend Connected ✓ (${latency}ms) • Warning: GEMINI_API_KEY is not configured on Render. Add it in Render Environment settings.`);
         }
-      } catch (err) {
-        // Try fallback endpoint
-      }
-    }
-
-    if (!connected) {
-      setPingStatus('failed');
-      if (lastStatus === 404) {
-        setPingMessage(`HTTP 404: Endpoint not found at ${targetsToTry[0]}. Check service URL.`);
       } else {
-        setPingMessage(`Backend Not Connected ✕: Could not reach server at ${raw}. (Render free tier may take ~50s to wake up).`);
+        setPingStatus('failed');
+        setPingMessage(`Backend Not Connected ✕: HTTP ${res.status} returned by ${healthUrl}`);
       }
+    } catch (err) {
+      setPingStatus('failed');
+      setPingMessage(`Backend Not Connected ✕: ${err.message || 'Could not reach server'}. (Render free tier may take ~50s to wake up).`);
     }
   };
 
   const handleSaveBackendUrl = (newUrl) => {
-    const url = (newUrl !== undefined ? newUrl : customBackendUrl).trim();
-    setCustomBackendUrl(url);
-    setCustomBackendUrlState(url || API_BASE_URL);
+    const raw = newUrl !== undefined ? newUrl : customBackendUrl;
+    const normalized = setCustomBackendUrl(raw);
+    setCustomBackendUrlState(normalized);
     setShowApiSettings(false);
     setError('');
   };
@@ -358,7 +341,7 @@ export default function AiAdvisor({ setActiveTab }) {
               type="text"
               value={customBackendUrl}
               onChange={(e) => setCustomBackendUrlState(e.target.value)}
-              placeholder="e.g. https://krishi-drishti.onrender.com/api"
+              placeholder="e.g. https://krishi-drishti-pykj.onrender.com/api"
               className="flex-1 min-w-[200px] p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
             <button
@@ -384,13 +367,13 @@ export default function AiAdvisor({ setActiveTab }) {
             <button
               type="button"
               onClick={() => {
-                setCustomBackendUrlState('https://krishi-drishti.onrender.com/api');
-                handleSaveBackendUrl('https://krishi-drishti.onrender.com/api');
-                testBackendConnection('https://krishi-drishti.onrender.com/api');
+                setCustomBackendUrlState('https://krishi-drishti-pykj.onrender.com/api');
+                handleSaveBackendUrl('https://krishi-drishti-pykj.onrender.com/api');
+                testBackendConnection('https://krishi-drishti-pykj.onrender.com/api');
               }}
               className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-200 transition font-medium"
             >
-              🚀 Render (krishi-drishti)
+              🚀 Render Production (krishi-drishti-pykj)
             </button>
             <button
               type="button"
