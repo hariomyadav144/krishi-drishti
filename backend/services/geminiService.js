@@ -73,10 +73,25 @@ function getCandidateModels() {
 }
 
 /**
+ * Safely retrieve Gemini API Key from environment variables.
+ * Primary: GEMINI_API_KEY
+ * Supported aliases: GOOGLE_API_KEY, GEMINI_KEY, GOOGLE_GEMINI_API_KEY
+ */
+function getApiKey() {
+  return (
+    process.env.GEMINI_API_KEY ||
+    process.env.GOOGLE_API_KEY ||
+    process.env.GEMINI_KEY ||
+    process.env.GOOGLE_GEMINI_API_KEY ||
+    ''
+  ).trim();
+}
+
+/**
  * Initializes GoogleGenAI client with validation
  */
 function getAiClient() {
-  const apiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+  const apiKey = getApiKey();
   if (!apiKey) {
     const error = new Error('GEMINI_API_KEY is not configured on the backend server. Please set GEMINI_API_KEY in server environment variables.');
     error.statusCode = 503;
@@ -379,7 +394,7 @@ function extractSection(text, keywords) {
  * Safe backend diagnostic endpoint to test Gemini API connectivity without leaking secrets
  */
 async function testGeminiDiagnostic() {
-  const apiKey = (process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim();
+  const apiKey = getApiKey();
   if (!apiKey) {
     return {
       status: 'not_configured',
@@ -425,5 +440,6 @@ module.exports = {
   diagnoseCropWithGemini,
   testGeminiDiagnostic,
   SYSTEM_INSTRUCTION,
-  getActiveModel
+  getActiveModel,
+  getApiKey
 };

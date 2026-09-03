@@ -5,7 +5,7 @@ const path = require('path');
 const { connectDB } = require('./config/db');
 const User = require('./models/User');
 const { seedDatabase } = require('./utils/seedData');
-const { testGeminiDiagnostic, getActiveModel } = require('./services/geminiService');
+const { testGeminiDiagnostic, getActiveModel, getApiKey } = require('./services/geminiService');
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
@@ -95,7 +95,7 @@ app.use('/api/tools', toolsRoutes);
 
 // Health check endpoints (supports both /health and /api/health)
 const healthHandler = (req, res) => {
-  const isGeminiConfigured = Boolean((process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim());
+  const isGeminiConfigured = Boolean(getApiKey());
   res.status(200).json({
     status: 'ok',
     success: true,
@@ -157,6 +157,7 @@ function startServer() {
     console.log(`📡 Health Check: http://0.0.0.0:${PORT}/health`);
     console.log(`📡 API Health:   http://0.0.0.0:${PORT}/api/health`);
     console.log(`📡 Gemini Ping:  http://0.0.0.0:${PORT}/api/health/gemini`);
+    console.log(`🤖 Gemini Status: ${Boolean(getApiKey()) ? 'Configured ✓' : 'Not Set ✕ (Add GEMINI_API_KEY in Render Environment)'}`);
     console.log(`====================================================`);
   });
 
