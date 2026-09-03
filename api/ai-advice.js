@@ -118,16 +118,41 @@ module.exports = async function handler(req, res) {
       parts: [{ text: promptWithContext }]
     });
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents,
-      config: {
-        systemInstruction: SYSTEM_INSTRUCTION,
-        temperature: 0.7
-      }
-    });
+    const candidateModels = [
+      process.env.GEMINI_MODEL || 'gemini-2.0-flash',
+      'gemini-2.0-flash',
+      'gemini-1.5-flash',
+      'gemini-2.0-flash-lite'
+    ].filter((m, i, arr) => arr.indexOf(m) === i);
 
-    const answer = response?.text?.trim() || '';
+    let answer = '';
+    let usedModel = '';
+    let lastErr = null;
+
+    for (const modelName of candidateModels) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents,
+          config: {
+            systemInstruction: SYSTEM_INSTRUCTION,
+            temperature: 0.7
+          }
+        });
+        const text = response?.text?.trim() || '';
+        if (text) {
+          answer = text;
+          usedModel = modelName;
+          break;
+        }
+      } catch (err) {
+        lastErr = err;
+      }
+    }
+
+    if (!answer) {
+      throw lastErr || new Error('Failed to generate response from Gemini Flash');
+    }
 
     return res.status(200).json({
       success: true,

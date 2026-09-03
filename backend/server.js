@@ -5,6 +5,7 @@ const path = require('path');
 const { connectDB } = require('./config/db');
 const User = require('./models/User');
 const { seedDatabase } = require('./utils/seedData');
+const { testGeminiDiagnostic, getActiveModel } = require('./services/geminiService');
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
@@ -20,25 +21,44 @@ const expertRoutes = require('./routes/expertRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const mandiRoutes = require('./routes/mandiRoutes');
 const toolsRoutes = require('./routes/toolsRoutes');
+const aiRoutes = require('./routes/aiRoutes');
 const aiAdviceRoutes = require('./routes/aiAdviceRoutes');
 
 const app = express();
 
+// Transparent URL rewrite middleware: prevents any duplicate /api/api/ issues
+app.use((req, res, next) => {
+  if (req.url.startsWith('/api/api/')) {
+    req.url = req.url.replace('/api/api/', '/api/');
+  }
+  next();
+});
+
 // Robust CORS configuration supporting production GitHub Pages and localhost
 const allowedOrigins = [
+  'https://ariomyadav144.github.io',
   'https://hariomyadav144.github.io',
   'http://localhost:5173',
   'http://localhost:3000',
   'http://127.0.0.1:5173',
+  'http://127.0.0.1:3000',
 ];
 
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow server-to-server, mobile app, and all github.io pages
-    if (!origin || allowedOrigins.includes(origin) || origin.endsWith('.github.io')) {
+    // Allow server-to-server, curl, mobile apps, and tools with no origin header
+    if (!origin) return callback(null, true);
+
+    if (
+      allowedOrigins.includes(origin) ||
+      origin.endsWith('.github.io') ||
+      origin.startsWith('http://localhost:') ||
+      origin.startsWith('http://127.0.0.1:')
+    ) {
       return callback(null, true);
     }
-    return callback(null, true); // Permissive for production cloud deployments
+    // Permissive callback for cloud deployments
+    return callback(null, true);
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -46,13 +66,17 @@ app.use(cors({
 }));
 
 app.options('*', cors());
-app.use(express.json({ limit: '20mb' }));
-app.use(express.urlencoded({ extended: true, limit: '20mb' }));
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Static uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Mount API routes (support both /api/* and root /* to prevent 404 route mismatches)
+app.use('/api/ai', aiRoutes);
+app.use('/ai', aiRoutes);
+app.use('/api/ai-advice', aiAdviceRoutes);
+app.use('/ai-advice', aiAdviceRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
 app.use('/api/farmer', farmerRoutes);
@@ -60,8 +84,6 @@ app.use('/api/crops', cropRoutes);
 app.use('/api/analysis', analysisRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/recommendations', recommendationRoutes);
-app.use('/api/ai-advice', aiAdviceRoutes);
-app.use('/ai-advice', aiAdviceRoutes);
 app.use('/api/action-plans', actionPlanRoutes);
 app.use('/api/weather', weatherRoutes);
 app.use('/api/alerts', alertRoutes);
@@ -73,9 +95,12 @@ app.use('/api/tools', toolsRoutes);
 
 // Health check endpoints (supports both /health and /api/health)
 const healthHandler = (req, res) => {
+  const isGeminiConfigured = Boolean((process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim());
   res.status(200).json({
+    status: 'ok',
     success: true,
-    status: 'online',
+    geminiConfigured: isGeminiConfigured,
+    model: getActiveModel(),
     app: 'KRISHI DRISHTI API',
     tagline: 'From Space to Soil',
     environment: process.env.NODE_ENV || 'production',
@@ -85,6 +110,24 @@ const healthHandler = (req, res) => {
 
 app.get('/health', healthHandler);
 app.get('/api/health', healthHandler);
+
+// Safe diagnostic endpoint for Gemini connectivity
+const geminiDiagnosticHandler = async (req, res) => {
+  try {
+    const result = await testGeminiDiagnostic();
+    const statusCode = result.status === 'ok' ? 200 : (result.geminiConfigured ? 502 : 503);
+    res.status(statusCode).json(result);
+  } catch (err) {
+    res.status(500).json({
+      status: 'error',
+      geminiConfigured: false,
+      message: err.message || 'Diagnostic ping error'
+    });
+  }
+};
+
+app.get('/health/gemini', geminiDiagnosticHandler);
+app.get('/api/health/gemini', geminiDiagnosticHandler);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
@@ -113,6 +156,7 @@ function startServer() {
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Health Check: http://0.0.0.0:${PORT}/health`);
     console.log(`📡 API Health:   http://0.0.0.0:${PORT}/api/health`);
+    console.log(`📡 Gemini Ping:  http://0.0.0.0:${PORT}/api/health/gemini`);
     console.log(`====================================================`);
   });
 
@@ -142,4 +186,3 @@ function startServer() {
 }
 
 startServer();
-

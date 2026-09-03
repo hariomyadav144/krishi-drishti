@@ -23,6 +23,9 @@ import {
   Volume2,
   Settings,
   Server,
+  Camera,
+  Image as ImageIcon,
+  X,
   Check
 } from 'lucide-react';
 
@@ -36,11 +39,17 @@ export default function AiAdvisor({ setActiveTab }) {
   const [predefinedQueries, setPredefinedQueries] = useState([]);
   const [advisoryResult, setAdvisoryResult] = useState(null);
   const [error, setError] = useState('');
+  const [lastQuery, setLastQuery] = useState('');
+
+  // Image attachment for Multimodal Gemini Vision
+  const [imageFile, setImageFile] = useState(null);
+  const [imagePreview, setImagePreview] = useState('');
+  const fileInputRef = useRef(null);
 
   // Backend API URL Settings
   const [showApiSettings, setShowApiSettings] = useState(false);
   const [customBackendUrl, setCustomBackendUrlState] = useState(localStorage.getItem('krishi_backend_url') || API_BASE_URL);
-  const [pingStatus, setPingStatus] = useState(null); // null | 'testing' | 'online' | 'failed'
+  const [pingStatus, setPingStatus] = useState(null); // null | 'testing' | 'online' | 'warning' | 'failed'
   const [pingLatency, setPingLatency] = useState(null);
   const [pingMessage, setPingMessage] = useState('');
 
@@ -51,14 +60,13 @@ export default function AiAdvisor({ setActiveTab }) {
     setPingMessage('Testing connection to backend...');
     const start = Date.now();
 
-    // Try both /api/health and /health without duplicate slashes
     const targetsToTry = [];
     if (raw.endsWith('/api')) {
-      targetsToTry.push(`${raw}/health`); // https://.../api/health
-      targetsToTry.push(`${raw.replace(/\/api$/, '')}/health`); // https://.../health
+      targetsToTry.push(`${raw}/health`);
+      targetsToTry.push(`${raw.replace(/\/api$/, '')}/health`);
     } else {
-      targetsToTry.push(`${raw}/api/health`); // https://.../api/health
-      targetsToTry.push(`${raw}/health`);     // https://.../health
+      targetsToTry.push(`${raw}/api/health`);
+      targetsToTry.push(`${raw}/health`);
     }
 
     let connected = false;
@@ -72,13 +80,18 @@ export default function AiAdvisor({ setActiveTab }) {
         lastStatus = res.status;
         if (res.ok) {
           const data = await res.json().catch(() => ({}));
-          setPingStatus('online');
-          setPingMessage(`Connected successfully in ${latency}ms! Status: ${data.status || 'online'} (${targetUrl})`);
           connected = true;
+          if (data.geminiConfigured) {
+            setPingStatus('online');
+            setPingMessage(`Backend Connected ✓ • Gemini AI Configured ✓ (${latency}ms)`);
+          } else {
+            setPingStatus('warning');
+            setPingMessage(`Backend Connected ✓ (${latency}ms) • Warning: GEMINI_API_KEY is not configured in backend environment variables.`);
+          }
           break;
         }
       } catch (err) {
-        // Continue to fallback endpoint
+        // Try fallback endpoint
       }
     }
 
@@ -87,7 +100,7 @@ export default function AiAdvisor({ setActiveTab }) {
       if (lastStatus === 404) {
         setPingMessage(`HTTP 404: Endpoint not found at ${targetsToTry[0]}. Check service URL.`);
       } else {
-        setPingMessage(`Could not connect to ${raw}. Server is offline, waking up (Render cold-start takes ~50s), or domain is not deployed.`);
+        setPingMessage(`Backend Not Connected ✕: Could not reach server at ${raw}. (Render free tier may take ~50s to wake up).`);
       }
     }
   };
@@ -98,6 +111,28 @@ export default function AiAdvisor({ setActiveTab }) {
     setCustomBackendUrlState(url || API_BASE_URL);
     setShowApiSettings(false);
     setError('');
+  };
+
+  // Image file handler
+  const handleImageSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setImageFile(file);
+      const url = URL.createObjectURL(file);
+      setImagePreview(url);
+      setError('');
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+      setImagePreview('');
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   // Speech-to-Text states
@@ -135,7 +170,7 @@ export default function AiAdvisor({ setActiveTab }) {
       recognition.onresult = (event) => {
         const transcript = event.results[0][0].transcript;
         if (transcript) {
-          setQueryText(transcript);
+          setQueryText(prev => prev ? `${prev} ${transcript}` : transcript);
           setIsListening(false);
         }
       };
@@ -175,58 +210,90 @@ export default function AiAdvisor({ setActiveTab }) {
   const [chatHistory, setChatHistory] = useState([]);
 
   const handleAsk = async (textToQuery) => {
-    const query = textToQuery || queryText;
-    if (!query || query.trim() === '') return;
+    const query = (textToQuery !== undefined ? textToQuery : queryText).trim();
+    if (!query && !imageFile) {
+      setError(lang === 'hi' ? 'कृपया खेती से जुड़ा कोई सवाल पूछें या पौधे की फोटो जोड़ें।' : 'Please enter a farming question or attach a crop photo.');
+      return;
+    }
 
+    setLastQuery(query);
     setLoading(true);
     setError('');
 
     try {
-      // First call /ai-advice, fallback to /recommendations/ask
       let res;
-      try {
-        res = await api.post('/ai-advice', {
+      if (imageFile) {
+        // Multimodal Image Diagnosis with Gemini Vision
+        const formData = new FormData();
+        formData.append('image', imageFile);
+        formData.append('question', query || 'Please analyze this crop image and identify symptoms, possible disease, and recommended treatment.');
+        formData.append('crop', selectedCrop);
+        formData.append('stage', currentCrop?.cropStage || 'Flowering & Early Fruiting');
+        formData.append('language', lang);
+
+        try {
+          res = await api.post('/ai/diagnose', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        } catch (diagErr) {
+          // Fallback to /api/ai/diagnose or /api/analysis/scan
+          res = await api.post('/analysis/scan', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+          });
+        }
+      } else {
+        // Conversational Agricultural Guidance
+        const payload = {
           question: query,
-          queryText: query,
           crop: selectedCrop,
-          cropName: selectedCrop,
-          cropStage: currentCrop?.cropStage || 'Flowering Stage',
-          location: farm?.district || farm?.state || 'Nashik, Maharashtra',
+          stage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
+          soil: farm?.soilType ? { type: farm.soilType } : {},
+          weather: farm?.weather || {},
+          location: farm?.district ? { district: farm.district, state: farm.state } : {},
           language: lang,
           conversationHistory: chatHistory.slice(-6),
-        });
-      } catch (err1) {
-        // Fallback to /recommendations/ask
-        res = await api.post('/recommendations/ask', {
-          queryText: query,
-          question: query,
-          crop: selectedCrop,
-          cropName: selectedCrop,
-          cropStage: currentCrop?.cropStage || 'Flowering Stage',
-          location: farm?.district || farm?.state || 'Nashik, Maharashtra',
-          language: lang,
-          conversationHistory: chatHistory.slice(-6),
-        });
+        };
+
+        try {
+          res = await api.post('/ai/advice', payload);
+        } catch (adviceErr) {
+          // Fallback to legacy /ai-advice or /recommendations/ask
+          try {
+            res = await api.post('/ai-advice', payload);
+          } catch (recErr) {
+            res = await api.post('/recommendations/ask', {
+              queryText: query,
+              question: query,
+              cropName: selectedCrop,
+              cropStage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
+              location: farm?.district || farm?.state || '',
+              language: lang,
+              conversationHistory: chatHistory.slice(-6)
+            });
+          }
+        }
       }
 
       if (res.data && (res.data.success || res.data.answer)) {
         const answerText = res.data.answer || res.data.data?.answer || res.data.data?.whatToDo || '';
         const updatedResult = res.data.data || {
           answer: answerText,
-          queryText: query,
+          queryText: query || 'Crop Photo Diagnosis',
           cropName: selectedCrop,
         };
         if (!updatedResult.answer) updatedResult.answer = answerText;
-        if (!updatedResult.queryText) updatedResult.queryText = query;
+        if (!updatedResult.queryText) updatedResult.queryText = query || 'Crop Photo Diagnosis';
         if (!updatedResult.cropName) updatedResult.cropName = selectedCrop;
+        if (res.data.diagnosis) updatedResult.diagnosis = res.data.diagnosis;
 
         setAdvisoryResult(updatedResult);
         setChatHistory(prev => [
           ...prev,
-          { role: 'user', content: query },
+          { role: 'user', content: query || 'Crop Photo Inspection' },
           { role: 'model', content: answerText }
         ]);
         setQueryText('');
+        removeImage();
       }
     } catch (err) {
       console.error('Advisor query error:', err);
@@ -283,7 +350,7 @@ export default function AiAdvisor({ setActiveTab }) {
             </span>
           </div>
           <p className="text-xs text-slate-600 leading-relaxed">
-            Enter your deployed backend URL (Render, Vercel, or Localhost tunnel) that hosts the secure Gemini API endpoint.
+            Enter your deployed Render backend endpoint hosting the secure Gemini API service.
           </p>
 
           <div className="flex gap-2 flex-wrap sm:flex-nowrap">
@@ -291,7 +358,7 @@ export default function AiAdvisor({ setActiveTab }) {
               type="text"
               value={customBackendUrl}
               onChange={(e) => setCustomBackendUrlState(e.target.value)}
-              placeholder="e.g. https://krishi-drishti-api.onrender.com/api"
+              placeholder="e.g. https://krishi-drishti.onrender.com/api"
               className="flex-1 min-w-[200px] p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
             />
             <button
@@ -319,6 +386,7 @@ export default function AiAdvisor({ setActiveTab }) {
               onClick={() => {
                 setCustomBackendUrlState('https://krishi-drishti.onrender.com/api');
                 handleSaveBackendUrl('https://krishi-drishti.onrender.com/api');
+                testBackendConnection('https://krishi-drishti.onrender.com/api');
               }}
               className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-200 transition font-medium"
             >
@@ -327,18 +395,9 @@ export default function AiAdvisor({ setActiveTab }) {
             <button
               type="button"
               onClick={() => {
-                setCustomBackendUrlState('https://krishi-drishti-api.onrender.com/api');
-                handleSaveBackendUrl('https://krishi-drishti-api.onrender.com/api');
-              }}
-              className="px-2 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg border border-amber-200 transition font-medium"
-            >
-              🚀 Render (krishi-drishti-api)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
                 setCustomBackendUrlState('http://localhost:5000/api');
                 handleSaveBackendUrl('http://localhost:5000/api');
+                testBackendConnection('http://localhost:5000/api');
               }}
               className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg border border-blue-200 transition font-medium"
             >
@@ -351,6 +410,8 @@ export default function AiAdvisor({ setActiveTab }) {
             <div className={`p-2.5 rounded-xl text-xs font-medium flex items-center justify-between border ${
               pingStatus === 'online'
                 ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
+                : pingStatus === 'warning'
+                ? 'bg-amber-50 text-amber-900 border-amber-200'
                 : 'bg-red-50 text-red-900 border-red-200'
             }`}>
               <span>{pingMessage}</span>
@@ -360,13 +421,13 @@ export default function AiAdvisor({ setActiveTab }) {
         </div>
       )}
 
-      {/* Diagnostic Error Banner */}
+      {/* Diagnostic Error Banner with Retry */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 text-xs animate-in fade-in">
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 text-red-900 font-bold text-sm">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-              <span>AI Advisory Diagnostic Details</span>
+              <span>AI Advisory Notice</span>
             </div>
             <button
               type="button"
@@ -383,15 +444,26 @@ export default function AiAdvisor({ setActiveTab }) {
 
           <div className="pt-2 border-t border-red-100 flex items-center justify-between flex-wrap gap-2">
             <span className="text-[11px] text-red-700">
-              Active Endpoint: <code className="bg-white/80 px-1 py-0.5 rounded border border-red-200">{customBackendUrl || API_BASE_URL}</code>
+              Target: <code className="bg-white/80 px-1 py-0.5 rounded border border-red-200">{customBackendUrl || API_BASE_URL}</code>
             </span>
-            <button
-              type="button"
-              onClick={() => setShowApiSettings(true)}
-              className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] rounded-lg shadow-xs transition"
-            >
-              ⚙️ Change / Test Backend URL
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleAsk(lastQuery)}
+                disabled={loading}
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg shadow-xs transition flex items-center gap-1"
+              >
+                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
+                <span>Retry Question</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowApiSettings(true)}
+                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] rounded-lg shadow-xs transition"
+              >
+                ⚙️ Check Backend
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -409,45 +481,102 @@ export default function AiAdvisor({ setActiveTab }) {
               className="font-bold text-slate-800 bg-transparent border-b border-slate-300 focus:outline-none text-xs"
             >
               <option value="Tomato">Tomato (टमाटर)</option>
-              <option value="Rice / Paddy">Rice / Paddy (धान)</option>
               <option value="Wheat">Wheat (गेहूं)</option>
+              <option value="Rice / Paddy">Rice / Paddy (धान)</option>
               <option value="Cotton">Cotton (कपास)</option>
               <option value="Potato">Potato (आलू)</option>
               <option value="Onion">Onion (प्याज)</option>
               <option value="Chilli / Pepper">Chilli / Pepper (मिर्च)</option>
+              <option value="Maize">Maize / Corn (मक्का)</option>
+              <option value="Mustard">Mustard (सरसों)</option>
+              <option value="Soybean">Soybean (सोयाबीन)</option>
             </select>
           </div>
 
           <span className="text-[11px] text-agri-700 bg-agri-50 px-2 py-0.5 rounded font-semibold">
-            🌱 {currentCrop?.cropStage || 'Flowering Stage'} • {farm?.soilType || 'Black Soil'}
+            🌱 {currentCrop?.cropStage || 'Flowering & Early Fruiting'} • {farm?.soilType || 'Loamy Soil'}
           </span>
         </div>
 
-        {/* Textarea Form + Speech Mic Button */}
+        {/* Textarea Form + Speech Mic Button + Photo Attachment */}
         <form onSubmit={(e) => { e.preventDefault(); handleAsk(); }} className="space-y-3">
           <div className="relative">
             <textarea
               rows={3}
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
-              placeholder={t('advisor.askPlaceholder')}
-              className="w-full p-3.5 pr-14 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              placeholder={lang === 'hi' ? 'अपनी फसल की समस्या, बीमारी, खाद, या सिंचाई के बारे में पूछें...' : 'Ask about crop disease, symptoms, fertilizers, irrigation, pests, or PM schemes...'}
+              className="w-full p-3.5 pr-20 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
             ></textarea>
 
-            {/* Mic Button on top-right of textarea */}
-            <button
-              type="button"
-              onClick={toggleSpeechRecognition}
-              className={`absolute right-3 top-3 p-2.5 rounded-xl transition shadow-xs flex items-center justify-center ${
-                isListening
-                  ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
-                  : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
-              }`}
-              title={t('advisor.btnVoice')}
-            >
-              {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
-            </button>
+            {/* Hidden Photo Input */}
+            <input
+              type="file"
+              accept="image/*"
+              capture="environment"
+              ref={fileInputRef}
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+
+            {/* Action buttons inside textarea */}
+            <div className="absolute right-3 top-3 flex items-center gap-1.5">
+              {/* Photo Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className={`p-2 rounded-xl transition shadow-xs flex items-center justify-center ${
+                  imageFile
+                    ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
+                    : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
+                }`}
+                title="Attach or take photo of affected crop"
+              >
+                <Camera className="w-4 h-4" />
+              </button>
+
+              {/* Mic Button */}
+              <button
+                type="button"
+                onClick={toggleSpeechRecognition}
+                className={`p-2 rounded-xl transition shadow-xs flex items-center justify-center ${
+                  isListening
+                    ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
+                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                }`}
+                title={t('advisor.btnVoice')}
+              >
+                {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
+              </button>
+            </div>
           </div>
+
+          {/* Image Attachment Preview */}
+          {imagePreview && (
+            <div className="flex items-center gap-3 p-2 bg-emerald-50 rounded-xl border border-emerald-200">
+              <img
+                src={imagePreview}
+                alt="Selected crop"
+                className="w-12 h-12 object-cover rounded-lg border border-emerald-300 shadow-xs"
+              />
+              <div className="flex-1 min-w-0">
+                <span className="text-xs font-bold text-emerald-950 block truncate">
+                  📷 {imageFile?.name || 'Crop Photo Attached'}
+                </span>
+                <span className="text-[10px] text-emerald-700 block">
+                  Gemini Vision Multimodal Analysis will inspect this photo
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={removeImage}
+                className="p-1 rounded-full text-slate-500 hover:text-red-600 hover:bg-white transition"
+                title="Remove photo"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
           {/* Listening Live Indicator */}
           {isListening && (
@@ -460,31 +589,40 @@ export default function AiAdvisor({ setActiveTab }) {
           <div className="flex gap-2">
             <button
               type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="py-3 px-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border bg-slate-100 hover:bg-emerald-50 text-slate-700 border-slate-200"
+            >
+              <Camera className="w-4 h-4 text-emerald-600" />
+              <span>{imageFile ? 'Photo Attached' : 'Add Photo'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={toggleSpeechRecognition}
-              className={`py-3 px-4 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border ${
+              className={`py-3 px-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border ${
                 isListening
                   ? 'bg-red-50 text-red-700 border-red-300'
                   : 'bg-slate-100 hover:bg-amber-50 text-slate-700 border-slate-200'
               }`}
             >
               <Mic className="w-4 h-4 text-amber-600" />
-              <span>{isListening ? 'Stop Mic' : t('advisor.btnVoice')}</span>
+              <span>{isListening ? 'Stop' : t('advisor.btnVoice')}</span>
             </button>
 
             <button
               type="submit"
-              disabled={loading || !queryText.trim()}
+              disabled={loading || (!queryText.trim() && !imageFile)}
               className="flex-1 bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-700 hover:to-yellow-600 text-white font-bold py-3 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm transition active:scale-95 disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>{t('advisor.thinking')}</span>
+                  <span>AI is thinking... (सलाह तैयार हो रही है)</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>{t('advisor.btnAsk')}</span>
+                  <span>{imageFile ? 'Diagnose Photo with AI' : t('advisor.btnAsk')}</span>
                 </>
               )}
             </button>
@@ -565,7 +703,7 @@ export default function AiAdvisor({ setActiveTab }) {
             </span>
           </div>
 
-          {/* Structured 5-Part Card Structure (Shown if structured breakdown is present) */}
+          {/* Structured Breakdown (Shown if structured breakdown is present) */}
           {advisoryResult.issue && advisoryResult.issue !== advisoryResult.answer && (
             <div className="space-y-3 pt-2">
             

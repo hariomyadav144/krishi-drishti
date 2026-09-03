@@ -7,9 +7,13 @@ module.exports = (req, res) => {
     return res.status(200).end();
   }
 
+  const geminiConfigured = Boolean((process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '').trim());
+
   return res.status(200).json({
+    status: 'ok',
     success: true,
-    status: 'online',
+    geminiConfigured,
+    model: process.env.GEMINI_MODEL || 'gemini-2.0-flash',
     app: 'KRISHI DRISHTI API (Serverless)',
     tagline: 'From Space to Soil',
     timestamp: new Date().toISOString()

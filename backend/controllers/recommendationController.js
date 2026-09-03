@@ -124,8 +124,9 @@ const askAdvisor = async (req, res) => {
       answer: geminiResult.answer,
     });
   } catch (error) {
-    console.error('Advisor error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Advisor error:', error.message || error);
+    const statusCode = error.statusCode || 500;
+    res.status(statusCode).json({ success: false, message: error.message || 'AI service error' });
   }
 };
 

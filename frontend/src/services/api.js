@@ -57,12 +57,22 @@ const api = axios.create({
   },
 });
 
-// Interceptor to attach JWT token and ensure latest baseURL
+// Interceptor to attach JWT token, normalize URLs, and ensure latest baseURL
 api.interceptors.request.use((config) => {
   const custom = localStorage.getItem('krishi_backend_url');
-  if (custom && custom.trim()) {
-    config.baseURL = custom.trim();
+  let base = (custom && custom.trim()) ? custom.trim() : resolveApiBaseUrl();
+  base = base.replace(/\/+$/, ''); // Remove trailing slashes
+  config.baseURL = base;
+
+  let url = config.url || '';
+  // Fix double /api issue (e.g. baseURL ends with /api and url starts with /api/)
+  if (base.endsWith('/api') && url.startsWith('/api/')) {
+    url = url.substring(4);
+  } else if (url.startsWith('/api/api/')) {
+    url = url.replace('/api/api/', '/api/');
   }
+  config.url = url;
+
   const token = localStorage.getItem('krishi_token');
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -370,19 +380,26 @@ api.interceptors.response.use(
 
     // CRITICAL: DO NOT serve fake fallback for real AI Advisor questions!
     // Diagnose and present the actual cause instead of generic "Network Error"
-    if (url.includes('/recommendations/ask') || url.includes('/ai-advice')) {
+    const isAiRoute = url.includes('/ai/advice') || 
+                      url.includes('/ai/diagnose') || 
+                      url.includes('/ai-advice') || 
+                      url.includes('/recommendations/ask');
+
+    if (isAiRoute) {
       let detailedMsg = '';
       const activeBaseUrl = error.config?.baseURL || api.defaults.baseURL || resolveApiBaseUrl();
 
       if (!error.response) {
         // Network error / CORS failure / DNS failure / Offline
-        detailedMsg = `Backend Unreachable / CORS Blocked: Could not reach backend API at "${activeBaseUrl}". The server may be waking up, not yet deployed, or CORS is blocking the request.`;
+        detailedMsg = `Backend Unreachable / CORS Blocked: Could not reach backend at "${activeBaseUrl}". If the Render server is waking up from sleep, it may take ~50 seconds. Please wait a moment and click Retry.`;
       } else if (error.response.status === 503) {
-        detailedMsg = `Backend Key Missing (503): ${error.response.data?.message || 'GEMINI_API_KEY is not configured on the backend server.'}`;
+        detailedMsg = `AI Service Unavailable (503): ${error.response.data?.message || 'GEMINI_API_KEY is not configured on the backend server.'}`;
       } else if (error.response.status === 502) {
-        detailedMsg = `Google Gemini Error (502): ${error.response.data?.message || 'Gemini model rejected request.'}`;
+        detailedMsg = `Google Gemini Error (502): ${error.response.data?.message || 'The AI model rejected or failed to process the request.'}`;
+      } else if (error.response.status === 429) {
+        detailedMsg = `AI Rate Limit (429): Service is temporarily busy. Please wait a few seconds and try again.`;
       } else if (error.response.status === 404) {
-        detailedMsg = `Endpoint Not Found (404): Route ${url} not found on backend "${activeBaseUrl}".`;
+        detailedMsg = `Endpoint Not Found (404): Route "${url}" was not found on backend "${activeBaseUrl}". Check backend configuration.`;
       } else {
         detailedMsg = error.response.data?.message || error.response.data?.error || `Server responded with HTTP ${error.response.status}`;
       }
