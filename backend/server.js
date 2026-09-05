@@ -1,7 +1,9 @@
+const path = require('path');
+// Load environment variables from backend/.env first, then root .env
+require('dotenv').config({ path: path.join(__dirname, '.env') });
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const path = require('path');
 const { connectDB } = require('./config/db');
 const User = require('./models/User');
 const { seedDatabase } = require('./utils/seedData');

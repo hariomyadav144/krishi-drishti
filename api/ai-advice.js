@@ -119,10 +119,12 @@ module.exports = async function handler(req, res) {
     });
 
     const candidateModels = [
-      process.env.GEMINI_MODEL || 'gemini-2.0-flash',
-      'gemini-2.0-flash',
-      'gemini-1.5-flash',
-      'gemini-2.0-flash-lite'
+      process.env.GEMINI_MODEL || 'gemini-3.7-flash',
+      'gemini-3.7-flash',
+      'gemini-3.6-flash',
+      'gemini-3.8-flash',
+      'gemini-flash-latest',
+      'gemini-2.5-flash'
     ].filter((m, i, arr) => arr.indexOf(m) === i);
 
     let answer = '';

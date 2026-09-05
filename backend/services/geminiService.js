@@ -1,3 +1,6 @@
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
 
 /**
@@ -63,13 +66,13 @@ CRITICAL DIAGNOSTIC & BEHAVIORAL RULES:
  * Get active Gemini Flash model with configurable fallback
  */
 function getActiveModel() {
-  return process.env.GEMINI_MODEL || 'gemini-2.0-flash';
+  return process.env.GEMINI_MODEL || 'gemini-3.7-flash';
 }
 
 function getCandidateModels() {
   const primary = getActiveModel();
-  const list = [primary, 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-2.0-flash-lite'];
-  return [...new Set(list)];
+  const list = [primary, 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
+  return [...new Set(list.filter(Boolean))];
 }
 
 /**
@@ -405,32 +408,46 @@ async function testGeminiDiagnostic() {
   }
 
   const startTime = Date.now();
-  try {
-    const ai = new GoogleGenAI({ apiKey });
-    const model = getActiveModel();
-    const res = await ai.models.generateContent({
-      model,
-      contents: [{ role: 'user', parts: [{ text: 'Ping. Reply with single word: Pong' }] }],
-      config: { maxOutputTokens: 10 }
-    });
+  const candidateModels = getCandidateModels();
+  let lastError = null;
+  let successfulModel = null;
 
-    const latencyMs = Date.now() - startTime;
+  for (const modelName of candidateModels) {
+    try {
+      const ai = new GoogleGenAI({ apiKey });
+      const res = await ai.models.generateContent({
+        model: modelName,
+        contents: [{ role: 'user', parts: [{ text: 'Ping. Reply with single word: Pong' }] }],
+        config: { maxOutputTokens: 100 }
+      });
+
+      const reply = res?.text || res?.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+      if (reply) {
+        successfulModel = modelName;
+        break;
+      }
+    } catch (err) {
+      lastError = err;
+      console.warn(`[Krishi Drishti] Diagnostic test with model ${modelName} failed:`, err.message || err);
+    }
+  }
+
+  const latencyMs = Date.now() - startTime;
+  if (successfulModel) {
     return {
       status: 'ok',
       geminiConfigured: true,
-      model,
+      model: successfulModel,
       latencyMs,
-      message: `Google Gemini API responding normally (${latencyMs}ms).`
+      message: `Google Gemini API responding normally via ${successfulModel} (${latencyMs}ms).`
     };
-  } catch (err) {
-    const latencyMs = Date.now() - startTime;
-    console.warn('[Krishi Drishti] Diagnostic test failed:', err.message || err);
+  } else {
     return {
       status: 'error',
       geminiConfigured: true,
       model: getActiveModel(),
       latencyMs,
-      message: `Gemini API check failed: ${err.message ? err.message.replace(/AIza[a-zA-Z0-9_-]+/g, '[REDACTED]') : 'Connection error'}`
+      message: `Gemini API check failed: ${lastError?.message ? lastError.message.replace(/AIza[a-zA-Z0-9_-]+/g, '[REDACTED]') : 'Connection error'}`
     };
   }
 }
