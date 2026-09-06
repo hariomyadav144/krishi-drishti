@@ -183,6 +183,21 @@ function cleanLatexAndFormat(text) {
 }
 
 /**
+ * Sanitize AI response to ensure no echoed prompts, developer notes, or broken LaTeX reach the farmer
+ */
+function sanitizeAiResponse(text) {
+  if (!text || typeof text !== 'string') return '';
+  let cleaned = text;
+
+  // Strip any echoed system instructions or prompt headers if model reflected them
+  cleaned = cleaned.replace(/^IMPORTANT:[\s\S]*?(?=(\n\n|किसान|नमस्ते|१|1\.|रोग|समस्या|फसल|उपाय))/gi, '');
+  cleaned = cleaned.replace(/^\[?(?:अनिवार्य निर्देश|कृषि संदर्भ|Agricultural Context|Farmer Question):[^\n]*\]?\n*/gim, '');
+
+  cleaned = cleanLatexAndFormat(cleaned);
+  return cleaned.trim();
+}
+
+/**
  * Ask Gemini Conversational Agriculture Advisor
  */
 async function askGeminiAdvisor({
@@ -238,15 +253,10 @@ async function askGeminiAdvisor({
     }
   }
 
-  // Strict Hindi prompt wrapper for Google Gemini
-  const strictHindiInstruction = `\n\nIMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.`;
-
   // Construct final prompt with context
   let finalPrompt = q;
   if (contextTokens.length > 0) {
-    finalPrompt = `[Agricultural Context: ${contextTokens.join(' | ')}]\n\nFarmer Question: ${q}${strictHindiInstruction}`;
-  } else {
-    finalPrompt = `${q}${strictHindiInstruction}`;
+    finalPrompt = `[Agricultural Context: ${contextTokens.join(' | ')}]\n\nFarmer Question: ${q}`;
   }
 
   contents.push({
@@ -271,7 +281,7 @@ async function askGeminiAdvisor({
 
       const text = response?.text?.trim() || '';
       if (text) {
-        answerText = cleanLatexAndFormat(text);
+        answerText = sanitizeAiResponse(text);
         successfulModel = modelName;
         break;
       }
@@ -378,7 +388,7 @@ MANDATORY INSTRUCTIONS:
 
       const text = response?.text?.trim() || '';
       if (text) {
-        answerText = cleanLatexAndFormat(text);
+        answerText = sanitizeAiResponse(text);
         successfulModel = modelName;
         break;
       }

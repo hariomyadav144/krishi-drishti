@@ -5,13 +5,23 @@ const ActionPlan = require('../models/ActionPlan');
 const { askGeminiAdvisor } = require('../services/geminiService');
 const { getFarmWeather } = require('../services/weatherService');
 
+function cleanUserQuery(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  return raw
+    .replace(/IMPORTANT:[\s\S]*?(?:Farmer Question:|सवाल:|प्रश्न:)/gi, '')
+    .replace(/\[?(?:अनिवार्य निर्देश|कृषि संदर्भ|Agricultural Context|Farmer Question):[^\n]*\]?\n*/gim, '')
+    .replace(/^Farmer Question:\s*/gi, '')
+    .replace(/^(?:सवाल|प्रश्न):\s*/gi, '')
+    .trim();
+}
+
 // @desc Ask AI Advisor for personalized agronomy recommendations
 // @route POST /api/recommendations/ask
 const askAdvisor = async (req, res) => {
   try {
     const { queryText, question, cropName, crop, cropStage, language, conversationHistory } = req.body;
     const userId = req.user ? req.user._id : null;
-    const actualQuery = (queryText || question || '').trim();
+    const actualQuery = cleanUserQuery(queryText || question || '');
 
     if (!actualQuery) {
       return res.status(400).json({ success: false, message: 'Please provide a farming question or topic.' });

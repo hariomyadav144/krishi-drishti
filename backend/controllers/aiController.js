@@ -6,6 +6,16 @@ const {
   testGeminiDiagnostic
 } = require('../services/geminiService');
 
+function cleanUserQuery(raw) {
+  if (!raw || typeof raw !== 'string') return '';
+  return raw
+    .replace(/IMPORTANT:[\s\S]*?(?:Farmer Question:|सवाल:|प्रश्न:)/gi, '')
+    .replace(/\[?(?:अनिवार्य निर्देश|कृषि संदर्भ|Agricultural Context|Farmer Question):[^\n]*\]?\n*/gim, '')
+    .replace(/^Farmer Question:\s*/gi, '')
+    .replace(/^(?:सवाल|प्रश्न):\s*/gi, '')
+    .trim();
+}
+
 /**
  * @desc Get real-time conversational AI Advice from Google Gemini
  * @route POST /api/ai/advice (also /api/ai-advice, /ai/advice)
@@ -27,7 +37,8 @@ const getAiAdvice = async (req, res) => {
       conversationHistory
     } = req.body || {};
 
-    const query = (question || queryText || '').trim();
+    const rawInput = (question || queryText || '').trim();
+    const query = cleanUserQuery(rawInput);
 
     if (!query) {
       return res.status(400).json({
@@ -104,7 +115,7 @@ const diagnoseCrop = async (req, res) => {
 
     const selectedCrop = crop || cropName || 'Tomato';
     const selectedStage = stage || cropStage || 'Flowering Stage';
-    const farmerQuery = question || symptomDescription || '';
+    const farmerQuery = cleanUserQuery(question || symptomDescription || '');
 
     let imageBuffer = null;
     let mimeType = 'image/jpeg';

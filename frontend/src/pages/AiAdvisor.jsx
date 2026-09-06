@@ -29,6 +29,70 @@ import {
 
 export const HINDI_SYSTEM_INSTRUCTION = "IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.";
 
+// Clean user query to ensure no system instructions/prompts can ever appear in UI
+export function cleanUserQuery(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
+    .replace(/IMPORTANT:[\s\S]*?(?:Farmer Question:|सवाल:|प्रश्न:)/gi, '')
+    .replace(/\[?(?:अनिवार्य निर्देश|कृषि संदर्भ|Agricultural Context|Farmer Question):[^\n]*\]?\n*/gim, '')
+    .replace(/^Farmer Question:\s*/gi, '')
+    .replace(/^(?:सवाल|प्रश्न):\s*/gi, '')
+    .trim();
+}
+
+// Clean visible advice for the farmer:
+// - Removes any echoed developer prompts/instructions
+// - Strips markdown symbols (###, **, _, `, backslashes)
+// - Cleans LaTeX math and temperature notation
+// - Removes citation numbers like [1], [6075]
+export function cleanVisibleAdvice(rawText) {
+  if (!rawText || typeof rawText !== 'string') return '';
+  let text = rawText;
+
+  // 1. Strip system prompt or prompt headers
+  text = text.replace(/IMPORTANT:[\s\S]*?(?=(\n\n|किसान|नमस्ते|१|1\.|रोग|समस्या|फसल|उपाय|$))/gi, '');
+  text = text.replace(/\[?(?:अनिवार्य निर्देश|कृषि संदर्भ|Agricultural Context|Farmer Question|User Question):[^\n]*\]?\n*/gim, '');
+  text = text.replace(/Farmer('s)?\s*(Note|Question):[^\n]*/gim, '');
+
+  // 2. Strip JSON/code blocks and URLs
+  text = text.replace(/```[\s\S]*?```/g, '');
+  text = text.replace(/`([^`]+)`/g, '$1');
+  text = text.replace(/\{[^{}]*\}/g, '');
+  text = text.replace(/https?:\/\/\S+/gi, '');
+
+  // 3. Strip citations like [6075], [1], [source: ...]
+  text = text.replace(/\[\s*\d+\s*\]/g, '');
+  text = text.replace(/\[source:[^\]]*\]/gi, '');
+
+  // 4. Clean LaTeX math and temperature notation
+  text = text.replace(/\\*(?:text|mathrm)\{([^{}]+)\}/gi, '$1');
+  text = text.replace(/\t+ext\{([^{}]+)\}/gi, '$1');
+  text = text.replace(/\$?\s*([0-9.]+)\s*(?:\^\\*circ|\^circ|°)\s*C?\s*\$?(\s*(?:से|to|-)\s*)\$?\s*([0-9.]+)\s*(?:\^\\*circ|\^circ|°)\s*C?\s*\$?(\s*(?:°C|डिग्री|C)?)/gi, '$1°C $2 $3°C');
+  text = text.replace(/\$?\s*([0-9.]+)\s*(?:\^\\*circ|\^circ|°)\s*C?\s*\$?/gi, '$1°C');
+  text = text.replace(/\\*sim\s*/gi, 'लगभग ');
+  text = text.replace(/\\*(?:text|mathrm)/gi, '');
+  text = text.replace(/[\$\\^~]/g, '');
+
+  // 5. Clean markdown headers (### -> clean)
+  text = text.replace(/^#{1,6}\s*/gm, '');
+  text = text.replace(/#{1,6}/g, '');
+
+  // 6. Clean bold / italic asterisks (** -> clean)
+  text = text.replace(/[*_`\\]/g, '');
+
+  // 7. Clean list dashes/bullets at beginning of lines
+  text = text.replace(/^[\s\-+•·]+\s*/gm, '• ');
+
+  // 8. Remove HTML tags
+  text = text.replace(/<[^>]+>/g, '');
+
+  // 9. Normalize whitespace
+  text = text.replace(/[ \t]+/g, ' ');
+  text = text.replace(/\n\s*\n+/g, '\n\n');
+
+  return text.trim();
+}
+
 export default function AiAdvisor({ setActiveTab }) {
   const { lang, t } = useLanguage();
   const { currentCrop, farm } = useAuth();
@@ -160,9 +224,7 @@ export default function AiAdvisor({ setActiveTab }) {
         // Multimodal Image Diagnosis with Gemini Vision
         const formData = new FormData();
         formData.append('image', imageFile);
-        formData.append('question', query ? `${HINDI_SYSTEM_INSTRUCTION}\n\nFarmer Question: ${query}` : `${HINDI_SYSTEM_INSTRUCTION}\n\nPlease analyze this crop image and identify symptoms, possible disease, and recommended treatment.`);
-        formData.append('instruction', HINDI_SYSTEM_INSTRUCTION);
-        formData.append('promptInstruction', HINDI_SYSTEM_INSTRUCTION);
+        formData.append('question', query || 'कृपया इस पौधे की फोटो देखकर समस्या और उपचार बताएं।');
         formData.append('crop', selectedCrop);
         formData.append('stage', currentCrop?.cropStage || 'Flowering & Early Fruiting');
         formData.append('language', 'hi');
@@ -178,14 +240,11 @@ export default function AiAdvisor({ setActiveTab }) {
           });
         }
       } else {
-        // Conversational Agricultural Guidance with strict Hindi instruction
-        const formattedQuestion = `${HINDI_SYSTEM_INSTRUCTION}\n\nFarmer Question: ${query}`;
+        // Conversational Agricultural Guidance
         const payload = {
-          question: formattedQuestion,
-          queryText: formattedQuestion,
+          question: query,
+          queryText: query,
           rawQuestion: query,
-          promptInstruction: HINDI_SYSTEM_INSTRUCTION,
-          systemInstruction: HINDI_SYSTEM_INSTRUCTION,
           crop: selectedCrop,
           stage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
           soil: farm?.soilType ? { type: farm.soilType } : {},
@@ -203,9 +262,8 @@ export default function AiAdvisor({ setActiveTab }) {
             res = await api.post('/ai-advice', payload);
           } catch (recErr) {
             res = await api.post('/recommendations/ask', {
-              queryText: formattedQuestion,
-              question: formattedQuestion,
-              promptInstruction: HINDI_SYSTEM_INSTRUCTION,
+              queryText: query,
+              question: query,
               cropName: selectedCrop,
               cropStage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
               location: farm?.district || farm?.state || '',
@@ -217,22 +275,23 @@ export default function AiAdvisor({ setActiveTab }) {
       }
 
       if (res.data && (res.data.success || res.data.answer)) {
-        const answerText = res.data.answer || res.data.data?.answer || res.data.data?.whatToDo || '';
-        const updatedResult = res.data.data || {
-          answer: answerText,
-          queryText: query || 'Crop Photo Diagnosis',
+        const rawAnswerText = res.data.answer || res.data.data?.answer || res.data.data?.whatToDo || '';
+        const cleanedAnswer = cleanVisibleAdvice(rawAnswerText);
+        const userQuery = cleanUserQuery(res.data.queryText || res.data.data?.queryText || query || 'फसल सलाह');
+
+        const updatedResult = {
+          ...(res.data.data || {}),
+          answer: cleanedAnswer,
+          queryText: userQuery,
           cropName: selectedCrop,
+          diagnosis: res.data.diagnosis || res.data.data?.diagnosis
         };
-        if (!updatedResult.answer) updatedResult.answer = answerText;
-        if (!updatedResult.queryText) updatedResult.queryText = query || 'Crop Photo Diagnosis';
-        if (!updatedResult.cropName) updatedResult.cropName = selectedCrop;
-        if (res.data.diagnosis) updatedResult.diagnosis = res.data.diagnosis;
 
         setAdvisoryResult(updatedResult);
         setChatHistory(prev => [
           ...prev,
           { role: 'user', content: query || 'Crop Photo Inspection' },
-          { role: 'model', content: answerText }
+          { role: 'model', content: cleanedAnswer }
         ]);
         setQueryText('');
         removeImage();
@@ -495,18 +554,15 @@ export default function AiAdvisor({ setActiveTab }) {
                   <Sparkles className="w-3 h-3 text-emerald-600" />
                   <span>Google Gemini AI • {advisoryResult.cropName || selectedCrop}</span>
                 </span>
-                <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">
-                  Live Response
-                </span>
               </div>
               <h3 className="text-base font-extrabold text-slate-900 mt-2">
-                "{advisoryResult.queryText}"
+                "{cleanUserQuery(advisoryResult.queryText) || lastQuery || 'फसल सलाह'}"
               </h3>
             </div>
 
             <VoiceReader
-              textToRead={advisoryResult.answer || advisoryResult.whatToDo || 'Here is your agricultural recommendation.'}
-              textToReadHi={advisoryResult.answer || advisoryResult.whatToDoHi || advisoryResult.whatToDo || 'यहाँ आपकी कृषि सलाह है।'}
+              textToRead={cleanVisibleAdvice(advisoryResult.answer || advisoryResult.whatToDo || 'यहाँ आपकी कृषि सलाह है।')}
+              textToReadHi={cleanVisibleAdvice(advisoryResult.answer || advisoryResult.whatToDoHi || advisoryResult.whatToDo || 'यहाँ आपकी कृषि सलाह है।')}
             />
           </div>
 
@@ -514,10 +570,10 @@ export default function AiAdvisor({ setActiveTab }) {
           {advisoryResult.answer && (
             <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 text-slate-900 leading-relaxed space-y-2">
               <div className="font-bold text-emerald-950 flex items-center gap-1.5 text-xs">
-                <span>🌱 कृषि दृष्टि AI सलाह (Real-Time Agricultural Advice):</span>
+                <span>🌱 कृषि दृष्टि AI सलाह (Agricultural Advice):</span>
               </div>
               <div className="text-xs sm:text-sm text-slate-800 font-normal leading-relaxed whitespace-pre-line">
-                {advisoryResult.answer}
+                {cleanVisibleAdvice(advisoryResult.answer)}
               </div>
             </div>
           )}
