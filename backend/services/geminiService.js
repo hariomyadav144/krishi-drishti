@@ -288,6 +288,10 @@ async function askGeminiAdvisor({
     } catch (err) {
       console.warn(`[Krishi Drishti] Gemini model ${modelName} error:`, err.message || err);
       lastError = err;
+      const errMsg = (err.message || String(err)).toLowerCase();
+      if (errMsg.includes('resource_exhausted') || errMsg.includes('quota') || errMsg.includes('429')) {
+        break;
+      }
     }
   }
 
@@ -395,6 +399,10 @@ MANDATORY INSTRUCTIONS:
     } catch (err) {
       console.warn(`[Krishi Drishti] Gemini Vision model ${modelName} error:`, err.message || err);
       lastError = err;
+      const errMsg = (err.message || String(err)).toLowerCase();
+      if (errMsg.includes('resource_exhausted') || errMsg.includes('quota') || errMsg.includes('429')) {
+        break;
+      }
     }
   }
 

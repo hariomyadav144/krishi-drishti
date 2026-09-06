@@ -2,7 +2,7 @@ const Recommendation = require('../models/Recommendation');
 const Crop = require('../models/Crop');
 const Farm = require('../models/Farm');
 const ActionPlan = require('../models/ActionPlan');
-const { askGeminiAdvisor } = require('../services/geminiService');
+const { getUnifiedAiAdvice } = require('../services/aiService');
 const { getFarmWeather } = require('../services/weatherService');
 
 function cleanUserQuery(raw) {
@@ -44,8 +44,8 @@ const askAdvisor = async (req, res) => {
     const targetCropName = crop || cropName || (activeCrop ? activeCrop.cropName : 'Tomato');
     const targetCropStage = cropStage || (activeCrop ? activeCrop.cropStage : 'Flowering Stage');
 
-    // Call Real Google Gemini API
-    const geminiResult = await askGeminiAdvisor({
+    // Call Unified AI Service (Primary Gemini -> Cloud Fallback -> Agronomy Engine)
+    const geminiResult = await getUnifiedAiAdvice({
       question: actualQuery,
       crop: targetCropName,
       cropStage: targetCropStage,

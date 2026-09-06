@@ -1,10 +1,11 @@
 const fs = require('fs');
 const path = require('path');
 const {
-  askGeminiAdvisor,
-  diagnoseCropWithGemini,
-  testGeminiDiagnostic
-} = require('../services/geminiService');
+  getUnifiedAiAdvice,
+  getUnifiedCropDiagnosis,
+  getFriendlyBusyMessage
+} = require('../services/aiService');
+const { testGeminiDiagnostic } = require('../services/geminiService');
 
 function cleanUserQuery(raw) {
   if (!raw || typeof raw !== 'string') return '';
@@ -17,41 +18,41 @@ function cleanUserQuery(raw) {
 }
 
 /**
- * @desc Get real-time conversational AI Advice from Google Gemini
+ * @desc Get real-time conversational AI Advice through unified AI Service
  * @route POST /api/ai/advice (also /api/ai-advice, /ai/advice)
  * @access Public / Farmer
  */
 const getAiAdvice = async (req, res) => {
-  try {
-    const {
-      question,
-      queryText,
-      crop,
-      cropName,
-      stage,
-      cropStage,
-      soil,
-      weather,
-      location,
-      language,
-      conversationHistory
-    } = req.body || {};
+  const {
+    question,
+    queryText,
+    crop,
+    cropName,
+    stage,
+    cropStage,
+    soil,
+    weather,
+    location,
+    language = 'hi',
+    conversationHistory
+  } = req.body || {};
 
+  try {
     const rawInput = (question || queryText || '').trim();
     const query = cleanUserQuery(rawInput);
 
     if (!query) {
       return res.status(400).json({
         success: false,
-        message: 'Please provide a farming question or topic.'
+        message: language === 'en' ? 'Please provide a farming question or topic.' : 'कृपया खेती से जुड़ा कोई सवाल पूछें।'
       });
     }
 
     const selectedCrop = crop || cropName || 'General';
     const selectedStage = stage || cropStage || '';
 
-    // Call real Google Gemini API
-    const geminiResult = await askGeminiAdvisor({
+    // Execute Unified AI Service (Primary -> Cloud Fallback -> Agronomy Engine)
+    const result = await getUnifiedAiAdvice({
       question: query,
       crop: selectedCrop,
       cropStage: selectedStage,
@@ -64,32 +65,38 @@ const getAiAdvice = async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      answer: geminiResult.answer,
-      language: geminiResult.language,
+      answer: result.answer,
+      language: result.language || language,
       crop: selectedCrop,
       stage: selectedStage,
-      model: geminiResult.model,
-      timestamp: geminiResult.timestamp,
-      message: 'AI Advice generated successfully via Gemini API',
+      source: result.source || 'ai_service',
+      timestamp: result.timestamp || new Date().toISOString(),
+      message: 'Agricultural advice generated successfully',
       data: {
-        answer: geminiResult.answer,
+        answer: result.answer,
         queryText: query,
         cropName: selectedCrop,
         cropStage: selectedStage,
-        model: geminiResult.model,
-        timestamp: geminiResult.timestamp
+        timestamp: result.timestamp || new Date().toISOString()
       },
       // Backwards-compatible root aliases
       queryText: query,
       cropName: selectedCrop
     });
   } catch (error) {
-    console.error('[Krishi Drishti] AI Advice Error:', error.message || error);
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      success: false,
-      message: error.message || 'AI service is temporarily unavailable. Please try again in a few moments.',
-      error: error.message || 'AI service is temporarily unavailable.'
+    console.error('[Krishi Drishti] AI Advice Catch:', error.message || error);
+    // Never expose technical quota / 429 errors to farmers
+    const friendlyMsg = getFriendlyBusyMessage(language);
+    return res.status(200).json({
+      success: true,
+      answer: friendlyMsg,
+      language,
+      message: friendlyMsg,
+      data: {
+        answer: friendlyMsg,
+        queryText: question || queryText || '',
+        cropName: crop || cropName || 'General'
+      }
     });
   }
 };
@@ -144,11 +151,11 @@ const diagnoseCrop = async (req, res) => {
     if (!imageBuffer) {
       return res.status(400).json({
         success: false,
-        message: 'Please upload a photo of the affected leaf, fruit, stem, or plant to diagnose.'
+        message: language === 'en' ? 'Please upload a photo of the affected leaf, fruit, stem, or plant to diagnose.' : 'कृपया प्रभावित पौधे, पत्ती या फल की फोटो अपलोड करें।'
       });
     }
 
-    const diagnosisResult = await diagnoseCropWithGemini({
+    const diagnosisResult = await getUnifiedCropDiagnosis({
       imageBuffer,
       mimeType,
       question: farmerQuery,
@@ -160,20 +167,26 @@ const diagnoseCrop = async (req, res) => {
     return res.status(200).json({
       success: true,
       answer: diagnosisResult.answer,
-      language: diagnosisResult.language,
-      crop: diagnosisResult.crop,
-      stage: diagnosisResult.stage,
-      model: diagnosisResult.model,
-      timestamp: diagnosisResult.timestamp,
+      language: diagnosisResult.language || language,
+      crop: diagnosisResult.crop || selectedCrop,
+      stage: diagnosisResult.stage || selectedStage,
+      source: diagnosisResult.source || 'vision_service',
+      timestamp: diagnosisResult.timestamp || new Date().toISOString(),
       diagnosis: diagnosisResult.diagnosis,
-      data: diagnosisResult.data
+      data: diagnosisResult.data || { answer: diagnosisResult.answer }
     });
   } catch (error) {
     console.error('[Krishi Drishti] AI Diagnose Error:', error.message || error);
-    const statusCode = error.statusCode || 500;
-    return res.status(statusCode).json({
-      success: false,
-      message: error.message || 'AI diagnosis service is temporarily unavailable. Please try again in a few moments.'
+    const friendlyMsg = getFriendlyBusyMessage(req.body?.language || 'hi');
+    return res.status(200).json({
+      success: true,
+      answer: friendlyMsg,
+      message: friendlyMsg,
+      diagnosis: 'अस्थायी रूप से व्यस्त',
+      data: {
+        answer: friendlyMsg,
+        detectedProblemHi: 'सेवा अस्थायी रूप से व्यस्त'
+      }
     });
   }
 };

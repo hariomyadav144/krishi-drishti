@@ -109,6 +109,7 @@ export default function AiAdvisor({ setActiveTab }) {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
+  const isSubmittingRef = useRef(false);
 
 
   // Image file handler
@@ -140,7 +141,7 @@ export default function AiAdvisor({ setActiveTab }) {
   useEffect(() => {
     const fetchPredefined = async () => {
       try {
-        const res = await api.get('/recommendations/predefined-queries');
+        const res = await api.get('/ai/predefined-queries');
         if (res.data?.success) {
           const list = Array.isArray(res.data.data) ? res.data.data : (Array.isArray(res.data.queries) ? res.data.queries : []);
           setPredefinedQueries(list);
@@ -208,12 +209,15 @@ export default function AiAdvisor({ setActiveTab }) {
   const [chatHistory, setChatHistory] = useState([]);
 
   const handleAsk = async (textToQuery) => {
+    if (loading || isSubmittingRef.current) return;
+
     const query = (textToQuery !== undefined ? textToQuery : queryText).trim();
     if (!query && !imageFile) {
       setError(lang === 'hi' ? 'कृपया खेती से जुड़ा कोई सवाल पूछें या पौधे की फोटो जोड़ें।' : 'Please enter a farming question or attach a crop photo.');
       return;
     }
 
+    isSubmittingRef.current = true;
     setLastQuery(query);
     setLoading(true);
     setError('');
@@ -221,7 +225,7 @@ export default function AiAdvisor({ setActiveTab }) {
     try {
       let res;
       if (imageFile) {
-        // Multimodal Image Diagnosis with Gemini Vision
+        // Multimodal Image Diagnosis with Vision Service
         const formData = new FormData();
         formData.append('image', imageFile);
         formData.append('question', query || 'कृपया इस पौधे की फोटो देखकर समस्या और उपचार बताएं।');
@@ -229,16 +233,9 @@ export default function AiAdvisor({ setActiveTab }) {
         formData.append('stage', currentCrop?.cropStage || 'Flowering & Early Fruiting');
         formData.append('language', 'hi');
 
-        try {
-          res = await api.post('/ai/diagnose', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-        } catch (diagErr) {
-          // Fallback to /api/ai/diagnose or /api/analysis/scan
-          res = await api.post('/analysis/scan', formData, {
-            headers: { 'Content-Type': 'multipart/form-data' }
-          });
-        }
+        res = await api.post('/ai/diagnose', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' }
+        });
       } else {
         // Conversational Agricultural Guidance
         const payload = {
@@ -254,24 +251,7 @@ export default function AiAdvisor({ setActiveTab }) {
           conversationHistory: chatHistory.slice(-6),
         };
 
-        try {
-          res = await api.post('/ai/advice', payload);
-        } catch (adviceErr) {
-          // Fallback to legacy /ai-advice or /recommendations/ask
-          try {
-            res = await api.post('/ai-advice', payload);
-          } catch (recErr) {
-            res = await api.post('/recommendations/ask', {
-              queryText: query,
-              question: query,
-              cropName: selectedCrop,
-              cropStage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
-              location: farm?.district || farm?.state || '',
-              language: 'hi',
-              conversationHistory: chatHistory.slice(-6)
-            });
-          }
-        }
+        res = await api.post('/ai/advice', payload);
       }
 
       if (res.data && (res.data.success || res.data.answer)) {
@@ -297,11 +277,14 @@ export default function AiAdvisor({ setActiveTab }) {
         removeImage();
       }
     } catch (err) {
-      console.error('Advisor query error:', err);
-      const msg = err.response?.data?.message || err.message || 'Error generating AI recommendation from Google Gemini.';
-      setError(msg);
+      console.warn('Advisor query notice:', err.message || err);
+      const friendlyMsg = lang === 'en'
+        ? 'AI advice is temporarily busy. Please try again shortly.'
+        : 'अभी सलाह सेवा थोड़ी व्यस्त है। कृपया कुछ देर बाद फिर कोशिश करें।';
+      setError(friendlyMsg);
     } finally {
       setLoading(false);
+      isSubmittingRef.current = false;
     }
   };
 
@@ -529,8 +512,9 @@ export default function AiAdvisor({ setActiveTab }) {
                 <button
                   key={q.id || idx}
                   type="button"
+                  disabled={loading}
                   onClick={() => handleAsk(text)}
-                  className="text-xs bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700 hover:text-amber-900 border border-slate-200 px-3 py-2 rounded-xl text-left transition font-medium active:scale-95 flex items-center gap-1.5"
+                  className="text-xs bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700 hover:text-amber-900 border border-slate-200 px-3 py-2 rounded-xl text-left transition font-medium active:scale-95 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>💬</span>
                   <span>{text}</span>
@@ -542,7 +526,7 @@ export default function AiAdvisor({ setActiveTab }) {
 
       </div>
 
-      {/* Real Conversational Gemini AI Advice Result */}
+      {/* Real Conversational Krishi Drishti AI Advice Result */}
       {advisoryResult && (
         <div className="agri-card p-5 bg-white border-emerald-400 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3">
           
@@ -552,7 +536,7 @@ export default function AiAdvisor({ setActiveTab }) {
               <div className="flex items-center gap-2">
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                   <Sparkles className="w-3 h-3 text-emerald-600" />
-                  <span>Google Gemini AI • {advisoryResult.cropName || selectedCrop}</span>
+                  <span>Krishi Drishti AI • {advisoryResult.cropName || selectedCrop}</span>
                 </span>
               </div>
               <h3 className="text-base font-extrabold text-slate-900 mt-2">
