@@ -27,7 +27,6 @@ import {
   Check 
 } from 'lucide-react';
 
-export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
 export const HINDI_SYSTEM_INSTRUCTION = "IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.";
 
 export default function AiAdvisor({ setActiveTab }) {

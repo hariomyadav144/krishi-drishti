@@ -60,12 +60,6 @@ const resolveApiBaseUrl = () => {
   if (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
     return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
   }
-  if (typeof window !== 'undefined') {
-    const custom = localStorage.getItem('krishi_backend_url');
-    if (custom && custom.trim() && custom.includes('http')) {
-      return normalizeBackendApiUrl(custom.trim());
-    }
-  }
   return DEFAULT_PRODUCTION_API_URL;
 };
 
@@ -73,11 +67,12 @@ export const API_BASE_URL = resolveApiBaseUrl();
 
 export function setCustomBackendUrl(url) {
   const normalized = normalizeBackendApiUrl(url);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('krishi_backend_url', normalized);
-  }
   api.defaults.baseURL = normalized;
   return normalized;
+}
+
+if (typeof window !== 'undefined' && localStorage.getItem('krishi_backend_url')) {
+  try { localStorage.removeItem('krishi_backend_url'); } catch (_) {}
 }
 
 const api = axios.create({
@@ -90,8 +85,7 @@ const api = axios.create({
 
 // Interceptor to attach JWT token, normalize URLs, and ensure latest baseURL
 api.interceptors.request.use((config) => {
-  const custom = typeof window !== 'undefined' ? localStorage.getItem('krishi_backend_url') : null;
-  const base = normalizeBackendApiUrl(custom || config.baseURL || api.defaults.baseURL);
+  const base = normalizeBackendApiUrl(config.baseURL || api.defaults.baseURL || API_BASE_URL);
   config.baseURL = base;
 
   let url = config.url || '';
