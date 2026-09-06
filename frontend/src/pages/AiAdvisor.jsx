@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
-import api, { setCustomBackendUrl, API_BASE_URL, normalizeBackendApiUrl, DEFAULT_PRODUCTION_API_URL } from '../services/api';
+import api from '../services/api';
 import VoiceReader from '../components/VoiceReader';
 import FeedbackModal from '../components/FeedbackModal';
 import { 
@@ -12,22 +12,23 @@ import {
   Calendar, 
   CheckCircle2, 
   XCircle, 
-  ArrowRight,
-  RefreshCw,
-  Droplets,
-  Sprout,
-  TrendingUp,
-  AlertTriangle,
-  Mic,
-  MicOff,
-  Volume2,
-  Settings,
-  Server,
-  Camera,
-  Image as ImageIcon,
-  X,
-  Check
+  ArrowRight, 
+  RefreshCw, 
+  Droplets, 
+  Sprout, 
+  TrendingUp, 
+  AlertTriangle, 
+  Mic, 
+  MicOff, 
+  Volume2, 
+  Camera, 
+  Image as ImageIcon, 
+  X, 
+  Check 
 } from 'lucide-react';
+
+export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
+export const HINDI_SYSTEM_INSTRUCTION = "IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.";
 
 export default function AiAdvisor({ setActiveTab }) {
   const { lang, t } = useLanguage();
@@ -46,55 +47,6 @@ export default function AiAdvisor({ setActiveTab }) {
   const [imagePreview, setImagePreview] = useState('');
   const fileInputRef = useRef(null);
 
-  // Backend API URL Settings: Default to standardized production API
-  const [showApiSettings, setShowApiSettings] = useState(false);
-  const [customBackendUrl, setCustomBackendUrlState] = useState(() => {
-    const stored = typeof window !== 'undefined' ? localStorage.getItem('krishi_backend_url') : null;
-    return normalizeBackendApiUrl(stored || API_BASE_URL);
-  });
-  const [pingStatus, setPingStatus] = useState(null); // null | 'testing' | 'online' | 'warning' | 'failed'
-  const [pingLatency, setPingLatency] = useState(null);
-  const [pingMessage, setPingMessage] = useState('');
-
-  const testBackendConnection = async (urlToTest) => {
-    const raw = normalizeBackendApiUrl(urlToTest || customBackendUrl);
-    setPingStatus('testing');
-    setPingMessage('Testing connection to backend API...');
-    const start = Date.now();
-
-    // Standardized target: /api/health
-    const healthUrl = `${raw}/health`; // e.g. https://krishi-drishti-pykj.onrender.com/api/health
-
-    try {
-      const res = await fetch(healthUrl, { method: 'GET', mode: 'cors' });
-      const latency = Date.now() - start;
-      setPingLatency(latency);
-      if (res.ok) {
-        const data = await res.json().catch(() => ({}));
-        if (data.geminiConfigured) {
-          setPingStatus('online');
-          setPingMessage(`Backend Connected ✓ (${latency}ms • Gemini AI Configured ✓)`);
-        } else {
-          setPingStatus('warning');
-          setPingMessage(`Backend Connected ✓ (${latency}ms) • Warning: GEMINI_API_KEY is not configured on Render. Add it in Render Environment settings.`);
-        }
-      } else {
-        setPingStatus('failed');
-        setPingMessage(`Backend Not Connected ✕: HTTP ${res.status} returned by ${healthUrl}`);
-      }
-    } catch (err) {
-      setPingStatus('failed');
-      setPingMessage(`Backend Not Connected ✕: ${err.message || 'Could not reach server'}. (Render free tier may take ~50s to wake up).`);
-    }
-  };
-
-  const handleSaveBackendUrl = (newUrl) => {
-    const raw = newUrl !== undefined ? newUrl : customBackendUrl;
-    const normalized = setCustomBackendUrl(raw);
-    setCustomBackendUrlState(normalized);
-    setShowApiSettings(false);
-    setError('');
-  };
 
   // Image file handler
   const handleImageSelect = (e) => {
@@ -209,10 +161,12 @@ export default function AiAdvisor({ setActiveTab }) {
         // Multimodal Image Diagnosis with Gemini Vision
         const formData = new FormData();
         formData.append('image', imageFile);
-        formData.append('question', query || 'Please analyze this crop image and identify symptoms, possible disease, and recommended treatment.');
+        formData.append('question', query ? `${HINDI_SYSTEM_INSTRUCTION}\n\nFarmer Question: ${query}` : `${HINDI_SYSTEM_INSTRUCTION}\n\nPlease analyze this crop image and identify symptoms, possible disease, and recommended treatment.`);
+        formData.append('instruction', HINDI_SYSTEM_INSTRUCTION);
+        formData.append('promptInstruction', HINDI_SYSTEM_INSTRUCTION);
         formData.append('crop', selectedCrop);
         formData.append('stage', currentCrop?.cropStage || 'Flowering & Early Fruiting');
-        formData.append('language', lang);
+        formData.append('language', 'hi');
 
         try {
           res = await api.post('/ai/diagnose', formData, {
@@ -225,15 +179,20 @@ export default function AiAdvisor({ setActiveTab }) {
           });
         }
       } else {
-        // Conversational Agricultural Guidance
+        // Conversational Agricultural Guidance with strict Hindi instruction
+        const formattedQuestion = `${HINDI_SYSTEM_INSTRUCTION}\n\nFarmer Question: ${query}`;
         const payload = {
-          question: query,
+          question: formattedQuestion,
+          queryText: formattedQuestion,
+          rawQuestion: query,
+          promptInstruction: HINDI_SYSTEM_INSTRUCTION,
+          systemInstruction: HINDI_SYSTEM_INSTRUCTION,
           crop: selectedCrop,
           stage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
           soil: farm?.soilType ? { type: farm.soilType } : {},
           weather: farm?.weather || {},
           location: farm?.district ? { district: farm.district, state: farm.state } : {},
-          language: lang,
+          language: 'hi',
           conversationHistory: chatHistory.slice(-6),
         };
 
@@ -245,12 +204,13 @@ export default function AiAdvisor({ setActiveTab }) {
             res = await api.post('/ai-advice', payload);
           } catch (recErr) {
             res = await api.post('/recommendations/ask', {
-              queryText: query,
-              question: query,
+              queryText: formattedQuestion,
+              question: formattedQuestion,
+              promptInstruction: HINDI_SYSTEM_INSTRUCTION,
               cropName: selectedCrop,
               cropStage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
               location: farm?.district || farm?.state || '',
-              language: lang,
+              language: 'hi',
               conversationHistory: chatHistory.slice(-6)
             });
           }
@@ -301,109 +261,6 @@ export default function AiAdvisor({ setActiveTab }) {
         </p>
       </div>
 
-      {/* Backend API Connection Status Bar */}
-      <div className="flex items-center justify-between px-3.5 py-2 bg-slate-100/90 rounded-xl text-xs text-slate-600 border border-slate-200">
-        <div className="flex items-center gap-2 truncate">
-          <Server className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-          <span className="font-semibold text-slate-700">AI Backend API:</span>
-          <code className="text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200 text-[11px] truncate max-w-[200px] sm:max-w-xs">
-            {customBackendUrl || API_BASE_URL}
-          </code>
-        </div>
-        <button
-          type="button"
-          onClick={() => setShowApiSettings(prev => !prev)}
-          className="font-bold text-amber-700 hover:text-amber-900 text-xs flex items-center gap-1 shrink-0 ml-2 py-0.5 px-2 rounded-lg hover:bg-amber-100/60 transition"
-        >
-          <Settings className="w-3 h-3" />
-          <span>{showApiSettings ? 'Close' : 'Configure'}</span>
-        </button>
-      </div>
-
-      {/* Backend API Settings Panel */}
-      {showApiSettings && (
-        <div className="p-4 bg-white rounded-2xl border-2 border-amber-300 shadow-md space-y-3 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <h4 className="font-extrabold text-sm text-slate-900 flex items-center gap-1.5">
-              <Server className="w-4 h-4 text-amber-600" />
-              <span>Configure AI Backend API Endpoint</span>
-            </h4>
-            <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-full">
-              Production & Dev
-            </span>
-          </div>
-          <p className="text-xs text-slate-600 leading-relaxed">
-            Enter your deployed Render backend endpoint hosting the secure Gemini API service.
-          </p>
-
-          <div className="flex gap-2 flex-wrap sm:flex-nowrap">
-            <input
-              type="text"
-              value={customBackendUrl}
-              onChange={(e) => setCustomBackendUrlState(e.target.value)}
-              placeholder="e.g. https://krishi-drishti-pykj.onrender.com/api"
-              className="flex-1 min-w-[200px] p-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
-            />
-            <button
-              type="button"
-              onClick={() => testBackendConnection(customBackendUrl)}
-              disabled={pingStatus === 'testing'}
-              className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold text-xs rounded-xl border border-slate-300 transition shrink-0"
-            >
-              {pingStatus === 'testing' ? 'Testing...' : 'Test Ping'}
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSaveBackendUrl(customBackendUrl)}
-              className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition shrink-0"
-            >
-              Save & Apply
-            </button>
-          </div>
-
-          {/* Quick Presets */}
-          <div className="flex flex-wrap items-center gap-2 pt-1 text-[11px]">
-            <span className="font-semibold text-slate-500">Quick Presets:</span>
-            <button
-              type="button"
-              onClick={() => {
-                setCustomBackendUrlState('https://krishi-drishti-pykj.onrender.com/api');
-                handleSaveBackendUrl('https://krishi-drishti-pykj.onrender.com/api');
-                testBackendConnection('https://krishi-drishti-pykj.onrender.com/api');
-              }}
-              className="px-2 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 rounded-lg border border-emerald-200 transition font-medium"
-            >
-              🚀 Render Production (krishi-drishti-pykj)
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setCustomBackendUrlState('http://localhost:5000/api');
-                handleSaveBackendUrl('http://localhost:5000/api');
-                testBackendConnection('http://localhost:5000/api');
-              }}
-              className="px-2 py-1 bg-blue-50 hover:bg-blue-100 text-blue-900 rounded-lg border border-blue-200 transition font-medium"
-            >
-              💻 Localhost (5000)
-            </button>
-          </div>
-
-          {/* Ping Status Feedback */}
-          {pingStatus && (
-            <div className={`p-2.5 rounded-xl text-xs font-medium flex items-center justify-between border ${
-              pingStatus === 'online'
-                ? 'bg-emerald-50 text-emerald-900 border-emerald-200'
-                : pingStatus === 'warning'
-                ? 'bg-amber-50 text-amber-900 border-amber-200'
-                : 'bg-red-50 text-red-900 border-red-200'
-            }`}>
-              <span>{pingMessage}</span>
-              {pingLatency && <span className="font-mono text-[10px]">{pingLatency}ms</span>}
-            </div>
-          )}
-        </div>
-      )}
-
       {/* Diagnostic Error Banner with Retry */}
       {error && (
         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl space-y-2 text-xs animate-in fade-in">
@@ -425,28 +282,16 @@ export default function AiAdvisor({ setActiveTab }) {
             {error}
           </p>
 
-          <div className="pt-2 border-t border-red-100 flex items-center justify-between flex-wrap gap-2">
-            <span className="text-[11px] text-red-700">
-              Target: <code className="bg-white/80 px-1 py-0.5 rounded border border-red-200">{customBackendUrl || API_BASE_URL}</code>
-            </span>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleAsk(lastQuery)}
-                disabled={loading}
-                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[11px] rounded-lg shadow-xs transition flex items-center gap-1"
-              >
-                <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
-                <span>Retry Question</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setShowApiSettings(true)}
-                className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white font-bold text-[11px] rounded-lg shadow-xs transition"
-              >
-                ⚙️ Check Backend
-              </button>
-            </div>
+          <div className="pt-2 border-t border-red-100 flex items-center justify-end">
+            <button
+              type="button"
+              onClick={() => handleAsk(lastQuery)}
+              disabled={loading}
+              className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
+              <span>Retry Question (पुनः प्रयास करें)</span>
+            </button>
           </div>
         </div>
       )}

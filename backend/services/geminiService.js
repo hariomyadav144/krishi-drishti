@@ -7,8 +7,21 @@ const { GoogleGenAI } = require('@google/genai');
  * Krishi Drishti Agricultural AI System Instruction
  * Expert, practical, and farmer-friendly assistant for Indian agriculture.
  */
-const SYSTEM_INSTRUCTION = `You are Krishi Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
+const SYSTEM_INSTRUCTION = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.
+
+You are Krishi Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
 Your mission is to provide accurate, timely, and actionable agricultural guidance to help farmers maximize crop yield, manage diseases and pests, optimize irrigation and fertilizers, and protect their livelihood.
+
+MANDATORY LANGUAGE, SCRIPT & FORMATTING INSTRUCTIONS (STRICT):
+1. RESPOND COMPLETELY IN SIMPLE, NATURAL HINDI:
+   - Respond completely in simple, easy-to-understand Hindi (Devanagari script - सरल व स्वाभाविक हिंदी) suitable for an Indian farmer (किसान भाई).
+   - Do not generate English explanations or mixed English paragraphs. Keep headings, bullet points, remedies, and dosages strictly in clear Hindi.
+   - Ensure scientific names can be in brackets (e.g. (Trichoderma viride)), but the main explanation, steps, symptoms, and advice must be purely Hindi.
+   - Use respectful, encouraging, and clear Hindi that any rural Indian farmer can immediately grasp.
+
+2. FIX LATEX OUTPUT ISSUES (ABSOLUTELY NO LATEX OR MATH NOTATION):
+   - Do not output broken symbols or LaTeX math formatting like \`$24^\\circ\\text{C}$\`, \`$\\sim$\`, \`\\pm\`, or \`\\frac\`.
+   - Always use standard plain text like '24°C से 29°C', 'लगभग 50%', '±2', '2 ग्राम प्रति लीटर पानी'.
 
 SCOPE OF EXPERTISE:
 1. Crop Selection, Sowing & Agronomy:
@@ -40,27 +53,22 @@ SCOPE OF EXPERTISE:
 CRITICAL DIAGNOSTIC & BEHAVIORAL RULES:
 1. DO NOT BLINDLY GUESS:
    - Never invent or assume a disease with certainty if symptoms are vague or incomplete.
-   - If the symptoms described or seen are insufficient to diagnose accurately, clearly explain that more information is needed, and ask 2-3 focused, helpful follow-up questions (e.g. "Are the spots circular or irregular?", "Is the yellowing on older lower leaves or young upper leaves?", "Do you see webbing or tiny insects on the underside?").
+   - If the symptoms described or seen are insufficient to diagnose accurately, clearly explain in Hindi that more details are needed, and ask 2-3 focused, helpful follow-up questions in Hindi.
 2. STRUCTURE FOR CROP DISEASE, PEST & SYMPTOM QUESTIONS:
-   Whenever answering a disease, pest, or physiological symptom question, you MUST structure your response cleanly as:
-   1. Likely Problem / Issue (पहचाना गया संभावित रोग/कीट)
-   2. Why it may be happening / Causes (होने का मुख्य कारण)
-   3. What to do NOW / Immediate Action (तुरंत क्या करें)
-   4. Treatment & Management / Organic & Chemical Options (उपचार एवं प्रबंधन)
-   5. Prevention for Future (भविष्य में बचाव के उपाय)
-   6. When to consult local Agriculture Officer / KVK (कृषि विशेषज्ञ से कब संपर्क करें)
-3. LANGUAGE & SCRIPT RULES:
-   - If the farmer asks in Hindi, reply in clear, friendly Devanagari Hindi (हिंदी).
-   - If the farmer asks in Hinglish (Romanized Hindi), reply in simple Hinglish with key Hindi terms.
-   - If the farmer asks in English, reply in clean, accessible English.
-   - Always keep the language respectful, encouraging, and easy to understand. Avoid intimidating scientific jargon unless immediately explained in plain farmer language.
-4. SAFE & RESPONSIBLE CHEMICAL ADVICE:
+   Whenever answering a disease, pest, or physiological symptom question, you MUST structure your response cleanly in Hindi with bold headings:
+   1. संभावित समस्या या रोग (Likely Problem / Issue)
+   2. होने का मुख्य कारण (Main Causes / Why it happens)
+   3. तुरंत क्या करें / जरूरी कदम (What to do NOW / Immediate Action)
+   4. उपचार एवं प्रबंधन (जैविक व रासायनिक विकल्प) (Treatment & Management)
+   5. भविष्य में बचाव के उपाय (Prevention for Future)
+   6. कृषि विशेषज्ञ / KVK से सलाह (When to consult Agriculture Officer / KVK)
+3. SAFE & RESPONSIBLE CHEMICAL ADVICE:
    - DO NOT invent chemical trade names, unrealistic concentrations, or unapproved dosages.
-   - When suggesting standard active ingredients (e.g., Mancozeb, Copper Oxychloride, Imidacloprid, Chlorantraniliprole, Neem Oil), provide general reference concentrations (e.g., 2g/L or 1ml/L) but ALWAYS include the standard disclaimer: "Always check the registered product packaging label and consult your local Agriculture Extension Officer / Krishi Vigyan Kendra (KVK) before chemical application."
-5. MULTIMODAL & IMAGE DIAGNOSIS RULES:
-   - When analyzing an uploaded image, describe what is visibly evident (color changes, necrotic spots, leaf curling, insect damage, fungal spores).
+   - When suggesting standard active ingredients (e.g., Mancozeb, Copper Oxychloride, Imidacloprid, Chlorantraniliprole, Neem Oil), provide general reference concentrations in Hindi (e.g. 2 ग्राम प्रति लीटर पानी) and ALWAYS include the standard disclaimer in Hindi: "दवा के पैकेट पर दिए गए निर्देशों को ध्यानपूर्वक पढ़ें और प्रयोग से पहले स्थानीय कृषि विज्ञान केंद्र (KVK) या कृषि अधिकारी से परामर्श अवश्य लें।"
+4. MULTIMODAL & IMAGE DIAGNOSIS RULES:
+   - When analyzing an uploaded image, describe what is visibly evident clearly in Hindi.
    - Give realistic confidence and acknowledge uncertainty. Never claim 100% certainty from a photograph alone.
-   - If the photo is blurry, too dark, out of focus, or does not clearly show the affected plant parts, clearly instruct the farmer: "The photo is not clear enough for a confident diagnosis. Please upload a sharper, well-lit close-up photo of the affected leaf/plant part."`;
+   - If the photo is blurry, too dark, out of focus, or does not clearly show the affected plant parts, clearly instruct the farmer in Hindi: "फोटो स्पष्ट नहीं है। कृपया प्रभावित पत्ती या पौधे के हिस्से की साफ और अच्छी रोशनी वाली फोटो अपलोड करें।"`;
 
 /**
  * Get active Gemini Flash model with configurable fallback
@@ -130,6 +138,51 @@ function formatGeminiError(err) {
 }
 
 /**
+ * Clean up any broken LaTeX or math formatting from AI responses
+ * e.g. converts `$24^\circ\text{C}$` to '24°C', `$\sim$` to 'लगभग ', etc.
+ */
+function cleanLatexAndFormat(text) {
+  if (!text || typeof text !== 'string') return text;
+
+  let cleaned = text;
+
+  // LaTeX temperature range like $24^\circ\text{C}$ से $29^\circ\text{C}$ or $24^\circ C - 29^\circ C$
+  cleaned = cleaned.replace(/\$?([0-9.]+)\s*\^\\circ\s*(?:\\text\{C\}|C|\\text\{\s*C\s*\})\$?(\s*(?:से|-|to)\s*)\$?([0-9.]+)?\s*\^?\\?circ?\s*(?:\\text\{C\}|C|\\text\{\s*C\s*\})?\$?/gi, (match, p1, sep, p2) => {
+    if (p2) {
+      const separator = (sep || '').includes('से') ? ' से ' : '-';
+      return `${p1}°C${separator}${p2}°C`;
+    }
+    return `${p1}°C`;
+  });
+
+  // Single temperature instances: $24^\circ\text{C}$, 24^\circ\text{C}$, $24^\circ C$, 24^\circ C
+  cleaned = cleaned.replace(/\$?([0-9.]+)\s*\^\\circ\s*(?:\\text\{C\}|C|\\text\{\s*C\s*\})\$?/gi, '$1°C');
+  cleaned = cleaned.replace(/\$?([0-9.]+)\s*\^\\circ\s*(?:\\text\{F\}|F|\\text\{\s*F\s*\})\$?/gi, '$1°F');
+  cleaned = cleaned.replace(/\$([0-9.]+)\^\circ\$/gi, '$1°');
+
+  // Replace \text{...} formatting inside math blocks
+  cleaned = cleaned.replace(/\\text\{([^{}]+)\}/g, '$1');
+
+  // Math symbols
+  cleaned = cleaned.replace(/\$\s*\\sim\s*\$\s*/g, 'लगभग ');
+  cleaned = cleaned.replace(/\\sim\s*/g, 'लगभग ');
+  cleaned = cleaned.replace(/\$\s*\\approx\s*\$\s*/g, 'लगभग ');
+  cleaned = cleaned.replace(/\\approx\s*/g, 'लगभग ');
+  cleaned = cleaned.replace(/लगभग\s+/g, 'लगभग ');
+  cleaned = cleaned.replace(/\$\s*\\pm\s*\$\s*/g, '±');
+  cleaned = cleaned.replace(/\\pm\s*/g, '±');
+  cleaned = cleaned.replace(/\$\\times\$/g, '×');
+  cleaned = cleaned.replace(/\\times\s*/g, '×');
+  cleaned = cleaned.replace(/\$\\le\$/g, '≤');
+  cleaned = cleaned.replace(/\$\\ge\$/g, '≥');
+
+  // Strip dollar signs around isolated numbers/units e.g. $10-15%$ -> 10-15%, $500$ -> 500
+  cleaned = cleaned.replace(/\$([0-9.\s%+\-–—/°CA-Za-z]+)\$/g, '$1');
+
+  return cleaned;
+}
+
+/**
  * Ask Gemini Conversational Agriculture Advisor
  */
 async function askGeminiAdvisor({
@@ -139,7 +192,7 @@ async function askGeminiAdvisor({
   soil = null,
   weather = null,
   location = '',
-  language = 'en',
+  language = 'hi',
   conversationHistory = []
 }) {
   const q = (question || '').trim();
@@ -168,9 +221,7 @@ async function askGeminiAdvisor({
     const wStr = typeof weather === 'object' ? (weather.summary || weather.condition || (weather.temp ? `${weather.temp}°C` : '')) : String(weather);
     if (wStr && wStr !== '{}') contextTokens.push(`Weather: ${wStr}`);
   }
-  if (language) {
-    contextTokens.push(`Target Language: ${language === 'hi' ? 'Hindi (हिंदी)' : language === 'hinglish' ? 'Hinglish' : 'English'}`);
-  }
+  contextTokens.push('Language: Pure Hindi (सरल देवनागरी हिंदी)');
 
   // Assemble conversation contents
   const contents = [];
@@ -187,10 +238,15 @@ async function askGeminiAdvisor({
     }
   }
 
+  // Strict Hindi prompt wrapper for Google Gemini
+  const strictHindiInstruction = `\n\nIMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.`;
+
   // Construct final prompt with context
   let finalPrompt = q;
   if (contextTokens.length > 0) {
-    finalPrompt = `[Agricultural Context: ${contextTokens.join(' | ')}]\n\nFarmer Question: ${q}`;
+    finalPrompt = `[Agricultural Context: ${contextTokens.join(' | ')}]\n\nFarmer Question: ${q}${strictHindiInstruction}`;
+  } else {
+    finalPrompt = `${q}${strictHindiInstruction}`;
   }
 
   contents.push({
@@ -215,7 +271,7 @@ async function askGeminiAdvisor({
 
       const text = response?.text?.trim() || '';
       if (text) {
-        answerText = text;
+        answerText = cleanLatexAndFormat(text);
         successfulModel = modelName;
         break;
       }
@@ -232,7 +288,7 @@ async function askGeminiAdvisor({
   return {
     success: true,
     answer: answerText,
-    language,
+    language: 'hi',
     crop,
     stage: cropStage,
     model: successfulModel,
@@ -249,7 +305,7 @@ async function diagnoseCropWithGemini({
   question = '',
   crop = 'Tomato',
   cropStage = '',
-  language = 'en'
+  language = 'hi'
 }) {
   if (!imageBuffer) {
     const error = new Error('No image provided for crop diagnosis.');
@@ -265,22 +321,28 @@ async function diagnoseCropWithGemini({
   const contextTokens = [];
   if (crop) contextTokens.push(`Crop: ${crop}`);
   if (cropStage) contextTokens.push(`Stage: ${cropStage}`);
-  if (language) contextTokens.push(`Language: ${language === 'hi' ? 'Hindi (हिंदी)' : 'English'}`);
+  contextTokens.push('Language: Pure Hindi (सरल देवनागरी हिंदी)');
 
-  const userPrompt = `You are examining a photograph uploaded by an Indian farmer.
+  const userPrompt = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.
+
+You are examining a photograph uploaded by an Indian farmer.
 [Context: ${contextTokens.join(' | ')}]
-Farmer's Note/Question: ${question || 'Please analyze this crop image and identify any disease, pest, nutrient deficiency, or issue.'}
+Farmer's Note/Question: ${question || 'कृपया इस फसल की तस्वीर का विश्लेषण करें और बीमारी, कीट व उपचार बताएं।'}
 
-Please perform an in-depth agricultural inspection of this image:
-1. Visible Symptoms: Detail what is visibly apparent on the leaf, fruit, stem, or plant.
-2. Possible Causes / Likely Problem: Name the most probable disease, pest, or physiological condition.
-3. Confidence & Uncertainty: State your realistic confidence level. Explicitly mention that diagnosis from an image alone carries uncertainty and should be verified in the field. If the image is blurry, out-of-focus, or unclear, explicitly ask for a sharper photo.
-4. Immediate Action: What the farmer should do TODAY.
-5. Treatment & Management: Provide both Organic/Bio-control options and approved Chemical options with standard safety disclaimers.
-6. Prevention: Key preventive cultural practices for future cycles.
-7. Expert Consultation: When to contact the local Agriculture Officer or KVK.
+Please perform an in-depth agricultural inspection of this image with clear sections in Hindi:
+1. दिखने वाले लक्षण (Visible Symptoms)
+2. संभावित समस्या या रोग (Likely Problem / Disease)
+3. विश्वसनीयता व सावधानी (Confidence & Field Verification)
+4. तुरंत क्या करें (Immediate Action for Today)
+5. उपचार एवं प्रबंधन: जैविक उपाय (Organic Options) व रासायनिक उपाय (Chemical Options)
+6. भविष्य में बचाव के उपाय (Prevention Tips)
+7. कृषि विशेषज्ञ / KVK से सलाह (When to consult KVK or Agriculture Officer)
 
-Answer in ${language === 'hi' ? 'Hindi (हिंदी)' : language === 'hinglish' ? 'Hinglish' : 'English'} in a respectful, clear, and actionable manner.`;
+MANDATORY INSTRUCTIONS:
+- Respond completely in simple, easy-to-understand Hindi (Devanagari script) suitable for an Indian farmer.
+- Do not generate English explanations or mixed English paragraphs. Keep headings, bullet points, remedies, and dosages strictly in clear Hindi.
+- Ensure scientific names can be in brackets, but the main explanation, steps, and advice must be purely Hindi.
+- Fix LaTeX output issues: Do not output broken symbols like '$24^\\circ\\text{C}$'; use standard text like '24°C से 29°C'.`;
 
   const contents = [
     {
@@ -316,7 +378,7 @@ Answer in ${language === 'hi' ? 'Hindi (हिंदी)' : language === 'hingli
 
       const text = response?.text?.trim() || '';
       if (text) {
-        answerText = text;
+        answerText = cleanLatexAndFormat(text);
         successfulModel = modelName;
         break;
       }
@@ -331,33 +393,33 @@ Answer in ${language === 'hi' ? 'Hindi (हिंदी)' : language === 'hingli
   }
 
   // Extract structured highlights from answer for UI display
-  const detectedProblem = extractSection(answerText, ['likely problem', 'problem', 'संभावित रोग', 'बीमारी', 'issue']) || `${crop} Foliage Condition`;
-  const recommendedAction = extractSection(answerText, ['immediate action', 'what to do now', 'तुरंत क्या करें', 'action']) || 'Inspect affected foliage and follow prescribed treatment.';
-  const organicTreatment = extractSection(answerText, ['organic', 'जैविक', 'bio-control', 'neem']) || 'Neem oil spray (5ml/L) and remove diseased leaves.';
-  const chemicalTreatment = extractSection(answerText, ['chemical', 'रासायनिक', 'fungicide', 'insecticide']) || 'Apply registered protective spray as per package label instructions.';
+  const detectedProblem = extractSection(answerText, ['संभावित समस्या', 'संभावित रोग', 'बीमारी', 'likely problem', 'problem', 'issue']) || `${crop} समस्या`;
+  const recommendedAction = extractSection(answerText, ['तुरंत क्या करें', 'जरूरी कदम', 'immediate action', 'what to do now', 'action']) || 'प्रभावित पत्तियों का निरीक्षण करें और अनुशंसित उपचार तुरंत अपनाएं।';
+  const organicTreatment = extractSection(answerText, ['जैविक उपाय', 'जैविक', 'bio-control', 'neem', 'organic']) || 'नीम का तेल (5 मि.ली./लीटर पानी) और प्रभावित पत्तियों को हटाएं।';
+  const chemicalTreatment = extractSection(answerText, ['रासायनिक उपाय', 'रासायनिक', 'fungicide', 'insecticide', 'chemical']) || 'लेबल पर दिए गए निर्देशों के अनुसार अनुमोदित फफूंदनाशक का छिड़काव करें।';
 
   return {
     success: true,
     answer: answerText,
     crop,
     stage: cropStage,
-    language,
+    language: 'hi',
     model: successfulModel,
     timestamp: new Date().toISOString(),
     diagnosis: {
       visibleSymptoms: answerText.slice(0, 300) + '...',
       possibleCauses: detectedProblem,
-      confidence: 'Medium to High (Photo-based assessment)',
+      confidence: 'मध्यम से उच्च (फोटो आधारित आकलन)',
       immediateAction: recommendedAction,
       treatment: `${organicTreatment} | ${chemicalTreatment}`,
-      prevention: 'Maintain proper plant spacing, balanced NPK fertilization, and scout regularly.'
+      prevention: 'उचित दूरी, संतुलित खाद प्रबंधन और समय पर खेत का निरीक्षण करें।'
     },
     data: {
       cropName: crop,
       detectedProblem,
       detectedProblemHi: detectedProblem,
       confidence: 90,
-      severity: answerText.toLowerCase().includes('critical') || answerText.toLowerCase().includes('severe') ? 'High' : 'Medium',
+      severity: answerText.toLowerCase().includes('critical') || answerText.toLowerCase().includes('severe') || answerText.includes('गंभीर') ? 'High' : 'Medium',
       cause: detectedProblem,
       causeHi: detectedProblem,
       symptoms: [detectedProblem],
@@ -366,11 +428,11 @@ Answer in ${language === 'hi' ? 'Hindi (हिंदी)' : language === 'hingli
       organicTreatment,
       chemicalTreatment,
       preventionTips: [
-        'Maintain proper field sanitation and eradicate weed hosts',
-        'Avoid water stagnation and follow crop rotation',
-        'Consult local KVK or agriculture officer for official verification'
+        'खेत की स्वच्छता बनाए रखें और खरपतवार नष्ट करें',
+        'जलभराव से बचें और फसल चक्र अपनाएं',
+        'सटीक जांच हेतु स्थानीय कृषि विज्ञान केंद्र (KVK) से संपर्क करें'
       ],
-      nextActionTimeline: 'Inspect affected foliage within 48 hours to evaluate progress.'
+      nextActionTimeline: 'उपचार के 48 घंटों के भीतर पत्तियों का पुनः निरीक्षण करें।'
     }
   };
 }
@@ -456,6 +518,7 @@ module.exports = {
   askGeminiAdvisor,
   diagnoseCropWithGemini,
   testGeminiDiagnostic,
+  cleanLatexAndFormat,
   SYSTEM_INSTRUCTION,
   getActiveModel,
   getApiKey

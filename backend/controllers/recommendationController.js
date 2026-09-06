@@ -40,7 +40,7 @@ const askAdvisor = async (req, res) => {
       crop: targetCropName,
       cropStage: targetCropStage,
       location: farm ? (farm.district || farm.state || '') : '',
-      language: language || 'en',
+      language: language || 'hi',
       conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : []
     });
 

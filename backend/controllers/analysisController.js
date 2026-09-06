@@ -60,7 +60,7 @@ const scanCrop = async (req, res) => {
           question: question || symptomDescription || 'Diagnose visible plant symptoms and recommended treatment.',
           crop: selectedCropName,
           cropStage: activeCrop?.cropStage || 'Flowering Stage',
-          language: 'en'
+          language: req.body.language || 'hi'
         });
 
         if (geminiVision && geminiVision.data) {

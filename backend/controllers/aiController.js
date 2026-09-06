@@ -47,7 +47,7 @@ const getAiAdvice = async (req, res) => {
       soil: soil || null,
       weather: weather || null,
       location: location || '',
-      language: language || 'en',
+      language: language || 'hi',
       conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : []
     });
 
@@ -143,7 +143,7 @@ const diagnoseCrop = async (req, res) => {
       question: farmerQuery,
       crop: selectedCrop,
       cropStage: selectedStage,
-      language: language || 'en'
+      language: language || 'hi'
     });
 
     return res.status(200).json({

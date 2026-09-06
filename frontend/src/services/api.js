@@ -57,14 +57,14 @@ export function normalizeBackendApiUrl(url) {
 }
 
 const resolveApiBaseUrl = () => {
+  if (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
+    return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
+  }
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('krishi_backend_url');
-    if (custom && custom.trim()) {
+    if (custom && custom.trim() && custom.includes('http')) {
       return normalizeBackendApiUrl(custom.trim());
     }
-  }
-  if (import.meta.env.VITE_API_BASE_URL) {
-    return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL);
   }
   return DEFAULT_PRODUCTION_API_URL;
 };
