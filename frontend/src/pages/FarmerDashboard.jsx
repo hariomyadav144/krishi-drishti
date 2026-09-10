@@ -13,7 +13,6 @@ import {
   MOCK_CURRENT_CROP,
   MOCK_CROPS,
   MOCK_WEATHER,
-  MOCK_MANDI_PRICES,
   MOCK_OUTBREAKS,
   MOCK_ACTION_PLANS,
   MOCK_ALERTS,
@@ -82,7 +81,7 @@ export default function FarmerDashboard({ setActiveTab }) {
   const { lang, t } = useLanguage();
   const [dashboardData, setDashboardData] = useState(() => getInitialDashboardData());
   const [weatherData, setWeatherData] = useState(() => safeParse('krishi_weather_cache') || MOCK_WEATHER);
-  const [mandiSpotlight, setMandiSpotlight] = useState(() => safeParse('krishi_mandi_cache') || (MOCK_MANDI_PRICES[0] || null));
+  const [mandiSpotlight, setMandiSpotlight] = useState(() => safeParse('krishi_mandi_cache') || null);
   const [outbreakAlerts, setOutbreakAlerts] = useState(() => safeParse('krishi_outbreak_cache') || MOCK_OUTBREAKS);
   const [loading, setLoading] = useState(false);
 
@@ -183,32 +182,48 @@ export default function FarmerDashboard({ setActiveTab }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         
         {/* Mandi Spotlight */}
-        {mandiSpotlight && (
-          <div 
-            onClick={() => setActiveTab('mandi')}
-            className="agri-card p-3.5 bg-gradient-to-r from-emerald-900 to-slate-900 text-white border-emerald-700/50 shadow-sm cursor-pointer hover:border-emerald-400 transition"
-          >
-            <div className="flex items-center justify-between mb-1">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
-                <TrendingUp className="w-3 h-3" />
-                {t('dashboard.mandiSpotlight')}
-              </span>
-              <span className="text-[10px] bg-emerald-500 text-white font-black px-2 py-0.5 rounded-full">
-                AI: {mandiSpotlight.aiForecast?.action || 'HOLD'}
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
+        <div 
+          onClick={() => setActiveTab('mandi')}
+          className="agri-card p-3.5 bg-gradient-to-r from-emerald-900 to-slate-900 text-white border-emerald-700/50 shadow-sm cursor-pointer hover:border-emerald-400 transition"
+        >
+          {mandiSpotlight ? (
+            <>
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  {t('dashboard.mandiSpotlight')}
+                </span>
+                <span className="text-[9px] bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 font-bold px-2 py-0.5 rounded-full">
+                  Govt Data ✓
+                </span>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <div>
+                  <h5 className="font-bold text-xs">{mandiSpotlight.commodityHi || mandiSpotlight.commodity} ({mandiSpotlight.market})</h5>
+                  <p className="text-[11px] text-emerald-200/80">Range: ₹{mandiSpotlight.minPrice} - ₹{mandiSpotlight.maxPrice}</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-lg font-black text-amber-300">₹{mandiSpotlight.modalPrice}</span>
+                  <span className="text-[10px] text-emerald-300 block">/ Quintal</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <div className="flex items-center justify-between py-1">
               <div>
-                <h5 className="font-bold text-xs">{mandiSpotlight.commodity} ({mandiSpotlight.market})</h5>
-                <p className="text-[11px] text-emerald-200/80">Arrivals: {mandiSpotlight.arrivalQuantity || '450 Tonnes'}</p>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
+                  <TrendingUp className="w-3 h-3" />
+                  {t('dashboard.mandiSpotlight')}
+                </span>
+                <p className="text-xs font-bold text-white mt-0.5">Live APMC Mandi Rates</p>
+                <p className="text-[10px] text-emerald-300/80">Official Government of India Data</p>
               </div>
-              <div className="text-right">
-                <span className="text-lg font-black text-amber-300">₹{mandiSpotlight.modalPrice}</span>
-                <span className="text-[10px] text-emerald-300 block">+{mandiSpotlight.change ?? mandiSpotlight.changePercent ?? 120} today</span>
-              </div>
+              <span className="text-xs bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3 py-1.5 rounded-xl">
+                View Rates →
+              </span>
             </div>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Outbreak Radar Alert Badge */}
         <div 

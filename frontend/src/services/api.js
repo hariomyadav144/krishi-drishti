@@ -248,11 +248,15 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     };
   }
 
-  // Mandi Prices
-  if (cleanUrl.startsWith('/mandi/prices')) {
+  // Mandi Prices - Strict Government Data Policy (No Mock Data in Production)
+  if (cleanUrl.startsWith('/mandi/prices') || cleanUrl.startsWith('/mandi-rates') || cleanUrl.startsWith('/mandi')) {
     return {
       success: true,
-      data: MOCK_MANDI_PRICES,
+      source: 'AGMARKNET / Data.gov.in',
+      sourceAuthority: 'Ministry of Agriculture & Farmers Welfare, Government of India',
+      message: "Official mandi data is temporarily unavailable from the government server. Please try again shortly.",
+      data: [],
+      count: 0
     };
   }
 

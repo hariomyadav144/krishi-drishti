@@ -93,6 +93,8 @@ app.use('/api/feedback', feedbackRoutes);
 app.use('/api/expert', expertRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/mandi', mandiRoutes);
+app.use('/api/mandi-rates', mandiRoutes);
+app.use('/mandi-rates', mandiRoutes);
 app.use('/api/tools', toolsRoutes);
 
 // Health check endpoints (supports both /health and /api/health)
