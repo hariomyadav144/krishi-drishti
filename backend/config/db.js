@@ -12,9 +12,13 @@ const connectDB = async () => {
     } catch (error) {
       console.warn('External MongoDB connection failed:', error.message);
       console.warn('Krishi Drishti API continuing in resilient stateless cloud mode.');
+      // Disable command buffering so subsequent requests never hang for 10 seconds
+      mongoose.set('bufferCommands', false);
     }
   } else {
     console.log('No external MONGODB_URI specified. Operating in high-performance cloud mode for AI Advisory & Tools.');
+    // Disable command buffering when operating without external MongoDB
+    mongoose.set('bufferCommands', false);
   }
 };
 

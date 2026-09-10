@@ -77,13 +77,13 @@ if (typeof window !== 'undefined' && localStorage.getItem('krishi_backend_url'))
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 45000, // 45s timeout for cold-starts and Gemini generation
+  timeout: 3500, // Fast 3.5s default so user UI never hangs on sleeping servers
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Interceptor to attach JWT token, normalize URLs, and ensure latest baseURL
+// Interceptor to attach JWT token, normalize URLs, and ensure adaptive timeouts
 api.interceptors.request.use((config) => {
   const base = normalizeBackendApiUrl(config.baseURL || api.defaults.baseURL || API_BASE_URL);
   config.baseURL = base;
@@ -98,6 +98,13 @@ api.interceptors.request.use((config) => {
     url = url.replace('/api/api/', '/');
   }
   config.url = url;
+
+  // Adaptive timeout: Give generous 35s ONLY to generative AI and image scanning
+  const isAiRoute = url.includes('/ai/') || 
+                    url.includes('/ai-advice') || 
+                    url.includes('/recommendations/ask') ||
+                    url.includes('/analysis/scan');
+  config.timeout = isAiRoute ? 35000 : 3500;
 
   const token = localStorage.getItem('krishi_token');
   if (token) {

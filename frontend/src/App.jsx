@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AlertProvider } from './context/AlertContext';
@@ -7,24 +7,27 @@ import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
 import TabErrorBoundary from './components/TabErrorBoundary';
 
+// Keep critical initial path components statically loaded
 import Login from './pages/Login';
-import Register from './pages/Register';
-import Onboarding from './pages/Onboarding';
 import FarmerDashboard from './pages/FarmerDashboard';
-import ScanCrop from './pages/ScanCrop';
-import AiAdvisor from './pages/AiAdvisor';
-import MandiPrices from './pages/MandiPrices';
-import FertilizerCalculator from './pages/FertilizerCalculator';
-import SatelliteRadar from './pages/SatelliteRadar';
-import GovtSchemes from './pages/GovtSchemes';
-import OutbreakRadar from './pages/OutbreakRadar';
-import ActionPlansPage from './pages/ActionPlansPage';
-import WeatherPage from './pages/WeatherPage';
-import AlertsPage from './pages/AlertsPage';
-import FarmProfile from './pages/FarmProfile';
-import FarmInsights from './pages/FarmInsights';
-import ExpertDashboard from './pages/ExpertDashboard';
-import AdminDashboard from './pages/AdminDashboard';
+
+// Lazy-load secondary tabs to minimize initial bundle size and ensure instant opening
+const Register = lazy(() => import('./pages/Register'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const ScanCrop = lazy(() => import('./pages/ScanCrop'));
+const AiAdvisor = lazy(() => import('./pages/AiAdvisor'));
+const MandiPrices = lazy(() => import('./pages/MandiPrices'));
+const FertilizerCalculator = lazy(() => import('./pages/FertilizerCalculator'));
+const SatelliteRadar = lazy(() => import('./pages/SatelliteRadar'));
+const GovtSchemes = lazy(() => import('./pages/GovtSchemes'));
+const OutbreakRadar = lazy(() => import('./pages/OutbreakRadar'));
+const ActionPlansPage = lazy(() => import('./pages/ActionPlansPage'));
+const WeatherPage = lazy(() => import('./pages/WeatherPage'));
+const AlertsPage = lazy(() => import('./pages/AlertsPage'));
+const FarmProfile = lazy(() => import('./pages/FarmProfile'));
+const FarmInsights = lazy(() => import('./pages/FarmInsights'));
+const ExpertDashboard = lazy(() => import('./pages/ExpertDashboard'));
+const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 const VALID_TABS = [
   'home', 'diagnose', 'advice', 'mandi', 'fertilizer', 
@@ -36,6 +39,16 @@ function getTabFromHash() {
   if (typeof window === 'undefined') return 'home';
   const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0].trim().toLowerCase();
   return VALID_TABS.includes(raw) ? raw : 'home';
+}
+
+function TabLoadingSkeleton() {
+  return (
+    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-4 animate-pulse">
+      <div className="h-16 bg-slate-200/80 rounded-2xl"></div>
+      <div className="h-44 bg-slate-200/80 rounded-3xl"></div>
+      <div className="h-32 bg-slate-200/80 rounded-2xl"></div>
+    </div>
+  );
 }
 
 function MainApp() {
@@ -78,8 +91,8 @@ function MainApp() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="font-bold text-sm tracking-wide">Loading KRISHI DRISHTI 2.0...</p>
+        <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3"></div>
+        <p className="font-bold text-xs tracking-wider uppercase text-emerald-400">Loading KRISHI DRISHTI...</p>
       </div>
     );
   }
@@ -88,10 +101,12 @@ function MainApp() {
   if (!isAuthenticated) {
     if (authView === 'register') {
       return (
-        <Register
-          onNavigateLogin={() => setAuthView('login')}
-          onRegistered={() => setActiveTab('home')}
-        />
+        <Suspense fallback={<TabLoadingSkeleton />}>
+          <Register
+            onNavigateLogin={() => setAuthView('login')}
+            onRegistered={() => setActiveTab('home')}
+          />
+        </Suspense>
       );
     }
     return (
@@ -101,21 +116,23 @@ function MainApp() {
     );
   }
 
-  // If farmer needs onboarding
-  if (user && user.role === 'farmer' && !user.isOnboarded) {
-    return <Onboarding onOnboardingComplete={() => setActiveTab('home')} />;
+  // If authenticated but needs onboarding
+  if (user && !user.isOnboarded && activeTab !== 'onboarding') {
+    return (
+      <Suspense fallback={<TabLoadingSkeleton />}>
+        <Onboarding onComplete={() => setActiveTab('home')} />
+      </Suspense>
+    );
   }
 
-  // Render main application shell
   return (
-    <div className="min-h-screen bg-[#F4F7F4] flex flex-col">
-      {/* Top Navbar */}
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {/* Desktop Secondary Navigation Bar with all Tools */}
-      <div className="hidden md:block bg-white border-b border-slate-200 shadow-2xs sticky top-16 z-30">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-          <div className="flex items-center space-x-1 py-2 overflow-x-auto text-xs font-bold scrollbar-none">
+      {/* Horizontal Quick Shortcut Strip for Tablets/Desktops */}
+      <div className="hidden sm:block bg-white border-b border-slate-200 py-2 px-4 shadow-xs sticky top-16 z-30">
+        <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto gap-2 text-xs font-bold scrollbar-none">
+          <div className="flex items-center gap-1.5 flex-nowrap">
             <button
               onClick={() => setActiveTab('home')}
               className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
@@ -280,21 +297,23 @@ function MainApp() {
       {/* Main Content Area */}
       <main className="flex-1">
         <TabErrorBoundary tabKey={activeTab} onNavigateHome={() => setActiveTab('home')}>
-          {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
-          {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
-          {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
-          {activeTab === 'mandi' && <MandiPrices />}
-          {activeTab === 'fertilizer' && <FertilizerCalculator />}
-          {activeTab === 'satellite' && <SatelliteRadar />}
-          {activeTab === 'schemes' && <GovtSchemes />}
-          {activeTab === 'outbreak' && <OutbreakRadar />}
-          {activeTab === 'plans' && <ActionPlansPage />}
-          {activeTab === 'weather' && <WeatherPage />}
-          {activeTab === 'alerts' && <AlertsPage />}
-          {activeTab === 'profile' && <FarmProfile />}
-          {activeTab === 'insights' && <FarmInsights />}
-          {activeTab === 'expert' && <ExpertDashboard />}
-          {activeTab === 'admin' && <AdminDashboard />}
+          <Suspense fallback={<TabLoadingSkeleton />}>
+            {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
+            {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
+            {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
+            {activeTab === 'mandi' && <MandiPrices />}
+            {activeTab === 'fertilizer' && <FertilizerCalculator />}
+            {activeTab === 'satellite' && <SatelliteRadar />}
+            {activeTab === 'schemes' && <GovtSchemes />}
+            {activeTab === 'outbreak' && <OutbreakRadar />}
+            {activeTab === 'plans' && <ActionPlansPage />}
+            {activeTab === 'weather' && <WeatherPage />}
+            {activeTab === 'alerts' && <AlertsPage />}
+            {activeTab === 'profile' && <FarmProfile />}
+            {activeTab === 'insights' && <FarmInsights />}
+            {activeTab === 'expert' && <ExpertDashboard />}
+            {activeTab === 'admin' && <AdminDashboard />}
+          </Suspense>
         </TabErrorBoundary>
       </main>
 

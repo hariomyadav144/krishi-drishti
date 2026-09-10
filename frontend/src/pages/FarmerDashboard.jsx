@@ -7,6 +7,18 @@ import WeatherWidget from '../components/WeatherWidget';
 import ActionPlanChecklist from '../components/ActionPlanChecklist';
 import VoiceReader from '../components/VoiceReader';
 import QuickActionBtn from '../components/QuickActionBtn';
+import {
+  MOCK_PROFILE,
+  MOCK_FARM,
+  MOCK_CURRENT_CROP,
+  MOCK_CROPS,
+  MOCK_WEATHER,
+  MOCK_MANDI_PRICES,
+  MOCK_OUTBREAKS,
+  MOCK_ACTION_PLANS,
+  MOCK_ALERTS,
+  generateMockScanResult,
+} from '../services/mockFallback';
 import { 
   ScanLine, 
   Sparkles, 
@@ -26,14 +38,53 @@ import {
   Radio
 } from 'lucide-react';
 
+const safeParse = (key) => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) { return null; }
+};
+
+const safeSet = (key, val) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (val) localStorage.setItem(key, JSON.stringify(val));
+  } catch (_) {}
+};
+
+const getInitialDashboardData = () => {
+  const cached = safeParse('krishi_dash_cache');
+  if (cached) return cached;
+  return {
+    farmer: { name: 'Rameshwar Patil (रामेश्वर पाटिल)' },
+    profile: MOCK_PROFILE,
+    farm: MOCK_FARM,
+    currentCrop: MOCK_CURRENT_CROP,
+    crops: MOCK_CROPS,
+    healthScore: 92,
+    pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
+    recentAnalyses: [generateMockScanResult('Tomato').data],
+    recentRecommendations: [
+      {
+        _id: 'rec_01',
+        query: 'Early blight control',
+        aiResponse: 'Spray Mancozeb 75 WP or Neem Oil',
+        createdAt: new Date().toISOString(),
+      },
+    ],
+    unreadAlerts: MOCK_ALERTS,
+  };
+};
+
 export default function FarmerDashboard({ setActiveTab }) {
   const { user } = useAuth();
   const { lang, t } = useLanguage();
-  const [dashboardData, setDashboardData] = useState(null);
-  const [weatherData, setWeatherData] = useState(null);
-  const [mandiSpotlight, setMandiSpotlight] = useState(null);
-  const [outbreakAlerts, setOutbreakAlerts] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [dashboardData, setDashboardData] = useState(() => getInitialDashboardData());
+  const [weatherData, setWeatherData] = useState(() => safeParse('krishi_weather_cache') || MOCK_WEATHER);
+  const [mandiSpotlight, setMandiSpotlight] = useState(() => safeParse('krishi_mandi_cache') || (MOCK_MANDI_PRICES[0] || null));
+  const [outbreakAlerts, setOutbreakAlerts] = useState(() => safeParse('krishi_outbreak_cache') || MOCK_OUTBREAKS);
+  const [loading, setLoading] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     try {
@@ -45,12 +96,24 @@ export default function FarmerDashboard({ setActiveTab }) {
         api.get('/tools/outbreaks')
       ]);
 
-      if (dashRes?.data?.success) setDashboardData(dashRes.data.data);
-      if (weatherRes?.data?.success) setWeatherData(weatherRes.data.data);
-      if (mandiRes?.data?.success && Array.isArray(mandiRes.data?.data) && mandiRes.data.data.length > 0) setMandiSpotlight(mandiRes.data.data[0]);
-      if (outbreakRes?.data?.success) setOutbreakAlerts(outbreakRes.data);
+      if (dashRes?.data?.success) {
+        setDashboardData(dashRes.data.data);
+        safeSet('krishi_dash_cache', dashRes.data.data);
+      }
+      if (weatherRes?.data?.success) {
+        setWeatherData(weatherRes.data.data);
+        safeSet('krishi_weather_cache', weatherRes.data.data);
+      }
+      if (mandiRes?.data?.success && Array.isArray(mandiRes.data?.data) && mandiRes.data.data.length > 0) {
+        setMandiSpotlight(mandiRes.data.data[0]);
+        safeSet('krishi_mandi_cache', mandiRes.data.data[0]);
+      }
+      if (outbreakRes?.data?.success) {
+        setOutbreakAlerts(outbreakRes.data);
+        safeSet('krishi_outbreak_cache', outbreakRes.data);
+      }
     } catch (e) {
-      console.error('Failed to load dashboard:', e);
+      console.warn('Dashboard background refresh note:', e.message);
     } finally {
       setLoading(false);
     }

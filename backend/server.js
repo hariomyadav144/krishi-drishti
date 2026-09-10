@@ -170,14 +170,19 @@ function startServer() {
   // Connect to Database asynchronously so port binding is never blocked
   connectDB()
     .then(async () => {
-      try {
-        const count = await User.countDocuments();
-        if (count === 0) {
-          console.log('Empty database detected. Auto-populating realistic agricultural demo dataset...');
-          await seedDatabase();
+      const mongoose = require('mongoose');
+      if (mongoose.connection.readyState === 1) {
+        try {
+          const count = await User.countDocuments();
+          if (count === 0) {
+            console.log('Empty database detected. Auto-populating realistic agricultural demo dataset...');
+            await seedDatabase();
+          }
+        } catch (seedErr) {
+          console.warn('Initial seeding check warning:', seedErr.message);
         }
-      } catch (seedErr) {
-        console.warn('Initial seeding check warning:', seedErr.message);
+      } else {
+        console.log('Database operating in resilient cloud stateless mode.');
       }
     })
     .catch((err) => {
