@@ -24,7 +24,8 @@ import {
   VideoOff,
   SwitchCamera,
   Zap,
-  Printer
+  Printer,
+  X
 } from 'lucide-react';
 
 export default function ScanCrop({ setActiveTab }) {
@@ -42,6 +43,8 @@ export default function ScanCrop({ setActiveTab }) {
 
   // Live Camera streaming states
   const [isCameraActive, setIsCameraActive] = useState(false);
+  const [isCameraLoading, setIsCameraLoading] = useState(false);
+  const [cameraError, setCameraError] = useState('');
   const [facingMode, setFacingMode] = useState('environment'); // 'environment' | 'user'
   const [flashActive, setFlashActive] = useState(false);
   const videoRef = useRef(null);
@@ -49,7 +52,6 @@ export default function ScanCrop({ setActiveTab }) {
   const streamRef = useRef(null);
 
   const fileInputRef = useRef(null);
-  const cameraInputRef = useRef(null);
 
   const sampleLeaves = [
     {
@@ -97,51 +99,90 @@ export default function ScanCrop({ setActiveTab }) {
 
   const startCameraStream = async (mode = facingMode) => {
     try {
+      setCameraError('');
       setError('');
+      setIsCameraLoading(true);
       stopCameraStream();
 
-      // If mediaDevices is not supported in this browser context, launch native camera directly
+      // Check browser Camera API support
       if (!navigator?.mediaDevices?.getUserMedia) {
-        console.info('getUserMedia not supported, opening native camera input');
-        openNativeCamera();
+        setCameraError(
+          lang === 'hi'
+            ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें या गैलरी से फोटो अपलोड करें।'
+            : 'Camera access is unavailable. Please allow camera permission or use Upload from Gallery.'
+        );
+        setIsCameraLoading(false);
         return;
       }
 
+      // Check for secure context (HTTPS required for camera, except on localhost)
+      if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+        setCameraError(
+          lang === 'hi'
+            ? 'कैमरा एक्सेस के लिए सुरक्षित HTTPS कनेक्शन आवश्यक है। कृपया गैलरी से फोटो अपलोड करें।'
+            : 'Camera access requires a secure HTTPS connection. Please use Upload from Gallery.'
+        );
+        setIsCameraLoading(false);
+        return;
+      }
+
+      setIsCameraActive(true);
+
       let stream = null;
+      // 1. Try preferred camera (rear/environment on mobile) with optimal resolution
       try {
-        // Try preferred camera facing mode with relaxed ideal constraints
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: { ideal: mode },
-            width: { ideal: 1280 },
-            height: { ideal: 720 }
+            width: { ideal: 1920, min: 640 },
+            height: { ideal: 1080, min: 480 }
           },
           audio: false
         });
       } catch (err1) {
-        console.warn('Specific video constraints failed, trying generic video:', err1);
+        console.warn('Optimal environment camera constraint failed, trying fallback mode:', err1);
         try {
-          // Fallback to basic video constraint without resolution restrictions
-          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          // 2. Try alternate facing mode (e.g. laptop webcam)
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              facingMode: mode === 'environment' ? 'user' : 'environment',
+              width: { ideal: 1280 },
+              height: { ideal: 720 }
+            },
+            audio: false
+          });
         } catch (err2) {
-          console.warn('Basic getUserMedia failed, opening native camera input:', err2);
-          // Launch native phone camera input directly
-          openNativeCamera();
-          return;
+          console.warn('Alternate facing mode failed, trying basic video:', err2);
+          try {
+            // 3. Fallback to basic video constraint without resolution restrictions
+            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+          } catch (err3) {
+            console.error('All camera constraint attempts failed:', err3);
+            throw err3;
+          }
         }
       }
 
       if (stream) {
         streamRef.current = stream;
         setIsCameraActive(true);
+        setIsCameraLoading(false);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play().catch(() => {});
+          videoRef.current.play().catch((playErr) => {
+            console.warn('Video auto-play catch:', playErr);
+          });
         }
       }
     } catch (err) {
-      console.warn('Camera access error:', err);
-      openNativeCamera();
+      console.warn('Camera access denied or unavailable:', err);
+      stopCameraStream();
+      setCameraError(
+        lang === 'hi'
+          ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें या गैलरी से फोटो अपलोड करें।'
+          : 'Camera access is unavailable. Please allow camera permission or use Upload from Gallery.'
+      );
+      setIsCameraLoading(false);
     }
   };
 
@@ -150,17 +191,11 @@ export default function ScanCrop({ setActiveTab }) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
     }
-    setIsCameraActive(false);
-  };
-
-  const openNativeCamera = () => {
-    stopCameraStream();
-    setError('');
-    if (cameraInputRef.current) {
-      cameraInputRef.current.click();
-    } else if (fileInputRef.current) {
-      fileInputRef.current.click();
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
     }
+    setIsCameraActive(false);
+    setIsCameraLoading(false);
   };
 
   const switchCameraMode = () => {
@@ -170,34 +205,46 @@ export default function ScanCrop({ setActiveTab }) {
   };
 
   const captureSnapshot = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current) return;
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth || 640;
-    canvas.height = video.videoHeight || 480;
+
+    // Use actual video stream dimensions for crisp, high-resolution diagnostic capture
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+
+    const canvas = canvasRef.current || document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(video, 0, 0, width, height);
 
     canvas.toBlob((blob) => {
       if (blob) {
-        const file = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
+        const file = new File([blob], `crop-leaf-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setSelectedFile(file);
         setSampleUrl('');
-        setPreviewUrl(URL.createObjectURL(file));
+        const preview = URL.createObjectURL(file);
+        setPreviewUrl(preview);
+
+        // Immediately stop all camera tracks to release device hardware
         stopCameraStream();
         setFlashActive(true);
-        setTimeout(() => setFlashActive(false), 200);
+        setTimeout(() => setFlashActive(false), 250);
+
+        // Automatically trigger the existing AI crop health analysis workflow!
+        handleAnalyze(null, file);
       }
-    }, 'image/jpeg', 0.95);
+    }, 'image/jpeg', 0.92);
   };
 
   const handleFileChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (file) {
       setSelectedFile(file);
       setSampleUrl('');
       setPreviewUrl(URL.createObjectURL(file));
       setError('');
+      setCameraError('');
       stopCameraStream();
     }
   };
@@ -209,12 +256,14 @@ export default function ScanCrop({ setActiveTab }) {
     setPreviewUrl(sample.url);
     setSelectedFile(null);
     setError('');
+    setCameraError('');
     stopCameraStream();
   };
 
-  const handleAnalyze = async (e) => {
-    if (e) e.preventDefault();
-    if (!previewUrl && !selectedFile && !sampleUrl) {
+  const handleAnalyze = async (e, fileOverride = null) => {
+    if (e && typeof e.preventDefault === 'function') e.preventDefault();
+    const fileToScan = fileOverride || selectedFile;
+    if (!previewUrl && !fileToScan && !sampleUrl) {
       setError(lang === 'hi' ? 'कृपया फसल की एक फोटो चुनें या अपलोड करें।' : 'Please upload or select a crop photo to scan.');
       return;
     }
@@ -228,8 +277,8 @@ export default function ScanCrop({ setActiveTab }) {
       formData.append('cropName', cropName);
       formData.append('symptomDescription', symptomDescription);
 
-      if (selectedFile) {
-        formData.append('image', selectedFile);
+      if (fileToScan) {
+        formData.append('image', fileToScan);
       } else if (sampleUrl) {
         formData.append('sampleImageUrl', sampleUrl);
       }
@@ -243,7 +292,7 @@ export default function ScanCrop({ setActiveTab }) {
       }
     } catch (err) {
       console.error('Scan error:', err);
-      setError(err.response?.data?.message || 'Error running AI crop disease diagnosis.');
+      setError(err.response?.data?.message || (lang === 'hi' ? 'AI रोग जांच में समस्या आई। पुनः प्रयास करें।' : 'Error running AI crop disease diagnosis.'));
     } finally {
       setIsAnalyzing(false);
     }
@@ -305,6 +354,23 @@ export default function ScanCrop({ setActiveTab }) {
         </div>
       )}
 
+      {cameraError && (
+        <div className="p-3.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl text-xs font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>{cameraError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 self-start sm:self-auto flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+          >
+            <Upload className="w-3.5 h-3.5" />
+            <span>{lang === 'hi' ? 'गैलरी से फोटो चुनें' : 'Upload from Gallery'}</span>
+          </button>
+        </div>
+      )}
+
       {/* Main Scan Form */}
       <div className="agri-card p-5 bg-white border-slate-200 shadow-sm space-y-4">
         
@@ -340,7 +406,7 @@ export default function ScanCrop({ setActiveTab }) {
 
             {/* 1. Live Camera Stream Mode */}
             {isCameraActive ? (
-              <div className="relative rounded-3xl overflow-hidden border-4 border-emerald-500 bg-black aspect-video sm:aspect-auto sm:h-72 shadow-2xl flex items-center justify-center">
+              <div className="relative rounded-3xl overflow-hidden border-4 border-emerald-500 bg-black aspect-video sm:aspect-auto sm:h-80 shadow-2xl flex items-center justify-center">
                 <video
                   ref={videoRef}
                   autoPlay
@@ -352,28 +418,50 @@ export default function ScanCrop({ setActiveTab }) {
                 {/* Simulated Flash overlay */}
                 {flashActive && <div className="absolute inset-0 bg-white z-30 animate-ping"></div>}
 
-                {/* Laser Grid Scanner Animation */}
-                <div className="absolute inset-0 border-2 border-emerald-400/40 rounded-2xl pointer-events-none flex flex-col justify-between p-4 z-10">
-                  <div className="flex justify-between text-emerald-400 text-xs font-mono font-bold">
-                    <span>[ AI VISION TARGET ]</span>
-                    <span className="animate-pulse">● LIVE 30FPS</span>
+                {/* Loading state indicator while waiting for camera permission */}
+                {isCameraLoading && (
+                  <div className="absolute inset-0 z-25 bg-black/80 flex flex-col items-center justify-center text-white gap-3 p-4">
+                    <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
+                    <span className="text-sm font-bold text-center">
+                      {lang === 'hi' ? 'कैमरा शुरू हो रहा है, कृपया अनुमति दें...' : 'Starting camera, please allow device permission...'}
+                    </span>
                   </div>
+                )}
 
-                  {/* Horizontal scanning laser bar */}
-                  <div className="w-full h-1 bg-gradient-to-r from-transparent via-emerald-400 to-transparent shadow-[0_0_15px_#10b981] animate-pulse"></div>
+                {/* Laser Grid Scanner Animation & Framing Guide */}
+                {!isCameraLoading && (
+                  <div className="absolute inset-0 border-2 border-emerald-400/40 rounded-2xl pointer-events-none flex flex-col justify-between p-4 z-10">
+                    <div className="flex justify-between items-center text-emerald-400 text-xs font-mono font-bold">
+                      <span className="bg-black/60 px-2.5 py-1 rounded-lg backdrop-blur-xs">[ AI LEAF SCANNER ]</span>
+                      <span className="bg-red-600/90 text-white px-2.5 py-0.5 rounded-full text-[10px] animate-pulse flex items-center gap-1">
+                        <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
+                        LIVE 30FPS
+                      </span>
+                    </div>
 
-                  <div className="text-center text-[11px] text-emerald-300 font-bold bg-black/60 py-1 px-3 rounded-full backdrop-blur-sm self-center">
-                    Center the infected leaf in the frame
+                    {/* Central Aiming Reticle */}
+                    <div className="self-center w-48 h-48 sm:w-56 sm:h-56 border-2 border-dashed border-emerald-300/80 rounded-2xl flex items-center justify-center relative">
+                      <div className="w-full h-0.5 bg-emerald-400/80 shadow-[0_0_12px_#10b981] animate-pulse"></div>
+                      {/* Corner marks */}
+                      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-emerald-300"></div>
+                      <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-emerald-300"></div>
+                      <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-emerald-300"></div>
+                      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-emerald-300"></div>
+                    </div>
+
+                    <div className="text-center text-[11px] text-emerald-200 font-bold bg-black/75 py-1.5 px-4 rounded-full backdrop-blur-md self-center shadow-md">
+                      {lang === 'hi' ? 'रोगग्रस्त पत्ती को चौखट के बीच में रखें' : 'Center the infected leaf in the reticle'}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Camera Control Bar */}
                 <div className="absolute bottom-3 inset-x-0 flex items-center justify-center gap-4 z-20">
                   <button
                     type="button"
                     onClick={switchCameraMode}
-                    className="p-3 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition shadow-md"
-                    title={t('diagnose.switchCam')}
+                    className="p-3 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition shadow-md active:scale-90"
+                    title={lang === 'hi' ? 'कैमरा बदलें (आगे / पीछे)' : 'Switch Camera'}
                   >
                     <SwitchCamera className="w-5 h-5" />
                   </button>
@@ -381,8 +469,9 @@ export default function ScanCrop({ setActiveTab }) {
                   <button
                     type="button"
                     onClick={captureSnapshot}
-                    className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white border-4 border-white shadow-xl flex items-center justify-center transition active:scale-90"
-                    title={t('diagnose.capturePhoto')}
+                    disabled={isCameraLoading}
+                    className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white border-4 border-white shadow-xl flex items-center justify-center transition active:scale-90 disabled:opacity-50"
+                    title={lang === 'hi' ? 'फोटो खींचें और जांचें' : 'Capture Photo'}
                   >
                     <Camera className="w-7 h-7" />
                   </button>
@@ -390,14 +479,14 @@ export default function ScanCrop({ setActiveTab }) {
                   <button
                     type="button"
                     onClick={stopCameraStream}
-                    className="p-3 rounded-full bg-red-600/80 hover:bg-red-600 text-white backdrop-blur-md transition shadow-md"
-                    title={t('diagnose.closeCam')}
+                    className="p-3 rounded-full bg-red-600/80 hover:bg-red-600 text-white backdrop-blur-md transition shadow-md active:scale-90"
+                    title={lang === 'hi' ? 'कैमरा बंद करें' : 'Cancel / Close Camera'}
                   >
-                    <VideoOff className="w-5 h-5" />
+                    <X className="w-5 h-5" />
                   </button>
                 </div>
 
-                {/* Hidden canvas used for snapshot rendering */}
+                {/* Canvas used for snapshot rendering */}
                 <canvas ref={canvasRef} className="hidden"></canvas>
               </div>
             ) : previewUrl ? (
@@ -414,33 +503,33 @@ export default function ScanCrop({ setActiveTab }) {
                   {analysisResult && (
                     <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                       <div className="w-48 h-36 border-2 border-dashed border-red-400 bg-red-500/20 rounded-xl flex items-start justify-end p-1.5 animate-pulse">
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-red-600 text-white px-2 py-0.5 rounded shadow-sm">
-                          Pathology Zone: {analysisResult.severity}
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-red-600 text-white px-2 py-0.5 rounded shadow-sm">
+                          Pathology: {analysisResult.severity}
                         </span>
                       </div>
                     </div>
                   )}
+
+                  {/* Active scanning progress banner if analyzing */}
+                  {isAnalyzing && (
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center text-white gap-2 p-4">
+                      <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
+                      <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">
+                        {lang === 'hi' ? 'AI द्वारा रोग का विश्लेषण हो रहा है...' : 'AI Analyzing Crop Health...'}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Always-visible touch action bar for mobile & desktop */}
+                {/* Touch action bar for retake / change photo */}
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={openNativeCamera}
+                    onClick={() => startCameraStream('environment')}
                     className="flex-1 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white py-2.5 px-3 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
                   >
                     <Camera className="w-4 h-4" />
                     <span>{lang === 'hi' ? 'कैमरा से दूसरी फोटो लें' : 'Retake with Camera'}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => startCameraStream()}
-                    className="bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition"
-                    title={t('diagnose.openLiveCam')}
-                  >
-                    <Video className="w-4 h-4 text-emerald-700" />
-                    <span className="hidden sm:inline">{lang === 'hi' ? 'लाइव स्कैनर' : 'Live Cam'}</span>
                   </button>
 
                   <button
@@ -458,10 +547,10 @@ export default function ScanCrop({ setActiveTab }) {
               <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-3xl p-5 sm:p-6 text-center bg-slate-50/50 hover:bg-emerald-50/30 transition">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   
-                  {/* Button 1: Native Phone Camera (100% Works on all Smartphones) */}
+                  {/* Button 1: Real Device Camera via getUserMedia (NO file input!) */}
                   <button
                     type="button"
-                    onClick={openNativeCamera}
+                    onClick={() => startCameraStream('environment')}
                     className="p-4 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-md active:scale-95 group"
                   >
                     <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-110 transition">
@@ -469,14 +558,14 @@ export default function ScanCrop({ setActiveTab }) {
                     </div>
                     <span className="text-sm font-black">{lang === 'hi' ? 'कैमरा से फोटो खींचें' : 'Take Photo (Camera)'}</span>
                     <span className="text-[10px] text-emerald-100 font-normal">
-                      {lang === 'hi' ? 'मोबाइल कैमरा तुरंत खुलेगा' : 'Opens phone camera directly'}
+                      {lang === 'hi' ? 'डिवाइस कैमरा सीधे खुलेगा' : 'Opens device camera directly'}
                     </span>
                   </button>
 
                   {/* Button 2: Interactive Live WebRTC Viewfinder */}
                   <button
                     type="button"
-                    onClick={() => startCameraStream()}
+                    onClick={() => startCameraStream('environment')}
                     className="p-4 bg-white hover:bg-emerald-50 text-emerald-950 border border-emerald-300 rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-xs active:scale-95 group"
                   >
                     <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition">
@@ -509,16 +598,6 @@ export default function ScanCrop({ setActiveTab }) {
                 </p>
               </div>
             )}
-
-            {/* Hidden hardware camera input for native mobile capture */}
-            <input
-              type="file"
-              ref={cameraInputRef}
-              accept="image/*"
-              capture="environment"
-              className="hidden"
-              onChange={handleFileChange}
-            />
 
             {/* Hidden file input for photo library / upload */}
             <input
