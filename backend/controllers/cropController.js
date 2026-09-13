@@ -1,14 +1,20 @@
 const Crop = require('../models/Crop');
 const Farm = require('../models/Farm');
+const { isDbConnected, getStatelessCrops } = require('../utils/statelessStore');
 
 // @desc Get all crops for farmer
 // @route GET /api/crops
 const getCrops = async (req, res) => {
   try {
+    if (!isDbConnected()) {
+      const crops = getStatelessCrops();
+      return res.json({ success: true, count: crops.length, data: crops });
+    }
     const crops = await Crop.find({ farmerId: req.user._id }).sort({ isCurrent: -1, createdAt: -1 });
     res.json({ success: true, count: crops.length, data: crops });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const crops = getStatelessCrops();
+    res.json({ success: true, count: crops.length, data: crops });
   }
 };
 

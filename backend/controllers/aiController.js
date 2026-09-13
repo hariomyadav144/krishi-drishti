@@ -38,7 +38,7 @@ const getAiAdvice = async (req, res) => {
   } = req.body || {};
 
   try {
-    const rawInput = (question || queryText || '').trim();
+    const rawInput = (question || queryText || req.body?.query || req.body?.message || req.body?.prompt || '').trim();
     const query = cleanUserQuery(rawInput);
 
     if (!query) {

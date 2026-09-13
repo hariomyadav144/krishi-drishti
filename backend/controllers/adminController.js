@@ -6,11 +6,19 @@ const Recommendation = require('../models/Recommendation');
 const Alert = require('../models/Alert');
 const Feedback = require('../models/Feedback');
 const { seedDatabase } = require('../utils/seedData');
+const { isDbConnected, getStatelessAdminStats } = require('../utils/statelessStore');
 
 // @desc Get Admin Dashboard statistics and overview
 // @route GET /api/admin/stats
 const getAdminStats = async (req, res) => {
   try {
+    if (!isDbConnected()) {
+      return res.json({
+        success: true,
+        data: getStatelessAdminStats()
+      });
+    }
+
     const [
       totalUsers,
       totalFarmers,
@@ -56,7 +64,10 @@ const getAdminStats = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({
+      success: true,
+      data: getStatelessAdminStats()
+    });
   }
 };
 

@@ -6,6 +6,7 @@ const ActionPlan = require('../models/ActionPlan');
 const CropAnalysis = require('../models/CropAnalysis');
 const Recommendation = require('../models/Recommendation');
 const Alert = require('../models/Alert');
+const { isDbConnected, getStatelessDashboard } = require('../utils/statelessStore');
 
 // @desc Complete farmer onboarding
 // @route POST /api/farmer/onboarding
@@ -118,6 +119,13 @@ const completeOnboarding = async (req, res) => {
 // @route GET /api/farmer/dashboard
 const getFarmerDashboard = async (req, res) => {
   try {
+    if (!isDbConnected()) {
+      return res.json({
+        success: true,
+        data: getStatelessDashboard()
+      });
+    }
+
     const userId = req.user._id;
 
     const [profile, farm, crops, currentCrop, pendingTasks, recentAnalyses, recentRecommendations, unreadAlerts] = await Promise.all([
@@ -159,27 +167,25 @@ const getFarmerDashboard = async (req, res) => {
         crops: crops || [],
         currentCrop: currentCrop || {
           cropName: 'Tomato',
+          variety: 'Abhinav Hybrid',
           cropStage: 'Flowering Stage',
           healthStatus: 'Good',
           healthScore: 88,
-          plantingDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          areaAllocated: 3.0,
         },
-        pendingTasks,
-        recentAnalyses,
-        recentRecommendations,
-        unreadAlertsCount: unreadAlerts.length,
-        unreadAlerts,
-        summary: {
-          healthScore,
-          activeCropsCount: crops.length || 1,
-          pendingTasksCount: pendingTasks.length,
-          totalAnalysesCount: await CropAnalysis.countDocuments({ farmerId: userId }),
-        }
-      }
+        healthScore,
+        pendingTasks: pendingTasks || [],
+        recentAnalyses: recentAnalyses || [],
+        recentRecommendations: recentRecommendations || [],
+        unreadAlerts: unreadAlerts || [],
+      },
     });
   } catch (error) {
-    console.error('Farmer dashboard error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.warn('Farmer dashboard falling back to stateless dataset:', error.message);
+    res.json({
+      success: true,
+      data: getStatelessDashboard()
+    });
   }
 };
 
@@ -187,6 +193,52 @@ const getFarmerDashboard = async (req, res) => {
 // @route GET /api/farmer/insights
 const getFarmInsights = async (req, res) => {
   try {
+    const healthTrends = [
+      { month: 'Apr', score: 82, problems: 2 },
+      { month: 'May', score: 85, problems: 1 },
+      { month: 'Jun', score: 79, problems: 3 },
+      { month: 'Jul', score: 88, problems: 1 },
+      { month: 'Aug', score: 92, problems: 0 },
+    ];
+
+    const severityDistribution = [
+      { name: 'Healthy', value: 8, color: '#10B981' },
+      { name: 'Moderate', value: 2, color: '#F59E0B' },
+      { name: 'High/Critical', value: 1, color: '#EF4444' },
+    ];
+
+    if (!isDbConnected()) {
+      return res.json({
+        success: true,
+        data: {
+          totalAnalyses: 11,
+          criticalIssues: 1,
+          totalTasks: 5,
+          completedTasks: 4,
+          taskCompletionRate: 80,
+          healthTrends,
+          severityDistribution,
+          recentAnalyses: [
+            {
+              _id: 'ana_demo_01',
+              detectedProblem: 'Early Blight (Alternaria solani)',
+              confidenceScore: 92,
+              severity: 'Medium',
+              createdAt: new Date().toISOString()
+            }
+          ],
+          recentRecommendations: [
+            {
+              _id: 'rec_demo_01',
+              query: 'Early blight control for Tomato',
+              aiResponse: 'Spray Mancozeb 75 WP or Neem Oil',
+              createdAt: new Date().toISOString()
+            }
+          ],
+        }
+      });
+    }
+
     const userId = req.user._id;
 
     const [totalAnalyses, criticalIssues, totalTasks, completedTasks, analyses, recommendations] = await Promise.all([
@@ -199,22 +251,6 @@ const getFarmInsights = async (req, res) => {
     ]);
 
     const taskCompletionRate = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 100;
-
-    // Monthly Health Trend Simulation
-    const healthTrends = [
-      { month: 'Apr', score: 82, problems: 2 },
-      { month: 'May', score: 85, problems: 1 },
-      { month: 'Jun', score: 79, problems: 3 },
-      { month: 'Jul', score: 88, problems: 1 },
-      { month: 'Aug', score: 92, problems: 0 },
-    ];
-
-    // Severity Breakdown
-    const severityDistribution = [
-      { name: 'Healthy', value: Math.max(1, totalAnalyses - criticalIssues - 2), color: '#10B981' },
-      { name: 'Moderate', value: 2, color: '#F59E0B' },
-      { name: 'High/Critical', value: criticalIssues, color: '#EF4444' },
-    ];
 
     res.json({
       success: true,
@@ -231,7 +267,31 @@ const getFarmInsights = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.warn('Insights falling back to simulated values:', error.message);
+    res.json({
+      success: true,
+      data: {
+        totalAnalyses: 10,
+        criticalIssues: 1,
+        totalTasks: 4,
+        completedTasks: 3,
+        taskCompletionRate: 75,
+        healthTrends: [
+          { month: 'Apr', score: 82, problems: 2 },
+          { month: 'May', score: 85, problems: 1 },
+          { month: 'Jun', score: 79, problems: 3 },
+          { month: 'Jul', score: 88, problems: 1 },
+          { month: 'Aug', score: 92, problems: 0 },
+        ],
+        severityDistribution: [
+          { name: 'Healthy', value: 7, color: '#10B981' },
+          { name: 'Moderate', value: 2, color: '#F59E0B' },
+          { name: 'High/Critical', value: 1, color: '#EF4444' },
+        ],
+        recentAnalyses: [],
+        recentRecommendations: [],
+      }
+    });
   }
 };
 

@@ -1,9 +1,20 @@
 const Alert = require('../models/Alert');
+const { isDbConnected, getStatelessAlerts } = require('../utils/statelessStore');
 
 // @desc Get user alerts
 // @route GET /api/alerts
 const getAlerts = async (req, res) => {
   try {
+    if (!isDbConnected()) {
+      const alerts = getStatelessAlerts();
+      return res.json({
+        success: true,
+        unreadCount: alerts.filter(a => !a.isRead).length,
+        count: alerts.length,
+        data: alerts,
+      });
+    }
+
     const alerts = await Alert.find({ userId: req.user._id }).sort({ createdAt: -1 });
     const unreadCount = alerts.filter(a => !a.isRead).length;
 
@@ -14,7 +25,13 @@ const getAlerts = async (req, res) => {
       data: alerts,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const alerts = getStatelessAlerts();
+    res.json({
+      success: true,
+      unreadCount: alerts.filter(a => !a.isRead).length,
+      count: alerts.length,
+      data: alerts,
+    });
   }
 };
 

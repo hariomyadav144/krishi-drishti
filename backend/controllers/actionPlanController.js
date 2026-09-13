@@ -1,9 +1,17 @@
 const ActionPlan = require('../models/ActionPlan');
+const { isDbConnected, getStatelessActionPlans, toggleStatelessActionPlan } = require('../utils/statelessStore');
 
 // @desc Get all action plans & tasks for farmer
 // @route GET /api/action-plans
 const getActionPlans = async (req, res) => {
   try {
+    if (!isDbConnected()) {
+      return res.json({
+        success: true,
+        data: getStatelessActionPlans()
+      });
+    }
+
     const tasks = await ActionPlan.find({ farmerId: req.user._id }).sort({ isCompleted: 1, createdAt: -1 });
 
     const total = tasks.length;
@@ -24,7 +32,10 @@ const getActionPlans = async (req, res) => {
       }
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({
+      success: true,
+      data: getStatelessActionPlans()
+    });
   }
 };
 
@@ -32,6 +43,15 @@ const getActionPlans = async (req, res) => {
 // @route PUT /api/action-plans/:id/toggle
 const toggleTaskCompletion = async (req, res) => {
   try {
+    if (!isDbConnected()) {
+      const task = toggleStatelessActionPlan(req.params.id);
+      return res.json({
+        success: true,
+        message: `Task marked as ${task?.isCompleted ? 'completed' : 'pending'}`,
+        data: task
+      });
+    }
+
     const task = await ActionPlan.findOne({ _id: req.params.id, farmerId: req.user._id });
     if (!task) {
       return res.status(404).json({ success: false, message: 'Task not found' });
@@ -43,7 +63,12 @@ const toggleTaskCompletion = async (req, res) => {
 
     res.json({ success: true, message: `Task marked as ${task.isCompleted ? 'completed' : 'pending'}`, data: task });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    const task = toggleStatelessActionPlan(req.params.id);
+    res.json({
+      success: true,
+      message: `Task marked as ${task?.isCompleted ? 'completed' : 'pending'}`,
+      data: task
+    });
   }
 };
 

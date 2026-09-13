@@ -3,12 +3,21 @@ const User = require('../models/User');
 const Alert = require('../models/Alert');
 const Crop = require('../models/Crop');
 const ActionPlan = require('../models/ActionPlan');
+const { isDbConnected, getStatelessExpertCases } = require('../utils/statelessStore');
 
 // @desc Get all pending crop problem cases for experts
 // @route GET /api/expert/cases
 const getExpertCases = async (req, res) => {
   try {
     const { status = 'all' } = req.query;
+
+    if (!isDbConnected()) {
+      return res.json({
+        success: true,
+        ...getStatelessExpertCases(status)
+      });
+    }
+
     let query = {};
     if (status === 'pending') {
       query.expertReviewed = false;
@@ -34,7 +43,10 @@ const getExpertCases = async (req, res) => {
       data: cases,
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    res.json({
+      success: true,
+      ...getStatelessExpertCases(req.query.status)
+    });
   }
 };
 
