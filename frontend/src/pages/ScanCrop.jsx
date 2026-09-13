@@ -42,6 +42,7 @@ export default function ScanCrop({ setActiveTab }) {
   const [error, setError] = useState('');
 
   // Live Camera streaming states
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isCameraLoading, setIsCameraLoading] = useState(false);
   const [cameraError, setCameraError] = useState('');
@@ -80,22 +81,34 @@ export default function ScanCrop({ setActiveTab }) {
     }
   ];
 
-  // Stop camera when unmounting
+  // Stop camera when unmounting or navigating away
   useEffect(() => {
     return () => {
       stopCameraStream();
     };
   }, []);
 
-  // Connect stream to video element whenever camera becomes active and element mounts
+  // Connect stream to video element whenever camera modal is active
   useEffect(() => {
-    if (isCameraActive && videoRef.current && streamRef.current) {
+    if (isCameraModalOpen && streamRef.current && videoRef.current) {
       videoRef.current.srcObject = streamRef.current;
       videoRef.current.play().catch((err) => {
         console.warn('Video auto-play catch:', err);
       });
     }
-  }, [isCameraActive]);
+  }, [isCameraModalOpen, isCameraActive, isCameraLoading]);
+
+  const openCameraModal = () => {
+    setIsCameraModalOpen(true);
+    setCameraError('');
+    startCameraStream(facingMode);
+  };
+
+  const closeCameraModal = () => {
+    stopCameraStream();
+    setIsCameraModalOpen(false);
+    setCameraError('');
+  };
 
   const startCameraStream = async (mode = facingMode) => {
     try {
@@ -108,58 +121,31 @@ export default function ScanCrop({ setActiveTab }) {
       if (!navigator?.mediaDevices?.getUserMedia) {
         setCameraError(
           lang === 'hi'
-            ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें या गैलरी से फोटो अपलोड करें।'
-            : 'Camera access is unavailable. Please allow camera permission or use Upload from Gallery.'
+            ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें और पुनः प्रयास करें, या गैलरी से फोटो अपलोड करें।'
+            : 'Camera access is unavailable. Please allow camera permission and try again, or use Upload from Gallery.'
         );
         setIsCameraLoading(false);
         return;
       }
-
-      // Check for secure context (HTTPS required for camera, except on localhost)
-      if (typeof window !== 'undefined' && !window.isSecureContext && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
-        setCameraError(
-          lang === 'hi'
-            ? 'कैमरा एक्सेस के लिए सुरक्षित HTTPS कनेक्शन आवश्यक है। कृपया गैलरी से फोटो अपलोड करें।'
-            : 'Camera access requires a secure HTTPS connection. Please use Upload from Gallery.'
-        );
-        setIsCameraLoading(false);
-        return;
-      }
-
-      setIsCameraActive(true);
 
       let stream = null;
-      // 1. Try preferred camera (rear/environment on mobile) with optimal resolution
+      // Step 3: First attempt rear/environment camera without microphone
       try {
         stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { ideal: mode },
-            width: { ideal: 1920, min: 640 },
-            height: { ideal: 1080, min: 480 }
-          },
+          video: { facingMode: { ideal: mode } },
           audio: false
         });
       } catch (err1) {
-        console.warn('Optimal environment camera constraint failed, trying fallback mode:', err1);
+        console.warn('Preferred facingMode camera failed, falling back to basic video for desktop/laptop:', err1);
         try {
-          // 2. Try alternate facing mode (e.g. laptop webcam)
+          // Gracefully fall back to basic video without microphone
           stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-              facingMode: mode === 'environment' ? 'user' : 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            },
+            video: true,
             audio: false
           });
         } catch (err2) {
-          console.warn('Alternate facing mode failed, trying basic video:', err2);
-          try {
-            // 3. Fallback to basic video constraint without resolution restrictions
-            stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-          } catch (err3) {
-            console.error('All camera constraint attempts failed:', err3);
-            throw err3;
-          }
+          console.error('All camera attempts failed:', err2);
+          throw err2;
         }
       }
 
@@ -175,12 +161,12 @@ export default function ScanCrop({ setActiveTab }) {
         }
       }
     } catch (err) {
-      console.warn('Camera access denied or unavailable:', err);
+      console.warn('Camera access error:', err);
       stopCameraStream();
       setCameraError(
         lang === 'hi'
-          ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें या गैलरी से फोटो अपलोड करें।'
-          : 'Camera access is unavailable. Please allow camera permission or use Upload from Gallery.'
+          ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें और पुनः प्रयास करें, या गैलरी से फोटो अपलोड करें।'
+          : 'Camera access is unavailable. Please allow camera permission and try again, or use Upload from Gallery.'
       );
       setIsCameraLoading(false);
     }
@@ -220,18 +206,19 @@ export default function ScanCrop({ setActiveTab }) {
 
     canvas.toBlob((blob) => {
       if (blob) {
-        const file = new File([blob], `crop-leaf-${Date.now()}.jpg`, { type: 'image/jpeg' });
+        const file = new File([blob], `crop-camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setSelectedFile(file);
         setSampleUrl('');
         const preview = URL.createObjectURL(file);
         setPreviewUrl(preview);
 
-        // Immediately stop all camera tracks to release device hardware
+        // Step 7: Immediately stop all camera tracks and close modal
         stopCameraStream();
+        setIsCameraModalOpen(false);
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 250);
 
-        // Automatically trigger the existing AI crop health analysis workflow!
+        // Step 5 & 6: Automatically trigger the existing AI crop health analysis workflow!
         handleAnalyze(null, file);
       }
     }, 'image/jpeg', 0.92);
@@ -354,20 +341,176 @@ export default function ScanCrop({ setActiveTab }) {
         </div>
       )}
 
-      {cameraError && (
+      {/* Camera Error Banner (Fallback with dual actions) */}
+      {cameraError && !isCameraModalOpen && (
         <div className="p-3.5 bg-amber-50 border border-amber-300 text-amber-900 rounded-2xl text-xs font-medium flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
             <span>{cameraError}</span>
           </div>
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            className="bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs shrink-0 self-start sm:self-auto flex items-center gap-1.5 transition active:scale-95 shadow-xs"
-          >
-            <Upload className="w-3.5 h-3.5" />
-            <span>{lang === 'hi' ? 'गैलरी से फोटो चुनें' : 'Upload from Gallery'}</span>
-          </button>
+          <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
+            <button
+              type="button"
+              onClick={openCameraModal}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+            >
+              <RefreshCw className="w-3.5 h-3.5" />
+              <span>{lang === 'hi' ? 'कैमरा पुनः प्रयास करें' : 'Try Camera Again'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-xs"
+            >
+              <Upload className="w-3.5 h-3.5" />
+              <span>{lang === 'hi' ? 'गैलरी से फोटो चुनें' : 'Upload from Gallery'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* STEP 4: PROPER FULLSCREEN / OVERLAY CAMERA MODAL */}
+      {isCameraModalOpen && (
+        <div className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-6 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-xl bg-slate-900 border border-slate-700 rounded-3xl overflow-hidden shadow-2xl flex flex-col">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/70">
+              <div className="flex items-center gap-2 text-white">
+                <Camera className="w-5 h-5 text-emerald-400" />
+                <span className="font-extrabold text-sm tracking-wide">
+                  {lang === 'hi' ? 'कैमरा दृश्य (CAMERA VIEW)' : 'CAMERA VIEW'}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={closeCameraModal}
+                className="p-1.5 rounded-full text-slate-400 hover:text-white hover:bg-slate-800 transition"
+                title="Cancel / Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Camera View Area */}
+            <div className="relative aspect-4/3 sm:aspect-video bg-black flex items-center justify-center overflow-hidden">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                muted
+                className={`w-full h-full object-cover ${cameraError ? 'hidden' : 'block'}`}
+              />
+
+              {/* Simulated flash on capture */}
+              {flashActive && <div className="absolute inset-0 bg-white z-40 animate-ping" />}
+
+              {/* Camera Loading Spinner */}
+              {isCameraLoading && (
+                <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center text-white gap-3 p-4">
+                  <RefreshCw className="w-9 h-9 animate-spin text-emerald-400" />
+                  <span className="text-sm font-bold text-center">
+                    {lang === 'hi' ? 'कैमरा शुरू हो रहा है... अनुमति दें' : 'Starting camera feed... please allow camera permission'}
+                  </span>
+                </div>
+              )}
+
+              {/* Step 10: Camera Error Handling Dialog */}
+              {cameraError && !isCameraLoading && (
+                <div className="absolute inset-0 z-30 bg-slate-900 flex flex-col items-center justify-center text-white p-6 text-center space-y-4">
+                  <div className="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center border border-amber-500/30">
+                    <AlertTriangle className="w-8 h-8" />
+                  </div>
+                  <div className="max-w-md space-y-1">
+                    <h4 className="font-black text-base text-amber-300">
+                      {lang === 'hi' ? 'कैमरा एक्सेस उपलब्ध नहीं है' : 'Camera Access Unavailable'}
+                    </h4>
+                    <p className="text-xs text-slate-300 leading-relaxed">
+                      {cameraError}
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 pt-2 w-full max-w-xs">
+                    <button
+                      type="button"
+                      onClick={() => startCameraStream(facingMode)}
+                      className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      <span>{lang === 'hi' ? 'पुनः प्रयास करें' : 'Try Camera Again'}</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        closeCameraModal();
+                        fileInputRef.current?.click();
+                      }}
+                      className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
+                    >
+                      <Upload className="w-4 h-4" />
+                      <span>{lang === 'hi' ? 'गैलरी से अपलोड' : 'Upload from Gallery'}</span>
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Scanning Reticle guide when live */}
+              {!isCameraLoading && !cameraError && (
+                <div className="absolute inset-0 border-2 border-emerald-400/40 rounded-2xl pointer-events-none flex flex-col justify-between p-4 z-20">
+                  <div className="flex justify-between items-center text-emerald-400 text-xs font-mono font-bold">
+                    <span className="bg-black/60 px-2.5 py-1 rounded-lg backdrop-blur-xs">[ AI LEAF SCANNER ]</span>
+                    <span className="bg-red-600/90 text-white px-2.5 py-0.5 rounded-full text-[10px] animate-pulse flex items-center gap-1">
+                      <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
+                      LIVE
+                    </span>
+                  </div>
+
+                  <div className="self-center w-48 h-48 sm:w-56 sm:h-56 border-2 border-dashed border-emerald-300/80 rounded-2xl flex items-center justify-center relative">
+                    <div className="w-full h-0.5 bg-emerald-400/80 shadow-[0_0_12px_#10b981] animate-pulse"></div>
+                    <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-emerald-300"></div>
+                    <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-emerald-300"></div>
+                    <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-emerald-300"></div>
+                    <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-emerald-300"></div>
+                  </div>
+
+                  <div className="text-center text-[11px] text-emerald-200 font-bold bg-black/75 py-1.5 px-4 rounded-full backdrop-blur-md self-center shadow-md">
+                    {lang === 'hi' ? 'रोगग्रस्त पत्ती को चौखट के बीच में रखें' : 'Center the infected leaf in the reticle'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Camera Controls Bar */}
+            {!cameraError && (
+              <div className="p-4 bg-slate-950 flex items-center justify-between gap-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={switchCameraMode}
+                  className="p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95"
+                  title={lang === 'hi' ? 'कैमरा बदलें' : 'Switch Camera'}
+                >
+                  <SwitchCamera className="w-5 h-5" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={captureSnapshot}
+                  disabled={isCameraLoading}
+                  className="flex-1 max-w-xs bg-gradient-to-r from-emerald-500 to-agri-600 hover:from-emerald-600 hover:to-agri-700 text-white font-extrabold py-3.5 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2 text-sm transition active:scale-95 disabled:opacity-50"
+                >
+                  <Camera className="w-5 h-5" />
+                  <span>{lang === 'hi' ? 'फोटो खींचें (Capture Photo)' : 'Capture Photo'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={closeCameraModal}
+                  className="p-3 rounded-full bg-slate-800 hover:bg-red-900/40 hover:text-red-300 text-slate-400 transition active:scale-95"
+                  title="Cancel"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -398,99 +541,14 @@ export default function ScanCrop({ setActiveTab }) {
             </select>
           </div>
 
-          {/* Live Camera Viewfinder or Photo Upload Area */}
+          {/* Photo Selection or Preview Area */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              {lang === 'hi' ? 'पत्ती / पौधे की फोटो (Live Camera / Upload)' : 'Crop Leaf Photo (Live Camera / Upload)'}
+              {lang === 'hi' ? 'पत्ती / पौधे की फोटो (Camera / Gallery)' : 'Crop Leaf Photo (Camera / Gallery)'}
             </label>
 
-            {/* 1. Live Camera Stream Mode */}
-            {isCameraActive ? (
-              <div className="relative rounded-3xl overflow-hidden border-4 border-emerald-500 bg-black aspect-video sm:aspect-auto sm:h-80 shadow-2xl flex items-center justify-center">
-                <video
-                  ref={videoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-cover"
-                ></video>
-
-                {/* Simulated Flash overlay */}
-                {flashActive && <div className="absolute inset-0 bg-white z-30 animate-ping"></div>}
-
-                {/* Loading state indicator while waiting for camera permission */}
-                {isCameraLoading && (
-                  <div className="absolute inset-0 z-25 bg-black/80 flex flex-col items-center justify-center text-white gap-3 p-4">
-                    <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
-                    <span className="text-sm font-bold text-center">
-                      {lang === 'hi' ? 'कैमरा शुरू हो रहा है, कृपया अनुमति दें...' : 'Starting camera, please allow device permission...'}
-                    </span>
-                  </div>
-                )}
-
-                {/* Laser Grid Scanner Animation & Framing Guide */}
-                {!isCameraLoading && (
-                  <div className="absolute inset-0 border-2 border-emerald-400/40 rounded-2xl pointer-events-none flex flex-col justify-between p-4 z-10">
-                    <div className="flex justify-between items-center text-emerald-400 text-xs font-mono font-bold">
-                      <span className="bg-black/60 px-2.5 py-1 rounded-lg backdrop-blur-xs">[ AI LEAF SCANNER ]</span>
-                      <span className="bg-red-600/90 text-white px-2.5 py-0.5 rounded-full text-[10px] animate-pulse flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-white inline-block"></span>
-                        LIVE 30FPS
-                      </span>
-                    </div>
-
-                    {/* Central Aiming Reticle */}
-                    <div className="self-center w-48 h-48 sm:w-56 sm:h-56 border-2 border-dashed border-emerald-300/80 rounded-2xl flex items-center justify-center relative">
-                      <div className="w-full h-0.5 bg-emerald-400/80 shadow-[0_0_12px_#10b981] animate-pulse"></div>
-                      {/* Corner marks */}
-                      <div className="absolute top-0 left-0 w-3 h-3 border-t-2 border-l-2 border-emerald-300"></div>
-                      <div className="absolute top-0 right-0 w-3 h-3 border-t-2 border-r-2 border-emerald-300"></div>
-                      <div className="absolute bottom-0 left-0 w-3 h-3 border-b-2 border-l-2 border-emerald-300"></div>
-                      <div className="absolute bottom-0 right-0 w-3 h-3 border-b-2 border-r-2 border-emerald-300"></div>
-                    </div>
-
-                    <div className="text-center text-[11px] text-emerald-200 font-bold bg-black/75 py-1.5 px-4 rounded-full backdrop-blur-md self-center shadow-md">
-                      {lang === 'hi' ? 'रोगग्रस्त पत्ती को चौखट के बीच में रखें' : 'Center the infected leaf in the reticle'}
-                    </div>
-                  </div>
-                )}
-
-                {/* Camera Control Bar */}
-                <div className="absolute bottom-3 inset-x-0 flex items-center justify-center gap-4 z-20">
-                  <button
-                    type="button"
-                    onClick={switchCameraMode}
-                    className="p-3 rounded-full bg-white/20 hover:bg-white/30 text-white backdrop-blur-md transition shadow-md active:scale-90"
-                    title={lang === 'hi' ? 'कैमरा बदलें (आगे / पीछे)' : 'Switch Camera'}
-                  >
-                    <SwitchCamera className="w-5 h-5" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={captureSnapshot}
-                    disabled={isCameraLoading}
-                    className="w-16 h-16 rounded-full bg-emerald-500 hover:bg-emerald-400 text-white border-4 border-white shadow-xl flex items-center justify-center transition active:scale-90 disabled:opacity-50"
-                    title={lang === 'hi' ? 'फोटो खींचें और जांचें' : 'Capture Photo'}
-                  >
-                    <Camera className="w-7 h-7" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={stopCameraStream}
-                    className="p-3 rounded-full bg-red-600/80 hover:bg-red-600 text-white backdrop-blur-md transition shadow-md active:scale-90"
-                    title={lang === 'hi' ? 'कैमरा बंद करें' : 'Cancel / Close Camera'}
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Canvas used for snapshot rendering */}
-                <canvas ref={canvasRef} className="hidden"></canvas>
-              </div>
-            ) : previewUrl ? (
-              /* 2. Photo Preview Mode */
+            {previewUrl ? (
+              /* Photo Preview Mode */
               <div className="space-y-2">
                 <div className="relative rounded-2xl overflow-hidden border-2 border-emerald-500 bg-slate-900 shadow-md">
                   <img
@@ -525,7 +583,10 @@ export default function ScanCrop({ setActiveTab }) {
                 <div className="flex items-center gap-2 pt-1">
                   <button
                     type="button"
-                    onClick={() => startCameraStream('environment')}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      openCameraModal();
+                    }}
                     className="flex-1 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white py-2.5 px-3 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
                   >
                     <Camera className="w-4 h-4" />
@@ -534,7 +595,10 @@ export default function ScanCrop({ setActiveTab }) {
 
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      fileInputRef.current?.click();
+                    }}
                     className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition"
                   >
                     <Upload className="w-4 h-4 text-slate-600" />
@@ -543,14 +607,19 @@ export default function ScanCrop({ setActiveTab }) {
                 </div>
               </div>
             ) : (
-              /* 3. Initial Choose Camera or Upload Buttons */
+              /* Choose Camera or Gallery Upload Buttons */
               <div className="border-2 border-dashed border-slate-300 hover:border-emerald-500 rounded-3xl p-5 sm:p-6 text-center bg-slate-50/50 hover:bg-emerald-50/30 transition">
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                   
-                  {/* Button 1: Real Device Camera via getUserMedia (NO file input!) */}
+                  {/* Button 1: Real Device Camera via Camera Modal (NO file input connection!) */}
                   <button
                     type="button"
-                    onClick={() => startCameraStream('environment')}
+                    id="btn-take-photo-camera"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openCameraModal();
+                    }}
                     className="p-4 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-md active:scale-95 group"
                   >
                     <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-110 transition">
@@ -562,10 +631,14 @@ export default function ScanCrop({ setActiveTab }) {
                     </span>
                   </button>
 
-                  {/* Button 2: Interactive Live WebRTC Viewfinder */}
+                  {/* Button 2: Interactive Live WebRTC Viewfinder (Opens Camera Modal) */}
                   <button
                     type="button"
-                    onClick={() => startCameraStream('environment')}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      openCameraModal();
+                    }}
                     className="p-4 bg-white hover:bg-emerald-50 text-emerald-950 border border-emerald-300 rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-xs active:scale-95 group"
                   >
                     <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition">
@@ -577,10 +650,15 @@ export default function ScanCrop({ setActiveTab }) {
                     </span>
                   </button>
 
-                  {/* Button 3: Upload from Gallery / Files */}
+                  {/* Button 3: Upload from Gallery / File picker */}
                   <button
                     type="button"
-                    onClick={() => fileInputRef.current?.click()}
+                    id="btn-upload-gallery"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      fileInputRef.current?.click();
+                    }}
                     className="p-4 bg-white hover:bg-sky-50 text-sky-950 border border-sky-200 rounded-2xl transition flex flex-col items-center justify-center gap-2 text-xs font-bold shadow-xs active:scale-95 group"
                   >
                     <div className="w-12 h-12 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center group-hover:scale-110 transition">
@@ -599,7 +677,7 @@ export default function ScanCrop({ setActiveTab }) {
               </div>
             )}
 
-            {/* Hidden file input for photo library / upload */}
+            {/* Hidden file input strictly reserved for Upload from Gallery */}
             <input
               type="file"
               ref={fileInputRef}
@@ -607,6 +685,9 @@ export default function ScanCrop({ setActiveTab }) {
               className="hidden"
               onChange={handleFileChange}
             />
+
+            {/* Hidden canvas used for video frame snapshot rendering */}
+            <canvas ref={canvasRef} className="hidden"></canvas>
           </div>
 
           {/* Sample Photos Selector for 1-click test */}
