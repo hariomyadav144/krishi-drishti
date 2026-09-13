@@ -31,14 +31,22 @@ const districtCoordinates = {
 /**
  * Gets live weather and 5-day forecast for farmer location
  */
-async function getFarmWeather(district = 'Nashik', state = 'Maharashtra') {
+async function getFarmWeather(district = 'Nashik', state = 'Maharashtra', customLat = null, customLng = null) {
   // Try free Open-Meteo API first (requires zero API keys)
-  const coords = districtCoordinates[district] || districtCoordinates['Default'];
+  let lat = customLat;
+  let lon = customLng;
+
+  if (!lat || !lon) {
+    const coords = districtCoordinates[district] || districtCoordinates['Default'];
+    lat = coords.lat;
+    lon = coords.lon;
+  }
+
   try {
     const openMeteoRes = await axios.get('https://api.open-meteo.com/v1/forecast', {
       params: {
-        latitude: coords.lat,
-        longitude: coords.lon,
+        latitude: lat,
+        longitude: lon,
         current: 'temperature_2m,relative_humidity_2m,precipitation,weather_code,wind_speed_10m',
         daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max',
         timezone: 'auto'

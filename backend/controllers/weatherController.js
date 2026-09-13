@@ -16,7 +16,11 @@ const getWeather = async (req, res) => {
       }
     }
 
-    const weatherData = await getFarmWeather(district, state);
+    const { latitude, longitude } = req.query;
+    const parsedLat = latitude ? parseFloat(latitude) : null;
+    const parsedLng = longitude ? parseFloat(longitude) : null;
+
+    const weatherData = await getFarmWeather(district, state, parsedLat, parsedLng);
     res.json({ success: true, data: weatherData });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
