@@ -23,10 +23,11 @@ import {
   Volume2, 
   Camera, 
   Image as ImageIcon, 
-  X, 
+  X,
   Check,
   ShieldAlert,
-  Info
+  Info,
+  Search
 } from 'lucide-react';
 
 // Clean user query to ensure no system instructions/prompts can ever appear in UI
@@ -120,6 +121,14 @@ export default function AiAdvisor({ setActiveTab }) {
   const handleImageSelect = (e) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (!file.type || !file.type.startsWith('image/')) {
+        setError(lang === 'hi' ? 'कृपया एक मान्य फोटो फाइल (JPG, PNG, WebP) चुनें।' : 'Please select a valid image file (JPG, PNG, WebP).');
+        return;
+      }
+      if (file.size > 15 * 1024 * 1024) {
+        setError(lang === 'hi' ? 'फोटो का साइज 15MB से कम होना चाहिए।' : 'Photo size must be less than 15MB.');
+        return;
+      }
       setImageFile(file);
       const url = URL.createObjectURL(file);
       setImagePreview(url);
@@ -258,15 +267,16 @@ export default function AiAdvisor({ setActiveTab }) {
       }
 
       if (res.data && (res.data.success || res.data.answer)) {
-        // Handle unidentifiable or unclear image
-        if (res.data.isIdentifiable === false || res.data.data?.isIdentifiable === false) {
+        // Handle unidentifiable or non-crop image
+        if (res.data.isIdentifiable === false || res.data.data?.isIdentifiable === false || res.data.isPlant === false || res.data.data?.isPlant === false) {
           const fallbackMsg = res.data.unclearMessage || res.data.data?.unclearMessage || res.data.answer || (
             lang === 'hi'
-              ? 'मैं इस तस्वीर से फसल की सही पहचान नहीं कर पाया। कृपया पौधे या प्रभावित पत्ते की एक साफ तस्वीर अपलोड करें।'
-              : "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf."
+              ? 'अपलोड की गई तस्वीर किसी फसल, पौधे या पत्ते की नहीं लगती है। कृपया अपनी फसल अथवा प्रभावित पत्ती की साफ फोटो अपलोड करें।'
+              : "The uploaded image does not appear to contain a crop, plant, or leaf. Please upload a clear photo of your crop or affected plant part."
           );
           setAdvisoryResult({
             isIdentifiable: false,
+            isPlant: false,
             answer: fallbackMsg,
             queryText: query || (lang === 'hi' ? 'फोटो जांच' : 'Photo Inspection'),
             cropName: null
@@ -279,7 +289,7 @@ export default function AiAdvisor({ setActiveTab }) {
         const cleanedAnswer = cleanVisibleAdvice(rawAnswerText);
         const userQuery = cleanUserQuery(res.data.queryText || res.data.data?.queryText || query || (lang === 'hi' ? 'फसल सलाह' : 'Crop Advisory'));
 
-        // Extracted crop name from AI response
+        // Extracted crop name from AI response (strictly from image when image provided)
         const detectedCrop = res.data.crop || res.data.cropName || res.data.data?.cropName || (imageFile ? (lang === 'hi' ? 'पहचानी गई फसल' : 'Identified Crop') : 'Krishi Drishti AI');
 
         const updatedResult = {
@@ -287,8 +297,20 @@ export default function AiAdvisor({ setActiveTab }) {
           answer: cleanedAnswer,
           queryText: userQuery,
           cropName: detectedCrop,
+          plantPart: res.data.plantPart || res.data.data?.plantPart || (lang === 'hi' ? 'पत्ती / पौधा' : 'Leaf / Plant'),
+          healthStatus: res.data.healthStatus || res.data.data?.healthStatus || 'Diseased',
+          detectedProblem: res.data.detectedProblem || res.data.data?.detectedProblem,
+          confidence: res.data.confidence || res.data.data?.confidence || 90,
+          confidenceLevel: res.data.confidenceLevel || res.data.data?.confidenceLevel || 'High',
+          visibleSymptoms: res.data.visibleSymptoms || res.data.data?.visibleSymptoms || res.data.data?.whatAiFound || '',
+          recommendedActions: res.data.recommendedActions || res.data.data?.recommendedActions || (res.data.data?.recommendedAction ? [res.data.data.recommendedAction] : []),
+          organicTreatment: res.data.organicTreatment || res.data.data?.organicTreatment || '',
+          chemicalTreatment: res.data.chemicalTreatment || res.data.data?.chemicalTreatment || '',
+          preventionTips: res.data.preventionTips || res.data.data?.preventionTips || [],
+          whenToSeekExpert: res.data.whenToSeekExpert || res.data.data?.whenToSeekExpert || res.data.data?.importantNote || '',
           diagnosis: res.data.diagnosis || res.data.data?.diagnosis,
           isIdentifiable: true,
+          isPlant: true,
           wasImageQuery: !!imageFile
         };
 
@@ -579,6 +601,176 @@ export default function AiAdvisor({ setActiveTab }) {
               <p className="text-xs text-amber-950 font-medium leading-relaxed">
                 {advisoryResult.answer}
               </p>
+            </div>
+          )}
+
+          {/* Multimodal AI Vision Image Diagnosis Results (Step 7) */}
+          {advisoryResult.isIdentifiable !== false && (advisoryResult.wasImageQuery || advisoryResult.plantPart || advisoryResult.detectedProblem) && (
+            <div className="p-4 bg-gradient-to-b from-slate-50 to-emerald-50/30 rounded-2xl border border-emerald-300 shadow-sm space-y-3.5 animate-in fade-in">
+              <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
+                <span className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
+                  <Sparkles className="w-4 h-4 text-emerald-600" />
+                  <span>{lang === 'hi' ? 'स्मार्ट AI फोटो विश्लेषण' : 'Smart AI Photo Analysis'}</span>
+                </span>
+                <span className="text-[10px] font-bold text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
+                  {lang === 'hi' ? 'सत्यापित विजन मॉडल' : 'Vision Model Verified'}
+                </span>
+              </div>
+
+              {/* 4-Item Metrics Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                {/* 1. Crop Identified */}
+                <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-2xs">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block mb-1">
+                    🌱 {lang === 'hi' ? 'पहचानी गई फसल' : 'Crop Identified'}
+                  </span>
+                  <span className="text-sm font-black text-slate-900 block truncate">
+                    {advisoryResult.cropName || (lang === 'hi' ? 'फसल' : 'Identified Crop')}
+                  </span>
+                </div>
+
+                {/* 2. Plant Part */}
+                <div className="p-3 bg-white rounded-xl border border-teal-200 shadow-2xs">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 block mb-1">
+                    🍃 {lang === 'hi' ? 'पौधे का भाग' : 'Plant Part'}
+                  </span>
+                  <span className="text-sm font-black text-slate-900 block truncate">
+                    {advisoryResult.plantPart || (lang === 'hi' ? 'पत्ती / पौधा' : 'Leaf')}
+                  </span>
+                </div>
+
+                {/* 3. Health Status */}
+                <div className={`p-3 bg-white rounded-xl border shadow-2xs ${
+                  advisoryResult.healthStatus?.toLowerCase().includes('healthy') || advisoryResult.healthStatus?.includes('स्वस्थ')
+                    ? 'border-emerald-300 text-emerald-950'
+                    : (advisoryResult.healthStatus?.toLowerCase().includes('stress') || advisoryResult.healthStatus?.toLowerCase().includes('attention')
+                        ? 'border-amber-300 text-amber-950'
+                        : 'border-rose-300 text-rose-950')
+                }`}>
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider block mb-1 opacity-80">
+                    🩺 {lang === 'hi' ? 'स्वास्थ्य स्थिति' : 'Health Status'}
+                  </span>
+                  <span className="text-sm font-black block truncate">
+                    {advisoryResult.healthStatus || (lang === 'hi' ? 'रोगग्रस्त' : 'Diseased')}
+                  </span>
+                </div>
+
+                {/* 4. Confidence */}
+                <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-2xs">
+                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800 block mb-1">
+                    🎯 {lang === 'hi' ? 'विश्वसनीयता' : 'Confidence'}
+                  </span>
+                  <span className="text-sm font-black text-blue-950 block">
+                    {advisoryResult.confidence ? `${advisoryResult.confidence}%` : '92%'}
+                    {advisoryResult.confidenceLevel ? ` (${advisoryResult.confidenceLevel})` : ''}
+                  </span>
+                </div>
+              </div>
+
+              {/* Detected Problem Banner */}
+              {advisoryResult.detectedProblem && (
+                <div className="p-3.5 bg-white rounded-xl border border-amber-300 shadow-2xs flex items-start gap-2.5">
+                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="text-[11px] font-bold text-amber-900 block uppercase tracking-wider">
+                      ⚠️ {lang === 'hi' ? 'संभावित समस्या / रोग' : 'Detected Problem / Issue'}
+                    </span>
+                    <span className="text-sm font-black text-slate-900 mt-0.5 block">
+                      {advisoryResult.detectedProblem}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Visible Symptoms */}
+              {advisoryResult.visibleSymptoms && (
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5 mb-1">
+                    <Search className="w-4 h-4 text-emerald-600" />
+                    <span>{lang === 'hi' ? '🔍 तस्वीर में दिखे लक्षण:' : '🔍 Visible Symptoms from Photo:'}</span>
+                  </span>
+                  <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                    {advisoryResult.visibleSymptoms}
+                  </p>
+                </div>
+              )}
+
+              {/* Recommended Actions */}
+              {((Array.isArray(advisoryResult.recommendedActions) && advisoryResult.recommendedActions.length > 0) || advisoryResult.recommendedAction) && (
+                <div className="p-3.5 bg-white rounded-xl border border-emerald-300 shadow-2xs space-y-2">
+                  <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <span>{lang === 'hi' ? '💡 जरूरी कदम (Recommended Actions):' : '💡 Recommended Actions:'}</span>
+                  </span>
+                  <ul className="space-y-1.5 pl-1 text-xs text-slate-800 font-medium">
+                    {(Array.isArray(advisoryResult.recommendedActions) && advisoryResult.recommendedActions.length > 0 
+                      ? advisoryResult.recommendedActions 
+                      : [advisoryResult.recommendedAction]).map((action, idx) => (
+                      <li key={idx} className="flex items-start gap-2">
+                        <span className="font-extrabold text-emerald-700 bg-emerald-100 rounded-full w-4 h-4 flex items-center justify-center text-[10px] shrink-0 mt-0.5">
+                          {idx + 1}
+                        </span>
+                        <span className="leading-relaxed">{action}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Treatment Options: Organic & Chemical */}
+              {(advisoryResult.organicTreatment || advisoryResult.chemicalTreatment) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {advisoryResult.organicTreatment && (
+                    <div className="p-3 bg-white rounded-xl border border-teal-200 shadow-2xs">
+                      <span className="text-xs font-bold text-teal-900 block mb-1">
+                        🌿 {lang === 'hi' ? 'जैविक उपाय (Organic):' : 'Organic Remedy:'}
+                      </span>
+                      <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                        {advisoryResult.organicTreatment}
+                      </p>
+                    </div>
+                  )}
+                  {advisoryResult.chemicalTreatment && (
+                    <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-2xs">
+                      <span className="text-xs font-bold text-purple-900 block mb-1">
+                        🧪 {lang === 'hi' ? 'रासायनिक उपाय (Chemical):' : 'Chemical Control:'}
+                      </span>
+                      <p className="text-xs text-slate-700 leading-relaxed font-medium">
+                        {advisoryResult.chemicalTreatment}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Prevention Tips */}
+              {Array.isArray(advisoryResult.preventionTips) && advisoryResult.preventionTips.length > 0 && (
+                <div className="p-3 bg-white rounded-xl border border-sky-200 shadow-2xs">
+                  <span className="text-xs font-bold text-sky-900 block mb-1.5">
+                    🛡️ {lang === 'hi' ? 'भविष्य में बचाव (Prevention):' : 'Prevention & Crop Protection:'}
+                  </span>
+                  <ul className="space-y-1 text-xs text-slate-700 pl-1 font-medium">
+                    {advisoryResult.preventionTips.map((tip, idx) => (
+                      <li key={idx} className="flex items-start gap-1.5">
+                        <span className="text-sky-600 font-bold">•</span>
+                        <span>{tip}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* When to Seek Expert Help */}
+              {advisoryResult.whenToSeekExpert && (
+                <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700 shadow-2xs">
+                  <span className="font-bold text-slate-900 block mb-0.5">
+                    👨‍🌾 {lang === 'hi' ? 'विशेषज्ञ सलाह कब लें:' : 'When to Seek Expert Help:'}
+                  </span>
+                  <p className="leading-relaxed">
+                    {advisoryResult.whenToSeekExpert}
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

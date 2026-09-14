@@ -358,21 +358,53 @@ async function getUnifiedCropDiagnosis(params) {
       'Gemini Vision'
     );
 
-    if (visionResult && (visionResult.answer || visionResult.diagnosis)) {
-      return {
-        success: true,
-        answer: visionResult.answer,
-        language: visionResult.language || language,
-        crop: visionResult.crop || crop,
-        stage: visionResult.stage || cropStage,
-        diagnosis: visionResult.diagnosis,
-        data: visionResult.data,
-        source: 'primary_vision',
-        timestamp: new Date().toISOString()
-      };
+    if (visionResult) {
+      if (visionResult.isIdentifiable === false || visionResult.isPlant === false) {
+        return {
+          success: true,
+          isPlant: false,
+          isIdentifiable: false,
+          unclearMessage: visionResult.unclearMessage || visionResult.answer,
+          answer: visionResult.unclearMessage || visionResult.answer,
+          crop: null,
+          cropName: null,
+          language: visionResult.language || language,
+          data: visionResult.data,
+          source: 'primary_vision',
+          timestamp: new Date().toISOString()
+        };
+      }
+
+      if (visionResult.answer || visionResult.diagnosis) {
+        return {
+          success: true,
+          isPlant: true,
+          isIdentifiable: true,
+          answer: visionResult.answer,
+          language: visionResult.language || language,
+          crop: visionResult.crop || crop,
+          cropName: visionResult.cropName || visionResult.crop || crop,
+          plantPart: visionResult.plantPart,
+          healthStatus: visionResult.healthStatus,
+          detectedProblem: visionResult.detectedProblem,
+          confidence: visionResult.confidence,
+          confidenceLevel: visionResult.confidenceLevel,
+          visibleSymptoms: visionResult.visibleSymptoms,
+          recommendedActions: visionResult.recommendedActions,
+          organicTreatment: visionResult.organicTreatment,
+          chemicalTreatment: visionResult.chemicalTreatment,
+          preventionTips: visionResult.preventionTips,
+          whenToSeekExpert: visionResult.whenToSeekExpert,
+          stage: visionResult.stage || cropStage,
+          diagnosis: visionResult.diagnosis,
+          data: visionResult.data,
+          source: 'primary_vision',
+          timestamp: new Date().toISOString()
+        };
+      }
     }
   } catch (visionErr) {
-    console.warn('[AI Service] Primary vision diagnosis error, engaging fallback pathology engine:', visionErr.message);
+    console.warn('[AI Service] Primary vision diagnosis notice:', visionErr.message);
   }
 
   // STEP 2: Fallback to Agricultural Pathology Classification Engine

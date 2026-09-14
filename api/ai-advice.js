@@ -113,19 +113,38 @@ module.exports = async function handler(req, res) {
       promptWithContext = `[Context: ${contextNotes.join(' | ')}]\n\nFarmer's Question: ${query}`;
     }
 
-    contents.push({
-      role: 'user',
-      parts: [{ text: promptWithContext }]
-    });
+    const { imageBase64, mimeType = 'image/jpeg' } = req.body || {};
+
+    if (imageBase64) {
+      const base64Clean = imageBase64.replace(/^data:image\/[a-z]+;base64,/, '');
+      contents.push({
+        role: 'user',
+        parts: [
+          {
+            inlineData: {
+              mimeType: mimeType || 'image/jpeg',
+              data: base64Clean
+            }
+          },
+          {
+            text: `Analyze this crop/plant photograph. First check if it depicts a plant or leaf. Identify the crop species, plant part, health status, and visible symptoms or pests. Farmer question: ${promptWithContext}`
+          }
+        ]
+      });
+    } else {
+      contents.push({
+        role: 'user',
+        parts: [{ text: promptWithContext }]
+      });
+    }
 
     const candidateModels = [
-      process.env.GEMINI_MODEL || 'gemini-3.7-flash',
-      'gemini-3.7-flash',
-      'gemini-3.6-flash',
-      'gemini-3.8-flash',
-      'gemini-flash-latest',
-      'gemini-2.5-flash'
-    ].filter((m, i, arr) => arr.indexOf(m) === i);
+      (process.env.GEMINI_MODEL && !process.env.GEMINI_MODEL.includes('3.8') && !process.env.GEMINI_MODEL.includes('3.7')) ? process.env.GEMINI_MODEL : 'gemini-3.5-flash-lite',
+      'gemini-3.5-flash-lite',
+      'gemini-3-flash-preview',
+      'gemini-flash-lite-latest',
+      'gemini-3.5-flash'
+    ].filter((m, idx, arr) => m && arr.indexOf(m) === idx);
 
     let answer = '';
     let usedModel = '';
@@ -138,7 +157,7 @@ module.exports = async function handler(req, res) {
           contents,
           config: {
             systemInstruction: SYSTEM_INSTRUCTION,
-            temperature: 0.7
+            temperature: 0.4
           }
         });
         const text = response?.text?.trim() || '';

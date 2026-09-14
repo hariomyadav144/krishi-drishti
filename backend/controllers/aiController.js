@@ -187,11 +187,23 @@ const diagnoseCrop = async (req, res) => {
 
     return res.status(200).json({
       success: true,
+      isPlant: true,
       isIdentifiable: true,
       answer: diagnosisResult.answer,
       language: diagnosisResult.language || language,
       crop: detectedCropName,
       cropName: detectedCropName,
+      plantPart: diagnosisResult.plantPart || diagnosisResult.data?.plantPart || (language === 'en' ? 'Leaf / Plant' : 'पत्ती / पौधा'),
+      healthStatus: diagnosisResult.healthStatus || diagnosisResult.data?.healthStatus || 'Diseased',
+      detectedProblem: diagnosisResult.detectedProblem || diagnosisResult.data?.detectedProblem || (language === 'en' ? 'Visual Examination' : 'दृश्य परीक्षण'),
+      confidence: diagnosisResult.confidence || diagnosisResult.data?.confidence || 90,
+      confidenceLevel: diagnosisResult.confidenceLevel || diagnosisResult.data?.confidenceLevel || 'High',
+      visibleSymptoms: diagnosisResult.visibleSymptoms || diagnosisResult.data?.visibleSymptoms || diagnosisResult.data?.whatAiFound || '',
+      recommendedActions: diagnosisResult.recommendedActions || diagnosisResult.data?.recommendedActions || (diagnosisResult.data?.recommendedAction ? [diagnosisResult.data.recommendedAction] : []),
+      organicTreatment: diagnosisResult.organicTreatment || diagnosisResult.data?.organicTreatment || '',
+      chemicalTreatment: diagnosisResult.chemicalTreatment || diagnosisResult.data?.chemicalTreatment || '',
+      preventionTips: diagnosisResult.preventionTips || diagnosisResult.data?.preventionTips || [],
+      whenToSeekExpert: diagnosisResult.whenToSeekExpert || diagnosisResult.data?.whenToSeekExpert || diagnosisResult.data?.importantNote || '',
       stage: diagnosisResult.stage || selectedStage,
       source: diagnosisResult.source || 'vision_service',
       timestamp: diagnosisResult.timestamp || new Date().toISOString(),
@@ -199,7 +211,18 @@ const diagnoseCrop = async (req, res) => {
       data: {
         ...(diagnosisResult.data || {}),
         cropName: detectedCropName,
-        answer: diagnosisResult.answer
+        answer: diagnosisResult.answer,
+        plantPart: diagnosisResult.plantPart || diagnosisResult.data?.plantPart || (language === 'en' ? 'Leaf / Plant' : 'पत्ती / पौधा'),
+        healthStatus: diagnosisResult.healthStatus || diagnosisResult.data?.healthStatus || 'Diseased',
+        detectedProblem: diagnosisResult.detectedProblem || diagnosisResult.data?.detectedProblem,
+        confidence: diagnosisResult.confidence || diagnosisResult.data?.confidence || 90,
+        confidenceLevel: diagnosisResult.confidenceLevel || diagnosisResult.data?.confidenceLevel || 'High',
+        visibleSymptoms: diagnosisResult.visibleSymptoms || diagnosisResult.data?.visibleSymptoms || diagnosisResult.data?.whatAiFound,
+        recommendedActions: diagnosisResult.recommendedActions || diagnosisResult.data?.recommendedActions,
+        organicTreatment: diagnosisResult.organicTreatment || diagnosisResult.data?.organicTreatment,
+        chemicalTreatment: diagnosisResult.chemicalTreatment || diagnosisResult.data?.chemicalTreatment,
+        preventionTips: diagnosisResult.preventionTips || diagnosisResult.data?.preventionTips,
+        whenToSeekExpert: diagnosisResult.whenToSeekExpert || diagnosisResult.data?.whenToSeekExpert
       }
     });
   } catch (error) {

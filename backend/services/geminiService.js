@@ -115,16 +115,24 @@ function getLanguagePromptName(language = 'hi') {
 
 const SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTION_HI;
 
-/**
- * Get active Gemini Flash model with configurable fallback
- */
+function normalizeMimeType(mime) {
+  if (!mime || typeof mime !== 'string') return 'image/jpeg';
+  const clean = mime.toLowerCase().trim();
+  if (clean === 'image/jpg') return 'image/jpeg';
+  return clean;
+}
+
 function getActiveModel() {
-  return process.env.GEMINI_MODEL || 'gemini-3.7-flash';
+  const model = process.env.GEMINI_MODEL;
+  if (model && !model.includes('3.8') && !model.includes('3.7') && !model.includes('2.0') && !model.includes('1.5') && !model.includes('2.5')) {
+    return model;
+  }
+  return 'gemini-3.5-flash-lite';
 }
 
 function getCandidateModels() {
   const primary = getActiveModel();
-  const list = ['gemini-3.6-flash', 'gemini-2.5-flash', primary, 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+  const list = [primary, 'gemini-3.5-flash-lite', 'gemini-3-flash-preview', 'gemini-flash-lite-latest', 'gemini-3.5-flash'];
   return [...new Set(list.filter(Boolean))];
 }
 
@@ -334,10 +342,7 @@ async function askGeminiAdvisor({
     } catch (err) {
       console.warn(`[Krishi Drishti] Gemini model ${modelName} error:`, err.message || err);
       lastError = err;
-      const errMsg = (err.message || String(err)).toLowerCase();
-      if (errMsg.includes('resource_exhausted') || errMsg.includes('quota') || errMsg.includes('429')) {
-        break;
-      }
+      // Continue to next model if available
     }
   }
 
@@ -376,55 +381,78 @@ async function diagnoseCropWithGemini({
   const { ai } = getAiClient();
   const candidateModels = getCandidateModels();
 
-  const base64Data = Buffer.isBuffer(imageBuffer) ? imageBuffer.toString('base64') : String(imageBuffer);
+  let base64Data = '';
+  if (Buffer.isBuffer(imageBuffer)) {
+    base64Data = imageBuffer.toString('base64');
+  } else if (typeof imageBuffer === 'string') {
+    base64Data = imageBuffer.replace(/^data:image\/[a-z0-9-+.]+;base64,/i, '').trim();
+  }
+  const cleanMimeType = normalizeMimeType(mimeType);
   const langPromptName = getLanguagePromptName(language);
 
   const userPrompt = `You are Krishi Drishti Agricultural AI Multimodal Vision Expert.
 You are examining a photograph uploaded by an Indian farmer.
 Selected language: ${langPromptName}.
 
-CRITICAL INSTRUCTIONS:
-1. FIRST, check if this image clearly depicts an agricultural crop or plant:
-   - If the image is blurry, too dark, out of focus, does not show an agricultural plant/crop, contains multiple uncertain crops, or cannot be identified with reasonable confidence:
+CRITICAL MULTIMODAL VISION INSTRUCTIONS:
+1. FIRST, determine whether the uploaded image actually contains an agricultural plant, crop, or leaf:
+   - If the image does NOT appear to be a plant/crop/leaf (e.g. random non-plant object, animal, vehicle, human, indoor room, solid color, completely black/white):
+     Set "isPlant": false.
      Set "isIdentifiable": false.
-     Set "unclearMessage" to a clear, polite explanation in ${langPromptName} asking the farmer to upload a clear photo of the plant or affected leaf (e.g. English: "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf." / Hindi: "मैं इस तस्वीर से फसल की सही पहचान नहीं कर पाया। कृपया पौधे या प्रभावित पत्ते की एक साफ तस्वीर अपलोड करें।").
-     Do NOT guess or invent a fake crop or disease.
-2. AUTOMATIC CROP IDENTIFICATION:
-   - Identify the exact crop visible in the image (e.g. Wheat, Rice / Paddy, Tomato, Potato, Cotton, Maize, Chilli, Onion, Soybean, Mustard, Sugarcane, etc.).
-   - NEVER assume Tomato unless the image actually shows a Tomato plant.
-3. CROP HEALTH & PROBLEM DIAGNOSIS:
-   - Analyze plant condition: disease (fungal, bacterial, viral), pest damage, nutrient deficiency, leaf discoloration, physical stress, or confirm if the plant is completely healthy.
-   - Explain what you found clearly.
-   - Provide practical solutions (immediate action, organic treatment, chemical treatment).
-   - Provide future prevention tips.
-   - Provide an important note or precaution (especially when chemicals are recommended).
-4. STRICT LANGUAGE REQUIREMENT:
-   Every single field and value in your response MUST be generated entirely in ${langPromptName}.
-   ${language === 'en' ? 'ABSOLUTELY NO Hindi or Devanagari script words. Pure English only.' : ''}
-   ${language === 'hi' ? 'ABSOLUTELY NO English paragraphs. Pure Hindi (सरल देवनागरी हिंदी) only.' : ''}
+     Set "unclearMessage": A clear and polite message in ${langPromptName} stating that the uploaded image does not appear to be a crop/plant/leaf, and asking the farmer to upload a clear photo of the crop or affected leaf.
+   - If the image is extremely blurry, too dark, out of focus, or contains multiple uncertain crops without identifiable features:
+     Set "isPlant": true.
+     Set "isIdentifiable": false.
+     Set "unclearMessage": A clear polite explanation in ${langPromptName} asking for a clearer, well-lit photo of the affected plant or leaf.
 
-Farmer Note / Question: ${question || (language === 'en' ? 'Please analyze this crop image, identify the crop, and diagnose any disease or health issue.' : 'कृपया इस फसल की तस्वीर का विश्लेषण करें, फसल पहचानें और रोग व उपचार बताएं।')}
+2. IF IT IS A PLANT / CROP / LEAF:
+   - AUTOMATIC CROP IDENTIFICATION: Identify the most likely crop species from visible characteristics (e.g. Wheat, Rice / Paddy, Tomato, Potato, Cotton, Maize, Chilli, Onion, Mustard, Soybean, Sugarcane, etc.).
+     Do NOT ask the farmer to specify the crop. Crop identification must come directly from the image.
+   - PLANT PART: Identify the specific plant part shown (e.g. Leaf, Stem, Fruit, Flower, Root, Whole Plant) in ${langPromptName}.
+   - HEALTH STATUS: Choose from "Healthy", "Diseased", "Stressed", "Pest Infested", "Attention Needed".
+   - DETECTED PROBLEM: Name of the visible disease, pest, nutrient deficiency, environmental stress, or 'Healthy Crop / No Obvious Disease' in ${langPromptName}.
+     CRITICAL: If the crop is healthy with no obvious issues, report it as Healthy. NEVER fabricate or invent a disease when symptoms are absent.
+   - CONFIDENCE: Numerical confidence percentage (e.g. 85, 92) and confidence level ("High", "Medium", "Low").
+     If the image has suboptimal lighting or mild blur, lower the confidence accordingly and advise on field inspection.
+   - VISIBLE SYMPTOMS: Describe specific visible marks, lesions, powder, spots, curling, discoloration observed directly in the photo in ${langPromptName}.
+   - RECOMMENDED ACTIONS: Provide 2 to 4 actionable, practical steps for the farmer in ${langPromptName}.
+   - ORGANIC TREATMENT: Safe biological or organic remedy in ${langPromptName}.
+   - CHEMICAL TREATMENT: Approved chemical fungicide/pesticide with standard dosage guidelines in ${langPromptName}.
+   - PREVENTION: 2 to 3 preventive measures in ${langPromptName}.
+   - WHEN TO SEEK EXPERT HELP: Clear advice on when to consult the local Krishi Vigyan Kendra (KVK) or Block Agriculture Officer in ${langPromptName}.
+   - CONVERSATIONAL ADVICE: A comprehensive, warm, natural advisory response in ${langPromptName} addressing both the uploaded photo and the farmer's question.
 
-You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ... \`\`\` with the following fields:
+Farmer Note / Question: ${question || (language === 'en' ? 'Identify the crop, inspect plant health, and provide practical care advice.' : 'कृपया इस फसल की तस्वीर का विश्लेषण करें, फसल पहचानें और रोग व उपचार बताएं।')}
+
+STRICT LANGUAGE REQUIREMENT:
+Every single field and value in your response MUST be generated entirely in ${langPromptName}.
+${language === 'en' ? 'ABSOLUTELY NO Hindi or Devanagari script words. Pure English only.' : ''}
+${language === 'hi' ? 'ABSOLUTELY NO English paragraphs. Pure Hindi (सरल देवनागरी हिंदी) only.' : ''}
+
+You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ... \`\`\` with this exact schema:
 {
+  "isPlant": true,
   "isIdentifiable": true,
   "unclearMessage": "",
-  "cropName": "Crop name in ${langPromptName}",
-  "healthStatus": "Healthy" | "Attention Needed" | "Diseased" | "Pest Infested",
-  "detectedProblem": "Name of the detected disease, pest, deficiency, or 'Healthy Crop' in ${langPromptName}",
+  "cropName": "Crop species name in ${langPromptName}",
+  "plantPart": "Leaf / Stem / Fruit / Flower / Whole Plant in ${langPromptName}",
+  "healthStatus": "Healthy" | "Diseased" | "Stressed" | "Pest Infested" | "Attention Needed",
+  "detectedProblem": "Name of the problem or 'Healthy Crop' in ${langPromptName}",
   "confidence": 92,
-  "severity": "None" | "Low" | "Medium" | "High" | "Critical",
-  "whatAiFound": "Clear explanation of visible symptoms in ${langPromptName}",
-  "recommendedAction": "Immediate practical steps for the farmer in ${langPromptName}",
-  "organicTreatment": "Organic or biological remedies in ${langPromptName}",
-  "chemicalTreatment": "Approved chemical treatment with dosage instructions in ${langPromptName}",
+  "confidenceLevel": "High" | "Medium" | "Low",
+  "visibleSymptoms": "Detailed visible symptoms observed directly in the photo in ${langPromptName}",
+  "recommendedActions": [
+    "Step 1 in ${langPromptName}",
+    "Step 2 in ${langPromptName}"
+  ],
+  "organicTreatment": "Organic remedy in ${langPromptName}",
+  "chemicalTreatment": "Approved chemical treatment with dosage in ${langPromptName}",
   "preventionTips": [
     "Prevention tip 1 in ${langPromptName}",
-    "Prevention tip 2 in ${langPromptName}",
-    "Prevention tip 3 in ${langPromptName}"
+    "Prevention tip 2 in ${langPromptName}"
   ],
-  "importantNote": "Safety precaution or advice to consult local KVK in ${langPromptName}",
-  "nextActionTimeline": "Follow-up inspection timeline in ${langPromptName}"
+  "whenToSeekExpert": "Advice on when to consult local KVK or specialist in ${langPromptName}",
+  "conversationalAdvice": "Natural, thorough advice in ${langPromptName} answering the farmer's question and image diagnosis."
 }`;
 
   const contents = [
@@ -433,7 +461,7 @@ You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ..
       parts: [
         {
           inlineData: {
-            mimeType: mimeType || 'image/jpeg',
+            mimeType: cleanMimeType,
             data: base64Data
           }
         },
@@ -468,10 +496,6 @@ You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ..
     } catch (err) {
       console.warn(`[Krishi Drishti] Gemini Vision model ${modelName} error:`, err.message || err);
       lastError = err;
-      const errMsg = (err.message || String(err)).toLowerCase();
-      if (errMsg.includes('resource_exhausted') || errMsg.includes('quota') || errMsg.includes('429')) {
-        break;
-      }
     }
   }
 
@@ -490,25 +514,39 @@ You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ..
     console.warn('[Krishi Drishti] Gemini JSON parse notice:', parseErr.message);
   }
 
-  // If Gemini flagged image as unclear / unidentifiable
-  if (parsedJson && parsedJson.isIdentifiable === false) {
-    const fallbackMsg = language === 'en'
-      ? "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf."
-      : "मैं इस तस्वीर से फसल की सही पहचान नहीं कर पाया। कृपया पौधे या प्रभावित पत्ते की एक साफ तस्वीर अपलोड करें।";
+  // If Gemini flagged image as not a plant or unclear / unidentifiable
+  const isIdentifiable = parsedJson?.isIdentifiable !== false && parsedJson?.isPlant !== false;
+  if (!isIdentifiable) {
+    const isNonPlant = parsedJson?.isPlant === false;
+    const fallbackMsg = isNonPlant
+      ? (language === 'en'
+          ? "The uploaded image does not appear to contain a crop, plant, or leaf. Please upload a clear photo of your crop or affected plant part."
+          : "अपलोड की गई तस्वीर किसी फसल, पौधे या पत्ते की नहीं लगती है। कृपया अपनी फसल अथवा प्रभावित पत्ती की साफ फोटो अपलोड करें।")
+      : (language === 'en'
+          ? "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf."
+          : "मैं इस तस्वीर से फसल की सही पहचान नहीं कर पाया। कृपया पौधे या प्रभावित पत्ते की एक साफ तस्वीर अपलोड करें।");
     
+    const unclearMessage = parsedJson?.unclearMessage || fallbackMsg;
+
     return {
       success: true,
+      isPlant: false,
       isIdentifiable: false,
-      unclearMessage: parsedJson.unclearMessage || fallbackMsg,
+      unclearMessage,
+      answer: unclearMessage,
       language,
       model: successfulModel,
       timestamp: new Date().toISOString(),
       data: {
+        isPlant: false,
         isIdentifiable: false,
-        unclearMessage: parsedJson.unclearMessage || fallbackMsg,
+        unclearMessage,
         cropName: null,
+        plantPart: null,
+        healthStatus: 'Unknown',
         detectedProblem: null,
         confidence: 0,
+        confidenceLevel: 'Low',
         severity: 'None'
       }
     };
@@ -519,17 +557,31 @@ You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ..
     extractSection(answerText, ['crop', 'फसल', 'detected crop', 'पौधा']) ||
     (language === 'en' ? 'Identified Crop' : 'पहचानी गई फसल');
 
+  const plantPart = parsedJson?.plantPart ||
+    extractSection(answerText, ['plant part', 'पौधे का भाग', 'भाग']) ||
+    (language === 'en' ? 'Leaf / Foliage' : 'पत्ती / पौधा');
+
+  const healthStatus = parsedJson?.healthStatus ||
+    (answerText.toLowerCase().includes('healthy') || answerText.includes('स्वस्थ') ? 'Healthy' : 'Diseased');
+
   const detectedProblem = parsedJson?.detectedProblem ||
     extractSection(answerText, ['संभावित समस्या', 'संभावित रोग', 'बीमारी', 'likely problem', 'problem', 'disease', 'issue']) ||
-    (language === 'en' ? 'Leaf Health Assessment' : 'पत्ती स्वास्थ्य आकलन');
+    (healthStatus === 'Healthy' 
+      ? (language === 'en' ? 'Healthy Crop (No Obvious Disease)' : 'स्वस्थ फसल (कोई स्पष्ट रोग नहीं)')
+      : (language === 'en' ? 'Foliage Stress / Infection' : 'पत्तियों पर रोग लक्षण'));
 
-  const whatAiFound = parsedJson?.whatAiFound ||
+  const visibleSymptoms = parsedJson?.visibleSymptoms ||
+    parsedJson?.whatAiFound ||
     extractSection(answerText, ['what ai found', 'लक्षण', 'visible symptoms', 'symptoms']) ||
     (language === 'en' ? 'Visual examination shows localized stress on foliage.' : 'दृश्य निरीक्षण में पत्तियों पर तनाव व लक्षण दिखाई दे रहे हैं।');
 
-  const recommendedAction = parsedJson?.recommendedAction ||
-    extractSection(answerText, ['तुरंत क्या करें', 'जरूरी कदम', 'immediate action', 'what to do now', 'recommended action', 'action']) ||
-    (language === 'en' ? 'Inspect affected leaves and follow recommended treatment.' : 'प्रभावित पत्तियों का निरीक्षण करें और अनुशंसित उपचार तुरंत अपनाएं।');
+  const recommendedActions = Array.isArray(parsedJson?.recommendedActions) && parsedJson.recommendedActions.length > 0
+    ? parsedJson.recommendedActions
+    : (parsedJson?.recommendedAction ? [parsedJson.recommendedAction] : [
+        language === 'en' ? 'Inspect affected leaves and follow recommended treatment.' : 'प्रभावित पत्तियों का निरीक्षण करें और अनुशंसित उपचार तुरंत अपनाएं।'
+      ]);
+
+  const recommendedAction = recommendedActions[0] || (language === 'en' ? 'Inspect foliage.' : 'पत्तियों का निरीक्षण करें।');
 
   const organicTreatment = parsedJson?.organicTreatment ||
     extractSection(answerText, ['जैविक उपाय', 'जैविक', 'bio-control', 'neem', 'organic']) ||
@@ -551,50 +603,81 @@ You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ..
         'सटीक जांच हेतु स्थानीय कृषि विज्ञान केंद्र (KVK) से संपर्क करें'
       ]);
 
-  const importantNote = parsedJson?.importantNote ||
-    extractSection(answerText, ['important note', 'सावधानी', 'चेतावनी', 'disclaimer', 'note']) ||
-    (language === 'en' ? 'Read pesticide label instructions carefully before application and consult local KVK.' : 'दवा के प्रयोग से पहले पैकेट पर दिए निर्देशों को पढ़ें व स्थानीय KVK से परामर्श लें।');
+  const whenToSeekExpert = parsedJson?.whenToSeekExpert ||
+    parsedJson?.importantNote ||
+    (language === 'en' 
+      ? 'If symptoms spread to more than 15-20% of the field within 3 days, immediately consult your local Krishi Vigyan Kendra (KVK).'
+      : 'यदि 3 दिनों के भीतर लक्षण 15-20% से अधिक फसल में फैलते हैं, तो तुरंत अपने स्थानीय कृषि विज्ञान केंद्र (KVK) से संपर्क करें।');
 
   const nextActionTimeline = parsedJson?.nextActionTimeline ||
     (language === 'en' ? 'Re-inspect foliage within 48 hours of treatment.' : 'उपचार के 48 घंटों के भीतर पत्तियों का पुनः निरीक्षण करें।');
 
   const confidenceVal = Number(parsedJson?.confidence) || 92;
+  const confidenceLevel = parsedJson?.confidenceLevel || (confidenceVal >= 85 ? 'High' : (confidenceVal >= 65 ? 'Medium' : 'Low'));
   const severityVal = parsedJson?.severity ||
-    (answerText.toLowerCase().includes('critical') || answerText.includes('गंभीर') ? 'High' : 'Medium');
+    (healthStatus === 'Healthy' ? 'None' : (confidenceVal >= 85 ? 'Medium' : 'Low'));
+
+  const conversationalAdvice = parsedJson?.conversationalAdvice || answerText;
 
   return {
     success: true,
+    isPlant: true,
     isIdentifiable: true,
-    answer: answerText,
+    answer: conversationalAdvice,
     crop: detectedCrop,
+    cropName: detectedCrop,
+    plantPart,
+    healthStatus,
+    detectedProblem,
+    confidence: confidenceVal,
+    confidenceLevel,
+    visibleSymptoms,
+    recommendedActions,
+    organicTreatment,
+    chemicalTreatment,
+    preventionTips,
+    whenToSeekExpert,
     language,
     model: successfulModel,
     timestamp: new Date().toISOString(),
     diagnosis: {
-      visibleSymptoms: whatAiFound,
-      possibleCauses: detectedProblem,
+      cropIdentified: detectedCrop,
+      plantPart,
+      healthStatus,
+      detectedProblem,
       confidence: `${confidenceVal}%`,
+      confidenceLevel,
+      visibleSymptoms,
+      recommendedActions,
       immediateAction: recommendedAction,
       treatment: `${organicTreatment} | ${chemicalTreatment}`,
-      prevention: preventionTips.join(' • ')
+      prevention: preventionTips.join(' • '),
+      whenToSeekExpert
     },
     data: {
+      isPlant: true,
       isIdentifiable: true,
       cropName: detectedCrop,
+      plantPart,
+      healthStatus,
       detectedProblem,
       detectedProblemHi: language === 'hi' ? detectedProblem : '',
       confidence: confidenceVal,
+      confidenceLevel,
       severity: severityVal,
-      whatAiFound,
-      cause: whatAiFound,
-      causeHi: language === 'hi' ? whatAiFound : '',
-      symptoms: [whatAiFound],
+      visibleSymptoms,
+      whatAiFound: visibleSymptoms,
+      cause: visibleSymptoms,
+      causeHi: language === 'hi' ? visibleSymptoms : '',
+      symptoms: [visibleSymptoms],
+      recommendedActions,
       recommendedAction,
       recommendedActionHi: language === 'hi' ? recommendedAction : '',
       organicTreatment,
       chemicalTreatment,
       preventionTips,
-      importantNote,
+      whenToSeekExpert,
+      importantNote: whenToSeekExpert,
       nextActionTimeline
     }
   };
