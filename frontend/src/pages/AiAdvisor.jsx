@@ -24,10 +24,10 @@ import {
   Camera, 
   Image as ImageIcon, 
   X, 
-  Check 
+  Check,
+  ShieldAlert,
+  Info
 } from 'lucide-react';
-
-export const HINDI_SYSTEM_INSTRUCTION = "IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.";
 
 // Clean user query to ensure no system instructions/prompts can ever appear in UI
 export function cleanUserQuery(text) {
@@ -98,7 +98,6 @@ export default function AiAdvisor({ setActiveTab }) {
   const { currentCrop, farm } = useAuth();
 
   const [queryText, setQueryText] = useState('');
-  const [selectedCrop, setSelectedCrop] = useState(currentCrop?.cropName || 'Tomato');
   const [loading, setLoading] = useState(false);
   const [predefinedQueries, setPredefinedQueries] = useState([]);
   const [advisoryResult, setAdvisoryResult] = useState(null);
@@ -111,6 +110,11 @@ export default function AiAdvisor({ setActiveTab }) {
   const fileInputRef = useRef(null);
   const isSubmittingRef = useRef(false);
 
+  // Clear advisory result when language changes so languages never mix
+  useEffect(() => {
+    setAdvisoryResult(null);
+    setError('');
+  }, [lang]);
 
   // Image file handler
   const handleImageSelect = (e) => {
@@ -160,7 +164,7 @@ export default function AiAdvisor({ setActiveTab }) {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+      recognition.lang = lang === 'hi' ? 'hi-IN' : (lang === 'mr' ? 'mr-IN' : (lang === 'pa' ? 'pa-IN' : 'en-IN'));
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -189,7 +193,7 @@ export default function AiAdvisor({ setActiveTab }) {
 
   const toggleSpeechRecognition = () => {
     if (!recognitionRef.current) {
-      alert('Speech Recognition is not supported in this browser. Please type your question.');
+      alert(lang === 'hi' ? 'इस ब्राउज़र में स्पीच रिकग्निशन उपलब्ध नहीं है। कृपया टाइप करें।' : 'Speech Recognition is not supported in this browser. Please type your question.');
       return;
     }
 
@@ -198,7 +202,7 @@ export default function AiAdvisor({ setActiveTab }) {
       setIsListening(false);
     } else {
       try {
-        recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : 'en-IN';
+        recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : (lang === 'mr' ? 'mr-IN' : (lang === 'pa' ? 'pa-IN' : 'en-IN'));
         recognitionRef.current.start();
       } catch (e) {
         console.warn('Mic start error:', e);
@@ -225,13 +229,12 @@ export default function AiAdvisor({ setActiveTab }) {
     try {
       let res;
       if (imageFile) {
-        // Multimodal Image Diagnosis with Vision Service
+        // Multimodal Image Diagnosis with Vision Service - AI auto-detects crop from image
         const formData = new FormData();
         formData.append('image', imageFile);
-        formData.append('question', query || 'कृपया इस पौधे की फोटो देखकर समस्या और उपचार बताएं।');
-        formData.append('crop', selectedCrop);
-        formData.append('stage', currentCrop?.cropStage || 'Flowering & Early Fruiting');
-        formData.append('language', 'hi');
+        formData.append('question', query || (lang === 'hi' ? 'कृपया इस पौधे की फोटो देखकर फसल, समस्या और उपचार बताएं।' : 'Identify the crop from this photo, detect any disease or issue, and provide treatment and care instructions.'));
+        formData.append('crop', ''); // No manual crop: AI detects it directly
+        formData.append('language', lang || 'en');
 
         res = await api.post('/ai/diagnose', formData, {
           headers: { 'Content-Type': 'multipart/form-data' }
@@ -242,12 +245,12 @@ export default function AiAdvisor({ setActiveTab }) {
           question: query,
           queryText: query,
           rawQuestion: query,
-          crop: selectedCrop,
-          stage: currentCrop?.cropStage || 'Flowering & Early Fruiting',
+          crop: 'General',
+          stage: currentCrop?.cropStage || '',
           soil: farm?.soilType ? { type: farm.soilType } : {},
           weather: farm?.weather || {},
           location: farm?.district ? { district: farm.district, state: farm.state } : {},
-          language: 'hi',
+          language: lang || 'en',
           conversationHistory: chatHistory.slice(-6),
         };
 
@@ -255,22 +258,44 @@ export default function AiAdvisor({ setActiveTab }) {
       }
 
       if (res.data && (res.data.success || res.data.answer)) {
+        // Handle unidentifiable or unclear image
+        if (res.data.isIdentifiable === false || res.data.data?.isIdentifiable === false) {
+          const fallbackMsg = res.data.unclearMessage || res.data.data?.unclearMessage || res.data.answer || (
+            lang === 'hi'
+              ? 'मैं इस तस्वीर से फसल की सही पहचान नहीं कर पाया। कृपया पौधे या प्रभावित पत्ते की एक साफ तस्वीर अपलोड करें।'
+              : "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf."
+          );
+          setAdvisoryResult({
+            isIdentifiable: false,
+            answer: fallbackMsg,
+            queryText: query || (lang === 'hi' ? 'फोटो जांच' : 'Photo Inspection'),
+            cropName: null
+          });
+          removeImage();
+          return;
+        }
+
         const rawAnswerText = res.data.answer || res.data.data?.answer || res.data.data?.whatToDo || '';
         const cleanedAnswer = cleanVisibleAdvice(rawAnswerText);
-        const userQuery = cleanUserQuery(res.data.queryText || res.data.data?.queryText || query || 'फसल सलाह');
+        const userQuery = cleanUserQuery(res.data.queryText || res.data.data?.queryText || query || (lang === 'hi' ? 'फसल सलाह' : 'Crop Advisory'));
+
+        // Extracted crop name from AI response
+        const detectedCrop = res.data.crop || res.data.cropName || res.data.data?.cropName || (imageFile ? (lang === 'hi' ? 'पहचानी गई फसल' : 'Identified Crop') : 'Krishi Drishti AI');
 
         const updatedResult = {
           ...(res.data.data || {}),
           answer: cleanedAnswer,
           queryText: userQuery,
-          cropName: selectedCrop,
-          diagnosis: res.data.diagnosis || res.data.data?.diagnosis
+          cropName: detectedCrop,
+          diagnosis: res.data.diagnosis || res.data.data?.diagnosis,
+          isIdentifiable: true,
+          wasImageQuery: !!imageFile
         };
 
         setAdvisoryResult(updatedResult);
         setChatHistory(prev => [
           ...prev,
-          { role: 'user', content: query || 'Crop Photo Inspection' },
+          { role: 'user', content: query || (lang === 'hi' ? 'पौधे की फोटो जांच' : 'Crop Photo Inspection') },
           { role: 'model', content: cleanedAnswer }
         ]);
         setQueryText('');
@@ -293,7 +318,7 @@ export default function AiAdvisor({ setActiveTab }) {
       
       {/* Header */}
       <div className="text-center max-w-lg mx-auto">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-500 to-yellow-400 text-white flex items-center justify-center mx-auto mb-2 shadow-md">
+        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center mx-auto mb-2 shadow-md">
           <Sparkles className="w-6 h-6" />
         </div>
         <h2 className="text-2xl font-black text-slate-900">{t('advisor.title')}</h2>
@@ -308,7 +333,7 @@ export default function AiAdvisor({ setActiveTab }) {
           <div className="flex items-start justify-between gap-2">
             <div className="flex items-center gap-2 text-red-900 font-bold text-sm">
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
-              <span>AI Advisory Notice</span>
+              <span>{lang === 'hi' ? 'सलाह सूचना' : 'Advisory Notice'}</span>
             </div>
             <button
               type="button"
@@ -331,7 +356,7 @@ export default function AiAdvisor({ setActiveTab }) {
               className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center gap-1.5"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
-              <span>Retry Question (पुनः प्रयास करें)</span>
+              <span>{lang === 'hi' ? 'पुनः प्रयास करें' : 'Retry Question'}</span>
             </button>
           </div>
         </div>
@@ -340,30 +365,19 @@ export default function AiAdvisor({ setActiveTab }) {
       {/* Query Input Box */}
       <div className="agri-card p-5 bg-white border-slate-200 shadow-sm space-y-4">
         
-        {/* Context bar */}
-        <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-100 flex-wrap gap-2">
-          <div className="flex items-center gap-2">
-            <span className="text-slate-500 font-medium">Crop:</span>
-            <select
-              value={selectedCrop}
-              onChange={(e) => setSelectedCrop(e.target.value)}
-              className="font-bold text-slate-800 bg-transparent border-b border-slate-300 focus:outline-none text-xs"
-            >
-              <option value="Tomato">Tomato (टमाटर)</option>
-              <option value="Wheat">Wheat (गेहूं)</option>
-              <option value="Rice / Paddy">Rice / Paddy (धान)</option>
-              <option value="Cotton">Cotton (कपास)</option>
-              <option value="Potato">Potato (आलू)</option>
-              <option value="Onion">Onion (प्याज)</option>
-              <option value="Chilli / Pepper">Chilli / Pepper (मिर्च)</option>
-              <option value="Maize">Maize / Corn (मक्का)</option>
-              <option value="Mustard">Mustard (सरसों)</option>
-              <option value="Soybean">Soybean (सोयाबीन)</option>
-            </select>
+        {/* Automatic Crop Detection Indicator Bar (No manual selector) */}
+        <div className="flex items-center justify-between text-xs bg-emerald-50/80 p-3 rounded-xl border border-emerald-100 flex-wrap gap-2">
+          <div className="flex items-center gap-2 text-emerald-900">
+            <Sprout className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span className="font-bold text-xs">
+              {lang === 'hi'
+                ? '🌱 AI फोटो से फसल की पहचान खुद करता है (मैन्युअल चयन की जरूरत नहीं)'
+                : '🌱 AI automatically identifies crop species directly from your photo'}
+            </span>
           </div>
 
-          <span className="text-[11px] text-agri-700 bg-agri-50 px-2 py-0.5 rounded font-semibold">
-            🌱 {currentCrop?.cropStage || 'Flowering & Early Fruiting'} • {farm?.soilType || 'Loamy Soil'}
+          <span className="text-[11px] text-emerald-800 bg-white/80 px-2.5 py-1 rounded-lg font-semibold border border-emerald-200/60 shadow-xs">
+            {farm?.soilType ? `🌾 ${farm.soilType}` : '🌿 Smart Vision AI'}
           </span>
         </div>
 
@@ -374,8 +388,10 @@ export default function AiAdvisor({ setActiveTab }) {
               rows={3}
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
-              placeholder={lang === 'hi' ? 'अपनी फसल की समस्या, बीमारी, खाद, या सिंचाई के बारे में पूछें...' : 'Ask about crop disease, symptoms, fertilizers, irrigation, pests, or PM schemes...'}
-              className="w-full p-3.5 pr-20 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-amber-500 focus:outline-none"
+              placeholder={lang === 'hi' 
+                ? 'पौधे की फोटो अपलोड करें या बीमारी, खाद, सिंचाई के बारे में पूछें...' 
+                : 'Upload a crop photo or ask about disease symptoms, fertilizers, irrigation, pests...'}
+              className="w-full p-3.5 pr-20 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             ></textarea>
 
             {/* Hidden Photo Input */}
@@ -398,7 +414,7 @@ export default function AiAdvisor({ setActiveTab }) {
                     ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                     : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
                 }`}
-                title="Attach or take photo of affected crop"
+                title={lang === 'hi' ? 'पौधे की फोटो अपलोड करें' : 'Attach crop photo'}
               >
                 <Camera className="w-4 h-4" />
               </button>
@@ -410,7 +426,7 @@ export default function AiAdvisor({ setActiveTab }) {
                 className={`p-2 rounded-xl transition shadow-xs flex items-center justify-center ${
                   isListening
                     ? 'bg-red-500 text-white animate-pulse ring-4 ring-red-200'
-                    : 'bg-amber-100 hover:bg-amber-200 text-amber-900'
+                    : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-900'
                 }`}
                 title={t('advisor.btnVoice')}
               >
@@ -421,25 +437,27 @@ export default function AiAdvisor({ setActiveTab }) {
 
           {/* Image Attachment Preview */}
           {imagePreview && (
-            <div className="flex items-center gap-3 p-2 bg-emerald-50 rounded-xl border border-emerald-200">
+            <div className="flex items-center gap-3 p-2.5 bg-emerald-50 rounded-xl border border-emerald-200 animate-in fade-in">
               <img
                 src={imagePreview}
                 alt="Selected crop"
-                className="w-12 h-12 object-cover rounded-lg border border-emerald-300 shadow-xs"
+                className="w-14 h-14 object-cover rounded-lg border border-emerald-300 shadow-xs"
               />
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-bold text-emerald-950 block truncate">
-                  📷 {imageFile?.name || 'Crop Photo Attached'}
+                  📷 {imageFile?.name || (lang === 'hi' ? 'पौधे की फोटो' : 'Crop Photo Attached')}
                 </span>
-                <span className="text-[10px] text-emerald-700 block">
-                  Gemini Vision Multimodal Analysis will inspect this photo
+                <span className="text-[11px] text-emerald-700 block">
+                  {lang === 'hi' 
+                    ? '✓ AI फसल की पहचान और रोग निदान करेगा' 
+                    : '✓ AI will auto-detect the crop and diagnose visible diseases'}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={removeImage}
-                className="p-1 rounded-full text-slate-500 hover:text-red-600 hover:bg-white transition"
-                title="Remove photo"
+                className="p-1.5 rounded-full text-slate-500 hover:text-red-600 hover:bg-white transition"
+                title={lang === 'hi' ? 'फोटो हटाएं' : 'Remove photo'}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -461,7 +479,7 @@ export default function AiAdvisor({ setActiveTab }) {
               className="py-3 px-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border bg-slate-100 hover:bg-emerald-50 text-slate-700 border-slate-200"
             >
               <Camera className="w-4 h-4 text-emerald-600" />
-              <span>{imageFile ? 'Photo Attached' : 'Add Photo'}</span>
+              <span>{imageFile ? (lang === 'hi' ? 'फोटो चुनी गई' : 'Photo Attached') : (lang === 'hi' ? 'फोटो जोड़ें' : 'Upload Photo')}</span>
             </button>
 
             <button
@@ -474,23 +492,23 @@ export default function AiAdvisor({ setActiveTab }) {
               }`}
             >
               <Mic className="w-4 h-4 text-amber-600" />
-              <span>{isListening ? 'Stop' : t('advisor.btnVoice')}</span>
+              <span>{isListening ? (lang === 'hi' ? 'रोकें' : 'Stop') : t('advisor.btnVoice')}</span>
             </button>
 
             <button
               type="submit"
               disabled={loading || (!queryText.trim() && !imageFile)}
-              className="flex-1 bg-gradient-to-r from-amber-600 to-yellow-500 hover:from-amber-700 hover:to-yellow-600 text-white font-bold py-3 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm transition active:scale-95 disabled:opacity-50"
+              className="flex-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold py-3 px-5 rounded-xl shadow-md flex items-center justify-center gap-2 text-sm transition active:scale-95 disabled:opacity-50"
             >
               {loading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>AI is thinking... (सलाह तैयार हो रही है)</span>
+                  <span>{lang === 'hi' ? 'AI विश्लेषण कर रहा है...' : 'AI is analyzing...'}</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>{imageFile ? 'Diagnose Photo with AI' : t('advisor.btnAsk')}</span>
+                  <span>{imageFile ? (lang === 'hi' ? 'फोटो का AI विश्लेषण करें' : 'Diagnose Photo with AI') : t('advisor.btnAsk')}</span>
                 </>
               )}
             </button>
@@ -513,7 +531,7 @@ export default function AiAdvisor({ setActiveTab }) {
                   type="button"
                   disabled={loading}
                   onClick={() => handleAsk(text)}
-                  className="text-xs bg-slate-50 hover:bg-amber-50 hover:border-amber-300 text-slate-700 hover:text-amber-900 border border-slate-200 px-3 py-2 rounded-xl text-left transition font-medium active:scale-95 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="text-xs bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 text-slate-700 hover:text-emerald-900 border border-slate-200 px-3 py-2 rounded-xl text-left transition font-medium active:scale-95 flex items-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <span>💬</span>
                   <span>{text}</span>
@@ -529,31 +547,46 @@ export default function AiAdvisor({ setActiveTab }) {
       {advisoryResult && (
         <div className="agri-card p-5 bg-white border-emerald-400 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3">
           
-          {/* Header */}
+          {/* Header with Dynamic Detected Crop Badge */}
           <div className="flex items-start justify-between pb-3 border-b border-slate-100 gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                  <Sparkles className="w-3 h-3 text-emerald-600" />
-                  <span>Krishi Drishti AI • {advisoryResult.cropName || selectedCrop}</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1.5 border border-emerald-200">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>
+                    KRISHI DRISHTI AI • {advisoryResult.cropName ? advisoryResult.cropName.toUpperCase() : (lang === 'hi' ? 'कृषि दृष्टि AI' : 'AGRICULTURAL INTELLIGENCE')}
+                  </span>
                 </span>
               </div>
               <h3 className="text-base font-extrabold text-slate-900 mt-2">
-                "{cleanUserQuery(advisoryResult.queryText) || lastQuery || 'फसल सलाह'}"
+                "{cleanUserQuery(advisoryResult.queryText) || lastQuery || (lang === 'hi' ? 'फसल जांच' : 'Crop Consultation')}"
               </h3>
             </div>
 
             <VoiceReader
-              textToRead={cleanVisibleAdvice(advisoryResult.answer || advisoryResult.whatToDo || 'यहाँ आपकी कृषि सलाह है।')}
+              textToRead={cleanVisibleAdvice(advisoryResult.answer || advisoryResult.whatToDo || 'Here is your agricultural advisory.')}
               textToReadHi={cleanVisibleAdvice(advisoryResult.answer || advisoryResult.whatToDoHi || advisoryResult.whatToDo || 'यहाँ आपकी कृषि सलाह है।')}
             />
           </div>
 
-          {/* Natural Conversational Answer from Gemini */}
-          {advisoryResult.answer && (
+          {/* Unclear / Non-Crop Image Alert */}
+          {advisoryResult.isIdentifiable === false && (
+            <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
+              <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                <span>{lang === 'hi' ? 'स्पष्ट फोटो की आवश्यकता' : 'Clear Photo Needed'}</span>
+              </div>
+              <p className="text-xs text-amber-950 font-medium leading-relaxed">
+                {advisoryResult.answer}
+              </p>
+            </div>
+          )}
+
+          {/* Natural Conversational Answer from AI */}
+          {advisoryResult.isIdentifiable !== false && advisoryResult.answer && (
             <div className="p-4 bg-emerald-50/70 rounded-2xl border border-emerald-200 text-slate-900 leading-relaxed space-y-2">
               <div className="font-bold text-emerald-950 flex items-center gap-1.5 text-xs">
-                <span>🌱 कृषि दृष्टि AI सलाह (Agricultural Advice):</span>
+                <span>🌱 {lang === 'hi' ? 'कृषि दृष्टि AI सलाह:' : 'Krishi Drishti AI Advice:'}</span>
               </div>
               <div className="text-xs sm:text-sm text-slate-800 font-normal leading-relaxed whitespace-pre-line">
                 {cleanVisibleAdvice(advisoryResult.answer)}
@@ -563,78 +596,82 @@ export default function AiAdvisor({ setActiveTab }) {
 
           {/* Follow-up Context Indicator */}
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-1">
-            <span>💬 आप फॉलो-अप सवाल पूछ सकते हैं (जैसे "इसके लिए क्या करूं?" या "कहाँ मिलेगा?")</span>
+            <span>
+              {lang === 'hi' 
+                ? '💬 आप फॉलो-अप सवाल पूछ सकते हैं (जैसे "इसके लिए क्या करूं?" या "कहाँ मिलेगा?")' 
+                : '💬 You can ask follow-up questions (e.g., "What organic spray should I use?" or "Where to buy?")'}
+            </span>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
               Context Active ({chatHistory.length} msgs)
             </span>
           </div>
 
-          {/* Structured Breakdown (Shown if structured breakdown is present) */}
+          {/* Structured 5-Part Breakdown (Shown if structured data present) */}
           {advisoryResult.issue && advisoryResult.issue !== advisoryResult.answer && (
             <div className="space-y-3 pt-2">
             
-            {/* 1. What is the issue? */}
-            <div className="p-3 bg-red-50/70 rounded-xl border border-red-200">
-              <span className="text-xs font-bold text-red-900 flex items-center gap-1.5 mb-1">
-                <AlertCircle className="w-4 h-4 text-red-600" />
-                {t('advisor.fivePart.issue')}
-              </span>
-              <p className="text-xs text-red-950 font-medium leading-relaxed">
-                {lang === 'hi' && advisoryResult.issueHi ? advisoryResult.issueHi : advisoryResult.issue}
-              </p>
-            </div>
+              {/* 1. What is the issue? */}
+              <div className="p-3 bg-red-50/70 rounded-xl border border-red-200">
+                <span className="text-xs font-bold text-red-900 flex items-center gap-1.5 mb-1">
+                  <AlertCircle className="w-4 h-4 text-red-600" />
+                  {t('advisor.fivePart.issue')}
+                </span>
+                <p className="text-xs text-red-950 font-medium leading-relaxed">
+                  {lang === 'hi' && advisoryResult.issueHi ? advisoryResult.issueHi : advisoryResult.issue}
+                </p>
+              </div>
 
-            {/* 2. Why is it happening? */}
-            <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200">
-              <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5 mb-1">
-                <HelpCircle className="w-4 h-4 text-amber-600" />
-                {t('advisor.fivePart.reason')}
-              </span>
-              <p className="text-xs text-amber-950 leading-relaxed">
-                {lang === 'hi' && advisoryResult.reasonHi ? advisoryResult.reasonHi : advisoryResult.reason}
-              </p>
-            </div>
+              {/* 2. Why is it happening? */}
+              <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200">
+                <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5 mb-1">
+                  <HelpCircle className="w-4 h-4 text-amber-600" />
+                  {t('advisor.fivePart.reason')}
+                </span>
+                <p className="text-xs text-amber-950 leading-relaxed">
+                  {lang === 'hi' && advisoryResult.reasonHi ? advisoryResult.reasonHi : advisoryResult.reason}
+                </p>
+              </div>
 
-            {/* 3. What should the farmer do? */}
-            <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-300">
-              <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 mb-1">
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                {t('advisor.fivePart.whatToDo')}
-              </span>
-              <p className="text-xs text-emerald-950 font-medium leading-relaxed">
-                {lang === 'hi' && advisoryResult.whatToDoHi ? advisoryResult.whatToDoHi : advisoryResult.whatToDo}
-              </p>
-            </div>
+              {/* 3. What should the farmer do? */}
+              <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-300">
+                <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 mb-1">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  {t('advisor.fivePart.whatToDo')}
+                </span>
+                <p className="text-xs text-emerald-950 font-medium leading-relaxed">
+                  {lang === 'hi' && advisoryResult.whatToDoHi ? advisoryResult.whatToDoHi : advisoryResult.whatToDo}
+                </p>
+              </div>
 
-            {/* 4. When should the action be taken? */}
-            <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
-              <span className="text-xs font-bold text-sky-900 flex items-center gap-1.5 mb-1">
-                <Calendar className="w-4 h-4 text-sky-600" />
-                {t('advisor.fivePart.whenToDo')}
-              </span>
-              <p className="text-xs text-sky-950 leading-relaxed">
-                {lang === 'hi' && advisoryResult.whenToDoHi ? advisoryResult.whenToDoHi : advisoryResult.whenToDo}
-              </p>
-            </div>
+              {/* 4. When should the action be taken? */}
+              <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
+                <span className="text-xs font-bold text-sky-900 flex items-center gap-1.5 mb-1">
+                  <Calendar className="w-4 h-4 text-sky-600" />
+                  {t('advisor.fivePart.whenToDo')}
+                </span>
+                <p className="text-xs text-sky-950 leading-relaxed">
+                  {lang === 'hi' && advisoryResult.whenToDoHi ? advisoryResult.whenToDoHi : advisoryResult.whenToDo}
+                </p>
+              </div>
 
-            {/* 5. What should the farmer avoid? */}
-            <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
-              <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5 mb-1">
-                <XCircle className="w-4 h-4 text-rose-600" />
-                {t('advisor.fivePart.whatToAvoid')}
-              </span>
-              <p className="text-xs text-rose-950 leading-relaxed">
-                {lang === 'hi' && advisoryResult.whatToAvoidHi ? advisoryResult.whatToAvoidHi : advisoryResult.whatToAvoid}
-              </p>
-            </div>
+              {/* 5. What should the farmer avoid? */}
+              <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
+                <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5 mb-1">
+                  <XCircle className="w-4 h-4 text-rose-600" />
+                  {t('advisor.fivePart.whatToAvoid')}
+                </span>
+                <p className="text-xs text-rose-950 leading-relaxed">
+                  {lang === 'hi' && advisoryResult.whatToAvoidHi ? advisoryResult.whatToAvoidHi : advisoryResult.whatToAvoid}
+                </p>
+              </div>
 
-          </div>
+            </div>
           )}
 
           {/* Action Plan Task CTA */}
           <div className="p-3 bg-agri-100 text-agri-950 rounded-xl flex items-center justify-between gap-2 text-xs">
             <span className="font-semibold">
-              ✓ Action plan generated for your daily farming schedule!
+              {lang === 'hi' ? '✓ आपकी दैनिक खेती के लिए कार्य योजना तैयार की गई है!' : '✓ Action plan generated for your daily farming schedule!'}
             </span>
             <button
               onClick={() => setActiveTab('plans')}

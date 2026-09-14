@@ -239,14 +239,25 @@ const GENERAL_AGRONOMY_TOPICS = [
 /**
  * Clean & Format output in standard Krishi Drishti 5-Part Agricultural Advice
  */
-function buildStructuredAdvice({ title, cause, immediateAction, organic, chemical, prevention, cropName }) {
+function buildStructuredAdvice({ title, cause, immediateAction, organic, chemical, prevention, cropName, language = 'hi' }) {
+  const isEn = language === 'en';
   const parts = [];
-  parts.push(`1. संभावित समस्या या स्थिति:\n${title}`);
-  parts.push(`2. होने का मुख्य कारण:\n${cause}`);
-  parts.push(`3. तुरंत क्या करें (जरूरी कदम):\n${immediateAction}`);
-  parts.push(`4. उपचार एवं प्रबंधन:\n• जैविक उपाय: ${organic}\n• रासायनिक उपाय: ${chemical}\n• विशेष सावधानी: दवा का छिड़काव शांत मौसम में मुंह पर मास्क लगाकर करें।`);
-  parts.push(`5. भविष्य में बचाव व सावधानियां:\n${prevention}`);
-  parts.push(`💡 स्थानीय कृषि विज्ञान केंद्र (KVK) या कृषि अधिकारी से परामर्श अवश्य लें।`);
+
+  if (isEn) {
+    parts.push(`1. Potential Issue or Condition:\n${title}`);
+    parts.push(`2. Primary Cause:\n${cause}`);
+    parts.push(`3. Immediate Action Needed:\n${immediateAction}`);
+    parts.push(`4. Treatment and Management:\n• Organic Solution: ${organic}\n• Chemical Control: ${chemical}\n• Precaution: Always read pesticide labels carefully and spray during calm hours with protective gear.`);
+    parts.push(`5. Preventive Care:\n${prevention}`);
+    parts.push(`💡 Consult your local Krishi Vigyan Kendra (KVK) or Agriculture Extension Officer for on-ground assistance.`);
+  } else {
+    parts.push(`1. संभावित समस्या या स्थिति:\n${title}`);
+    parts.push(`2. होने का मुख्य कारण:\n${cause}`);
+    parts.push(`3. तुरंत क्या करें (जरूरी कदम):\n${immediateAction}`);
+    parts.push(`4. उपचार एवं प्रबंधन:\n• जैविक उपाय: ${organic}\n• रासायनिक उपाय: ${chemical}\n• विशेष सावधानी: दवा का छिड़काव शांत मौसम में मुंह पर मास्क लगाकर करें।`);
+    parts.push(`5. भविष्य में बचाव व सावधानियां:\n${prevention}`);
+    parts.push(`💡 स्थानीय कृषि विज्ञान केंद्र (KVK) या कृषि अधिकारी से परामर्श अवश्य लें।`);
+  }
 
   return parts.join('\n\n');
 }
@@ -270,19 +281,21 @@ function getAgronomyFallbackAdvice({ question, crop = 'General', cropStage = '',
   if (matchedCropData && Array.isArray(matchedCropData.diseases)) {
     for (const d of matchedCropData.diseases) {
       if (d.keys.some(k => qLower.includes(k.toLowerCase()))) {
+        const cropName = language === 'en' ? (d.cropEn || crop || 'Identified Crop') : matchedCropData.nameHi;
         return {
           success: true,
           answer: buildStructuredAdvice({
-            title: d.title,
-            cause: d.cause,
-            immediateAction: d.immediateAction,
-            organic: d.organic,
-            chemical: d.chemical,
-            prevention: d.prevention,
-            cropName: matchedCropData.nameHi
+            title: language === 'en' ? (d.titleEn || d.title) : d.title,
+            cause: language === 'en' ? (d.causeEn || d.cause) : d.cause,
+            immediateAction: language === 'en' ? (d.immediateActionEn || d.immediateAction) : d.immediateAction,
+            organic: language === 'en' ? (d.organicEn || d.organic) : d.organic,
+            chemical: language === 'en' ? (d.chemicalEn || d.chemical) : d.chemical,
+            prevention: language === 'en' ? (d.preventionEn || d.prevention) : d.prevention,
+            cropName,
+            language
           }),
           source: 'agronomy_knowledge_engine',
-          crop: matchedCropData.nameHi,
+          crop: cropName,
           stage: cropStage
         };
       }
@@ -292,16 +305,18 @@ function getAgronomyFallbackAdvice({ question, crop = 'General', cropStage = '',
   // 2. Check general agronomy topics (nutrition, irrigation, weeds, frost, schemes)
   for (const topic of GENERAL_AGRONOMY_TOPICS) {
     if (topic.keys.some(k => qLower.includes(k.toLowerCase()))) {
+      const cropName = language === 'en' ? (crop || 'Field Crop') : (crop || 'कृषि');
       return {
         success: true,
         answer: buildStructuredAdvice({
-          title: topic.title,
-          cause: topic.cause,
-          immediateAction: topic.immediateAction,
-          organic: topic.organic,
-          chemical: topic.chemical,
-          prevention: topic.prevention,
-          cropName: crop || 'कृषि'
+          title: language === 'en' ? (topic.titleEn || topic.title) : topic.title,
+          cause: language === 'en' ? (topic.causeEn || topic.cause) : topic.cause,
+          immediateAction: language === 'en' ? (topic.immediateActionEn || topic.immediateAction) : topic.immediateAction,
+          organic: language === 'en' ? (topic.organicEn || topic.organic) : topic.organic,
+          chemical: language === 'en' ? (topic.chemicalEn || topic.chemical) : topic.chemical,
+          prevention: language === 'en' ? (topic.preventionEn || topic.prevention) : topic.prevention,
+          cropName,
+          language
         }),
         source: 'agronomy_knowledge_engine',
         crop: crop || 'General',
@@ -311,17 +326,31 @@ function getAgronomyFallbackAdvice({ question, crop = 'General', cropStage = '',
   }
 
   // 3. High-quality default expert agronomy advice tailored to the specified crop
-  const cropDisplay = matchedCropData ? matchedCropData.nameHi : (crop && crop !== 'General' ? crop : 'आपकी फसल');
+  const isEn = language === 'en';
+  const cropDisplay = matchedCropData ? (isEn ? crop : matchedCropData.nameHi) : (crop && crop !== 'General' ? crop : (isEn ? 'Your Crop' : 'आपकी फसल'));
   return {
     success: true,
     answer: buildStructuredAdvice({
-      title: `${cropDisplay} की स्वस्थ बढ़वार एवं समग्र फसल सुरक्षा सलाह`,
-      cause: 'मौसम में बदलाव, आद्रता में उतार-चढ़ाव और पोषक तत्वों के असंतुलन से पौधों में पीलापन, कमजोरी या कीट-रोग का जोखिम बढ़ जाता है।',
-      immediateAction: 'प्रभावित पत्तियों या पौधों का बारीकी से निरीक्षण करें। आवश्यकतानुसार खेत में हल्की सिंचाई करें और खरपतवार निकालें।',
-      organic: 'नीम के तेल (10,000 PPM) 5 मिलीलीटर प्रति लीटर पानी में मिलाकर सुबह या शाम छिड़कें। यह रस चूसक कीटों और फफूंद दोनों से सुरक्षा देता है।',
-      chemical: 'संतुलित पोषण हेतु घुलनशील 19:19:19 (NPK) 5 ग्राम प्रति लीटर पानी का छिड़काव करें। फफूंद से बचाव हेतु मैंकोजेब 2.5 ग्राम प्रति लीटर का प्रयोग करें।',
-      prevention: 'खेत में उचित जल निकासी रखें और संतुलित खाद का प्रयोग करें। किसी भी समस्या के निदान हेतु पौधे की साफ फोटो लेकर Krishi Drishti में दोबारा स्कैन कर सकते हैं।',
-      cropName: cropDisplay
+      title: isEn
+        ? `${cropDisplay} Healthy Growth & Crop Protection Guidance`
+        : `${cropDisplay} की स्वस्थ बढ़वार एवं समग्र फसल सुरक्षा सलाह`,
+      cause: isEn
+        ? 'Changes in weather, humidity fluctuations, or soil nutrient imbalances can stress foliage and increase vulnerability to pests or fungal pathogens.'
+        : 'मौसम में बदलाव, आद्रता में उतार-चढ़ाव और पोषक तत्वों के असंतुलन से पौधों में पीलापन, कमजोरी या कीट-रोग का जोखिम बढ़ जाता है।',
+      immediateAction: isEn
+        ? 'Carefully inspect affected leaves and root zone. Maintain moderate soil moisture and remove weeds around plants.'
+        : 'प्रभावित पत्तियों या पौधों का बारीकी से निरीक्षण करें। आवश्यकतानुसार खेत में हल्की सिंचाई करें और खरपतवार निकालें।',
+      organic: isEn
+        ? 'Spray Neem Oil (10,000 PPM) @ 5 ml/L water with a mild surfactant during early morning or evening.'
+        : 'नीम के तेल (10,000 PPM) 5 मिलीलीटर प्रति लीटर पानी में मिलाकर सुबह या शाम छिड़कें। यह रस चूसक कीटों और फफूंद दोनों से सुरक्षा देता है।',
+      chemical: isEn
+        ? 'Foliar spray of water-soluble NPK 19:19:19 @ 5 g/L. If fungal spotting is visible, apply Mancozeb 75% WP @ 2.5 g/L.'
+        : 'संतुलित पोषण हेतु घुलनशील 19:19:19 (NPK) 5 ग्राम प्रति लीटर पानी का छिड़काव करें। फफूंद से बचाव हेतु मैंकोजेब 2.5 ग्राम प्रति लीटर का प्रयोग करें।',
+      prevention: isEn
+        ? 'Ensure good field drainage, follow balanced fertilizer dosage, and take a clear photo of the plant to scan on Krishi Drishti.'
+        : 'खेत में उचित जल निकासी रखें और संतुलित खाद का प्रयोग करें। किसी भी समस्या के निदान हेतु पौधे की साफ फोटो लेकर Krishi Drishti में दोबारा स्कैन कर सकते हैं।',
+      cropName: cropDisplay,
+      language
     }),
     source: 'agronomy_knowledge_engine',
     crop: cropDisplay,

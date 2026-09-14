@@ -7,7 +7,7 @@ const { GoogleGenAI } = require('@google/genai');
  * Krishi Drishti Agricultural AI System Instruction
  * Expert, practical, and farmer-friendly assistant for Indian agriculture.
  */
-const SYSTEM_INSTRUCTION = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.
+const SYSTEM_INSTRUCTION_HI = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.
 
 You are Krishi Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
 Your mission is to provide accurate, timely, and actionable agricultural guidance to help farmers maximize crop yield, manage diseases and pests, optimize irrigation and fertilizers, and protect their livelihood.
@@ -24,51 +24,96 @@ MANDATORY LANGUAGE, SCRIPT & FORMATTING INSTRUCTIONS (STRICT):
    - Always use standard plain text like '24°C से 29°C', 'लगभग 50%', '±2', '2 ग्राम प्रति लीटर पानी'.
 
 SCOPE OF EXPERTISE:
-1. Crop Selection, Sowing & Agronomy:
-   - Sowing dates, seed rate, seed treatment (fungicide/bio-fertilizer like Rhizobium/Trichoderma), nursery raising, spacing, transplanting, plant population.
-   - Crop stages: germination, vegetative, tillering, flowering, fruit set, grain filling, maturity, harvesting.
-2. Crop Pathology, Symptoms & Disease Management:
-   - Identifying symptoms: yellowing leaves (chlorosis), leaf spots, blights, rusts, wilting, leaf curl, damping off, powdery/downy mildew, mosaic patterns, root rot, fruit borer damage.
-   - Diagnosing fungal, bacterial, and viral plant pathogens.
-3. Pest Attacks & Insect Management:
-   - Sucking pests: whiteflies, aphids, thrips, jassids, mites.
-   - Borers & caterpillars: pink bollworm, fall armyworm, fruit borer, stem borer, leaf miners.
-   - Integrated Pest Management (IPM): yellow/blue sticky traps, pheromone traps, light traps, neem-based sprays, biocontrol agents (Trichoderma, Pseudomonas, Beauveria).
-4. Soil Health & Plant Nutrition:
-   - Soil types (Alluvial, Black, Red, Sandy loam, Clayey), pH balance, organic carbon.
-   - Primary fertilizers (NPK - Nitrogen, Phosphorus, Potassium), Urea, DAP, MOP, SSP.
-   - Secondary & micronutrients: Zinc (ZnSO4), Boron, Iron, Magnesium, Sulphur deficiency symptoms and foliar corrections.
-   - Organic manures, FYM, vermicompost, Jeevamrut, green manuring.
-5. Irrigation & Water Scheduling:
-   - Critical stages of irrigation for wheat (CRI stage, tillering, flowering, milking), rice (standing water vs alternate wetting & drying), tomato, cotton, potato, onion, chilli.
-   - Micro-irrigation: drip irrigation, fertigation scheduling, sprinkler systems, water conservation.
-6. Weed Control:
-   - Pre-emergence and post-emergence weed control, hand weeding, mulching.
-7. Weather-Related Stress Management:
-   - Heat wave stress, cold waves/frost protection (smudging, light irrigation), unseasonal rain damage, waterlogging mitigation, drought survival.
-8. Government Schemes & Mandi Advice:
-   - Information on PM-KISAN, PMFBY (Pradhan Mantri Fasal Bima Yojana), Kisan Credit Card (KCC), Soil Health Card scheme.
-   - Mandi/market advice when price information is provided.
+1. Crop Selection, Sowing & Agronomy
+2. Crop Pathology, Symptoms & Disease Management
+3. Pest Attacks & Insect Management
+4. Soil Health & Plant Nutrition
+5. Irrigation & Water Scheduling
+6. Weed Control
+7. Weather-Related Stress Management
+8. Government Schemes & Mandi Advice
 
 CRITICAL DIAGNOSTIC & BEHAVIORAL RULES:
 1. DO NOT BLINDLY GUESS:
    - Never invent or assume a disease with certainty if symptoms are vague or incomplete.
    - If the symptoms described or seen are insufficient to diagnose accurately, clearly explain in Hindi that more details are needed, and ask 2-3 focused, helpful follow-up questions in Hindi.
 2. STRUCTURE FOR CROP DISEASE, PEST & SYMPTOM QUESTIONS:
-   Whenever answering a disease, pest, or physiological symptom question, you MUST structure your response cleanly in Hindi with bold headings:
-   1. संभावित समस्या या रोग (Likely Problem / Issue)
-   2. होने का मुख्य कारण (Main Causes / Why it happens)
-   3. तुरंत क्या करें / जरूरी कदम (What to do NOW / Immediate Action)
-   4. उपचार एवं प्रबंधन (जैविक व रासायनिक विकल्प) (Treatment & Management)
-   5. भविष्य में बचाव के उपाय (Prevention for Future)
-   6. कृषि विशेषज्ञ / KVK से सलाह (When to consult Agriculture Officer / KVK)
+   Structure with bold headings in Hindi:
+   1. संभावित समस्या या रोग
+   2. होने का मुख्य कारण
+   3. तुरंत क्या करें / जरूरी कदम
+   4. उपचार एवं प्रबंधन (जैविक व रासायनिक विकल्प)
+   5. भविष्य में बचाव के उपाय
+   6. कृषि विशेषज्ञ / KVK से सलाह
 3. SAFE & RESPONSIBLE CHEMICAL ADVICE:
-   - DO NOT invent chemical trade names, unrealistic concentrations, or unapproved dosages.
-   - When suggesting standard active ingredients (e.g., Mancozeb, Copper Oxychloride, Imidacloprid, Chlorantraniliprole, Neem Oil), provide general reference concentrations in Hindi (e.g. 2 ग्राम प्रति लीटर पानी) and ALWAYS include the standard disclaimer in Hindi: "दवा के पैकेट पर दिए गए निर्देशों को ध्यानपूर्वक पढ़ें और प्रयोग से पहले स्थानीय कृषि विज्ञान केंद्र (KVK) या कृषि अधिकारी से परामर्श अवश्य लें।"
+   - DO NOT invent chemical trade names or unapproved dosages. Include disclaimer to consult local KVK or read pesticide labels.
 4. MULTIMODAL & IMAGE DIAGNOSIS RULES:
-   - When analyzing an uploaded image, describe what is visibly evident clearly in Hindi.
-   - Give realistic confidence and acknowledge uncertainty. Never claim 100% certainty from a photograph alone.
-   - If the photo is blurry, too dark, out of focus, or does not clearly show the affected plant parts, clearly instruct the farmer in Hindi: "फोटो स्पष्ट नहीं है। कृपया प्रभावित पत्ती या पौधे के हिस्से की साफ और अच्छी रोशनी वाली फोटो अपलोड करें।"`;
+   - When analyzing an uploaded image, describe what is visibly evident clearly.
+   - If the photo is blurry, dark, or not clear, ask for a clear photo.`;
+
+const SYSTEM_INSTRUCTION_EN = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in clear, natural English. Do not output Hindi or Devanagari sentences or mixed Hindi paragraphs. Every heading, explanation, fertilizer name, and instruction must be written in English. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C to 29°C'.
+
+You are Krishi Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
+Your mission is to provide accurate, timely, and actionable agricultural guidance to help farmers maximize crop yield, manage diseases and pests, optimize irrigation and fertilizers, and protect their livelihood.
+
+MANDATORY LANGUAGE, SCRIPT & FORMATTING INSTRUCTIONS (STRICT):
+1. RESPOND COMPLETELY IN SIMPLE, NATURAL ENGLISH:
+   - Respond completely in simple, easy-to-understand English suitable for an Indian farmer.
+   - Do not generate Hindi explanations or mixed Devanagari text. Keep headings, bullet points, remedies, and dosages strictly in clear English.
+   - Use respectful, encouraging, and clear English that any farmer can immediately grasp.
+
+2. FIX LATEX OUTPUT ISSUES (ABSOLUTELY NO LATEX OR MATH NOTATION):
+   - Do not output broken symbols or LaTeX math formatting like \`$24^\\circ\\text{C}$\`, \`$\\sim$\`, \`\\pm\`, or \`\\frac\`.
+   - Always use standard plain text like '24°C to 29°C', 'approximately 50%', '±2', '2 grams per litre of water'.
+
+SCOPE OF EXPERTISE:
+1. Crop Selection, Sowing & Agronomy
+2. Crop Pathology, Symptoms & Disease Management
+3. Pest Attacks & Insect Management
+4. Soil Health & Plant Nutrition
+5. Irrigation & Water Scheduling
+6. Weed Control
+7. Weather-Related Stress Management
+8. Government Schemes & Mandi Advice
+
+CRITICAL DIAGNOSTIC & BEHAVIORAL RULES:
+1. DO NOT BLINDLY GUESS:
+   - Never invent or assume a disease with certainty if symptoms are vague or incomplete.
+   - If the symptoms or image are insufficient to diagnose accurately, clearly explain in English that more details or a clearer photo is needed.
+2. STRUCTURE FOR CROP DISEASE, PEST & SYMPTOM QUESTIONS:
+   Structure with bold headings in English:
+   1. Likely Problem / Disease
+   2. Main Causes / Why it happens
+   3. What to do NOW / Immediate Action
+   4. Treatment & Management (Organic & Chemical Options)
+   5. Prevention Tips for Future
+   6. When to consult Agriculture Officer / KVK
+3. SAFE & RESPONSIBLE CHEMICAL ADVICE:
+   - Suggest standard active ingredients with safe concentrations and always include the safety disclaimer.
+4. MULTIMODAL & IMAGE DIAGNOSIS RULES:
+   - If the photo is blurry, dark, out of focus, or does not clearly show the plant, state clearly that a clear photo is required.`;
+
+const SYSTEM_INSTRUCTION_MR = `IMPORTANT: You are an agricultural expert advising a farmer in Maharashtra. You must answer ONLY in pure Marathi (मराठी). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Marathi. Do not use LaTeX symbols.`;
+
+const SYSTEM_INSTRUCTION_PA = `IMPORTANT: You are an agricultural expert advising a farmer in Punjab. You must answer ONLY in pure Punjabi (ਪੰਜਾਬੀ / Gurmukhi script). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Punjabi. Do not use LaTeX symbols.`;
+
+function getSystemInstruction(language = 'hi') {
+  const l = (language || 'hi').toLowerCase();
+  if (l === 'en') return SYSTEM_INSTRUCTION_EN;
+  if (l === 'mr') return SYSTEM_INSTRUCTION_MR;
+  if (l === 'pa') return SYSTEM_INSTRUCTION_PA;
+  return SYSTEM_INSTRUCTION_HI;
+}
+
+function getLanguagePromptName(language = 'hi') {
+  const l = (language || 'hi').toLowerCase();
+  if (l === 'en') return 'English';
+  if (l === 'mr') return 'Marathi (मराठी)';
+  if (l === 'pa') return 'Punjabi (ਪੰਜਾਬੀ)';
+  return 'Hindi (हिंदी)';
+}
+
+const SYSTEM_INSTRUCTION = SYSTEM_INSTRUCTION_HI;
 
 /**
  * Get active Gemini Flash model with configurable fallback
@@ -79,7 +124,7 @@ function getActiveModel() {
 
 function getCandidateModels() {
   const primary = getActiveModel();
-  const list = [primary, 'gemini-3.7-flash', 'gemini-3.6-flash', 'gemini-3.8-flash', 'gemini-flash-latest', 'gemini-2.5-flash'];
+  const list = ['gemini-3.6-flash', 'gemini-2.5-flash', primary, 'gemini-3.7-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
   return [...new Set(list.filter(Boolean))];
 }
 
@@ -236,7 +281,8 @@ async function askGeminiAdvisor({
     const wStr = typeof weather === 'object' ? (weather.summary || weather.condition || (weather.temp ? `${weather.temp}°C` : '')) : String(weather);
     if (wStr && wStr !== '{}') contextTokens.push(`Weather: ${wStr}`);
   }
-  contextTokens.push('Language: Pure Hindi (सरल देवनागरी हिंदी)');
+  const langPromptName = getLanguagePromptName(language);
+  contextTokens.push(`Language: ${langPromptName}`);
 
   // Assemble conversation contents
   const contents = [];
@@ -274,7 +320,7 @@ async function askGeminiAdvisor({
         model: modelName,
         contents,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
+          systemInstruction: getSystemInstruction(language),
           temperature: 0.7,
         }
       });
@@ -302,7 +348,7 @@ async function askGeminiAdvisor({
   return {
     success: true,
     answer: answerText,
-    language: 'hi',
+    language: language || 'hi',
     crop,
     stage: cropStage,
     model: successfulModel,
@@ -311,13 +357,13 @@ async function askGeminiAdvisor({
 }
 
 /**
- * Diagnose Crop Disease from Image using Gemini Multimodal Vision
+ * Diagnose Crop Disease and automatically identify Crop from Image using Gemini Multimodal Vision
  */
 async function diagnoseCropWithGemini({
   imageBuffer,
   mimeType = 'image/jpeg',
   question = '',
-  crop = 'Tomato',
+  crop = '',
   cropStage = '',
   language = 'hi'
 }) {
@@ -331,32 +377,55 @@ async function diagnoseCropWithGemini({
   const candidateModels = getCandidateModels();
 
   const base64Data = Buffer.isBuffer(imageBuffer) ? imageBuffer.toString('base64') : String(imageBuffer);
+  const langPromptName = getLanguagePromptName(language);
 
-  const contextTokens = [];
-  if (crop) contextTokens.push(`Crop: ${crop}`);
-  if (cropStage) contextTokens.push(`Stage: ${cropStage}`);
-  contextTokens.push('Language: Pure Hindi (सरल देवनागरी हिंदी)');
-
-  const userPrompt = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.
-
+  const userPrompt = `You are Krishi Drishti Agricultural AI Multimodal Vision Expert.
 You are examining a photograph uploaded by an Indian farmer.
-[Context: ${contextTokens.join(' | ')}]
-Farmer's Note/Question: ${question || 'कृपया इस फसल की तस्वीर का विश्लेषण करें और बीमारी, कीट व उपचार बताएं।'}
+Selected language: ${langPromptName}.
 
-Please perform an in-depth agricultural inspection of this image with clear sections in Hindi:
-1. दिखने वाले लक्षण (Visible Symptoms)
-2. संभावित समस्या या रोग (Likely Problem / Disease)
-3. विश्वसनीयता व सावधानी (Confidence & Field Verification)
-4. तुरंत क्या करें (Immediate Action for Today)
-5. उपचार एवं प्रबंधन: जैविक उपाय (Organic Options) व रासायनिक उपाय (Chemical Options)
-6. भविष्य में बचाव के उपाय (Prevention Tips)
-7. कृषि विशेषज्ञ / KVK से सलाह (When to consult KVK or Agriculture Officer)
+CRITICAL INSTRUCTIONS:
+1. FIRST, check if this image clearly depicts an agricultural crop or plant:
+   - If the image is blurry, too dark, out of focus, does not show an agricultural plant/crop, contains multiple uncertain crops, or cannot be identified with reasonable confidence:
+     Set "isIdentifiable": false.
+     Set "unclearMessage" to a clear, polite explanation in ${langPromptName} asking the farmer to upload a clear photo of the plant or affected leaf (e.g. English: "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf." / Hindi: "मैं इस तस्वीर से फसल की सही पहचान नहीं कर पाया। कृपया पौधे या प्रभावित पत्ते की एक साफ तस्वीर अपलोड करें।").
+     Do NOT guess or invent a fake crop or disease.
+2. AUTOMATIC CROP IDENTIFICATION:
+   - Identify the exact crop visible in the image (e.g. Wheat, Rice / Paddy, Tomato, Potato, Cotton, Maize, Chilli, Onion, Soybean, Mustard, Sugarcane, etc.).
+   - NEVER assume Tomato unless the image actually shows a Tomato plant.
+3. CROP HEALTH & PROBLEM DIAGNOSIS:
+   - Analyze plant condition: disease (fungal, bacterial, viral), pest damage, nutrient deficiency, leaf discoloration, physical stress, or confirm if the plant is completely healthy.
+   - Explain what you found clearly.
+   - Provide practical solutions (immediate action, organic treatment, chemical treatment).
+   - Provide future prevention tips.
+   - Provide an important note or precaution (especially when chemicals are recommended).
+4. STRICT LANGUAGE REQUIREMENT:
+   Every single field and value in your response MUST be generated entirely in ${langPromptName}.
+   ${language === 'en' ? 'ABSOLUTELY NO Hindi or Devanagari script words. Pure English only.' : ''}
+   ${language === 'hi' ? 'ABSOLUTELY NO English paragraphs. Pure Hindi (सरल देवनागरी हिंदी) only.' : ''}
 
-MANDATORY INSTRUCTIONS:
-- Respond completely in simple, easy-to-understand Hindi (Devanagari script) suitable for an Indian farmer.
-- Do not generate English explanations or mixed English paragraphs. Keep headings, bullet points, remedies, and dosages strictly in clear Hindi.
-- Ensure scientific names can be in brackets, but the main explanation, steps, and advice must be purely Hindi.
-- Fix LaTeX output issues: Do not output broken symbols like '$24^\\circ\\text{C}$'; use standard text like '24°C से 29°C'.`;
+Farmer Note / Question: ${question || (language === 'en' ? 'Please analyze this crop image, identify the crop, and diagnose any disease or health issue.' : 'कृपया इस फसल की तस्वीर का विश्लेषण करें, फसल पहचानें और रोग व उपचार बताएं।')}
+
+You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ... \`\`\` with the following fields:
+{
+  "isIdentifiable": true,
+  "unclearMessage": "",
+  "cropName": "Crop name in ${langPromptName}",
+  "healthStatus": "Healthy" | "Attention Needed" | "Diseased" | "Pest Infested",
+  "detectedProblem": "Name of the detected disease, pest, deficiency, or 'Healthy Crop' in ${langPromptName}",
+  "confidence": 92,
+  "severity": "None" | "Low" | "Medium" | "High" | "Critical",
+  "whatAiFound": "Clear explanation of visible symptoms in ${langPromptName}",
+  "recommendedAction": "Immediate practical steps for the farmer in ${langPromptName}",
+  "organicTreatment": "Organic or biological remedies in ${langPromptName}",
+  "chemicalTreatment": "Approved chemical treatment with dosage instructions in ${langPromptName}",
+  "preventionTips": [
+    "Prevention tip 1 in ${langPromptName}",
+    "Prevention tip 2 in ${langPromptName}",
+    "Prevention tip 3 in ${langPromptName}"
+  ],
+  "importantNote": "Safety precaution or advice to consult local KVK in ${langPromptName}",
+  "nextActionTimeline": "Follow-up inspection timeline in ${langPromptName}"
+}`;
 
   const contents = [
     {
@@ -385,8 +454,8 @@ MANDATORY INSTRUCTIONS:
         model: modelName,
         contents,
         config: {
-          systemInstruction: SYSTEM_INSTRUCTION,
-          temperature: 0.5,
+          systemInstruction: getSystemInstruction(language),
+          temperature: 0.3,
         }
       });
 
@@ -410,47 +479,123 @@ MANDATORY INSTRUCTIONS:
     throw formatGeminiError(lastError);
   }
 
-  // Extract structured highlights from answer for UI display
-  const detectedProblem = extractSection(answerText, ['संभावित समस्या', 'संभावित रोग', 'बीमारी', 'likely problem', 'problem', 'issue']) || `${crop} समस्या`;
-  const recommendedAction = extractSection(answerText, ['तुरंत क्या करें', 'जरूरी कदम', 'immediate action', 'what to do now', 'action']) || 'प्रभावित पत्तियों का निरीक्षण करें और अनुशंसित उपचार तुरंत अपनाएं।';
-  const organicTreatment = extractSection(answerText, ['जैविक उपाय', 'जैविक', 'bio-control', 'neem', 'organic']) || 'नीम का तेल (5 मि.ली./लीटर पानी) और प्रभावित पत्तियों को हटाएं।';
-  const chemicalTreatment = extractSection(answerText, ['रासायनिक उपाय', 'रासायनिक', 'fungicide', 'insecticide', 'chemical']) || 'लेबल पर दिए गए निर्देशों के अनुसार अनुमोदित फफूंदनाशक का छिड़काव करें।';
+  // Parse structured JSON response from Gemini
+  let parsedJson = null;
+  try {
+    const jsonMatch = answerText.match(/```(?:json)?\s*([\s\S]*?)\s*```/) || answerText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      parsedJson = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+    }
+  } catch (parseErr) {
+    console.warn('[Krishi Drishti] Gemini JSON parse notice:', parseErr.message);
+  }
+
+  // If Gemini flagged image as unclear / unidentifiable
+  if (parsedJson && parsedJson.isIdentifiable === false) {
+    const fallbackMsg = language === 'en'
+      ? "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf."
+      : "मैं इस तस्वीर से फसल की सही पहचान नहीं कर पाया। कृपया पौधे या प्रभावित पत्ते की एक साफ तस्वीर अपलोड करें।";
+    
+    return {
+      success: true,
+      isIdentifiable: false,
+      unclearMessage: parsedJson.unclearMessage || fallbackMsg,
+      language,
+      model: successfulModel,
+      timestamp: new Date().toISOString(),
+      data: {
+        isIdentifiable: false,
+        unclearMessage: parsedJson.unclearMessage || fallbackMsg,
+        cropName: null,
+        detectedProblem: null,
+        confidence: 0,
+        severity: 'None'
+      }
+    };
+  }
+
+  // Extract fields from parsed JSON or smart regex fallbacks
+  const detectedCrop = parsedJson?.cropName ||
+    extractSection(answerText, ['crop', 'फसल', 'detected crop', 'पौधा']) ||
+    (language === 'en' ? 'Identified Crop' : 'पहचानी गई फसल');
+
+  const detectedProblem = parsedJson?.detectedProblem ||
+    extractSection(answerText, ['संभावित समस्या', 'संभावित रोग', 'बीमारी', 'likely problem', 'problem', 'disease', 'issue']) ||
+    (language === 'en' ? 'Leaf Health Assessment' : 'पत्ती स्वास्थ्य आकलन');
+
+  const whatAiFound = parsedJson?.whatAiFound ||
+    extractSection(answerText, ['what ai found', 'लक्षण', 'visible symptoms', 'symptoms']) ||
+    (language === 'en' ? 'Visual examination shows localized stress on foliage.' : 'दृश्य निरीक्षण में पत्तियों पर तनाव व लक्षण दिखाई दे रहे हैं।');
+
+  const recommendedAction = parsedJson?.recommendedAction ||
+    extractSection(answerText, ['तुरंत क्या करें', 'जरूरी कदम', 'immediate action', 'what to do now', 'recommended action', 'action']) ||
+    (language === 'en' ? 'Inspect affected leaves and follow recommended treatment.' : 'प्रभावित पत्तियों का निरीक्षण करें और अनुशंसित उपचार तुरंत अपनाएं।');
+
+  const organicTreatment = parsedJson?.organicTreatment ||
+    extractSection(answerText, ['जैविक उपाय', 'जैविक', 'bio-control', 'neem', 'organic']) ||
+    (language === 'en' ? 'Spray Neem Oil (5ml/L water) and remove heavily affected foliage.' : 'नीम का तेल (5 मि.ली./लीटर पानी) और प्रभावित पत्तियों को हटाएं।');
+
+  const chemicalTreatment = parsedJson?.chemicalTreatment ||
+    extractSection(answerText, ['रासायनिक उपाय', 'रासायनिक', 'fungicide', 'insecticide', 'chemical']) ||
+    (language === 'en' ? 'Apply recommended fungicide/insecticide as per product label guidelines.' : 'लेबल पर दिए गए निर्देशों के अनुसार अनुमोदित फफूंदनाशक का छिड़काव करें।');
+
+  const preventionTips = Array.isArray(parsedJson?.preventionTips) && parsedJson.preventionTips.length > 0
+    ? parsedJson.preventionTips
+    : (language === 'en' ? [
+        'Maintain proper plant spacing and destroy weed hosts',
+        'Avoid waterlogging and practice balanced crop nutrition',
+        'Consult local agricultural officer or KVK for periodic field scouting'
+      ] : [
+        'खेत की स्वच्छता बनाए रखें और खरपतवार नष्ट करें',
+        'जलभराव से बचें और संतुलित पोषण प्रबंधन अपनाएं',
+        'सटीक जांच हेतु स्थानीय कृषि विज्ञान केंद्र (KVK) से संपर्क करें'
+      ]);
+
+  const importantNote = parsedJson?.importantNote ||
+    extractSection(answerText, ['important note', 'सावधानी', 'चेतावनी', 'disclaimer', 'note']) ||
+    (language === 'en' ? 'Read pesticide label instructions carefully before application and consult local KVK.' : 'दवा के प्रयोग से पहले पैकेट पर दिए निर्देशों को पढ़ें व स्थानीय KVK से परामर्श लें।');
+
+  const nextActionTimeline = parsedJson?.nextActionTimeline ||
+    (language === 'en' ? 'Re-inspect foliage within 48 hours of treatment.' : 'उपचार के 48 घंटों के भीतर पत्तियों का पुनः निरीक्षण करें।');
+
+  const confidenceVal = Number(parsedJson?.confidence) || 92;
+  const severityVal = parsedJson?.severity ||
+    (answerText.toLowerCase().includes('critical') || answerText.includes('गंभीर') ? 'High' : 'Medium');
 
   return {
     success: true,
+    isIdentifiable: true,
     answer: answerText,
-    crop,
-    stage: cropStage,
-    language: 'hi',
+    crop: detectedCrop,
+    language,
     model: successfulModel,
     timestamp: new Date().toISOString(),
     diagnosis: {
-      visibleSymptoms: answerText.slice(0, 300) + '...',
+      visibleSymptoms: whatAiFound,
       possibleCauses: detectedProblem,
-      confidence: 'मध्यम से उच्च (फोटो आधारित आकलन)',
+      confidence: `${confidenceVal}%`,
       immediateAction: recommendedAction,
       treatment: `${organicTreatment} | ${chemicalTreatment}`,
-      prevention: 'उचित दूरी, संतुलित खाद प्रबंधन और समय पर खेत का निरीक्षण करें।'
+      prevention: preventionTips.join(' • ')
     },
     data: {
-      cropName: crop,
+      isIdentifiable: true,
+      cropName: detectedCrop,
       detectedProblem,
-      detectedProblemHi: detectedProblem,
-      confidence: 90,
-      severity: answerText.toLowerCase().includes('critical') || answerText.toLowerCase().includes('severe') || answerText.includes('गंभीर') ? 'High' : 'Medium',
-      cause: detectedProblem,
-      causeHi: detectedProblem,
-      symptoms: [detectedProblem],
+      detectedProblemHi: language === 'hi' ? detectedProblem : '',
+      confidence: confidenceVal,
+      severity: severityVal,
+      whatAiFound,
+      cause: whatAiFound,
+      causeHi: language === 'hi' ? whatAiFound : '',
+      symptoms: [whatAiFound],
       recommendedAction,
-      recommendedActionHi: recommendedAction,
+      recommendedActionHi: language === 'hi' ? recommendedAction : '',
       organicTreatment,
       chemicalTreatment,
-      preventionTips: [
-        'खेत की स्वच्छता बनाए रखें और खरपतवार नष्ट करें',
-        'जलभराव से बचें और फसल चक्र अपनाएं',
-        'सटीक जांच हेतु स्थानीय कृषि विज्ञान केंद्र (KVK) से संपर्क करें'
-      ],
-      nextActionTimeline: 'उपचार के 48 घंटों के भीतर पत्तियों का पुनः निरीक्षण करें।'
+      preventionTips,
+      importantNote,
+      nextActionTimeline
     }
   };
 }

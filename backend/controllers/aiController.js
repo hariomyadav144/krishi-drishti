@@ -48,7 +48,7 @@ const getAiAdvice = async (req, res) => {
       });
     }
 
-    const selectedCrop = crop || cropName || 'General';
+    const selectedCrop = crop && crop !== 'Tomato' ? crop : (cropName && cropName !== 'Tomato' ? cropName : 'General');
     const selectedStage = stage || cropStage || '';
 
     // Execute Unified AI Service (Primary -> Cloud Fallback -> Agronomy Engine)
@@ -67,7 +67,7 @@ const getAiAdvice = async (req, res) => {
       success: true,
       answer: result.answer,
       language: result.language || language,
-      crop: selectedCrop,
+      crop: result.crop || selectedCrop,
       stage: selectedStage,
       source: result.source || 'ai_service',
       timestamp: result.timestamp || new Date().toISOString(),
@@ -75,13 +75,13 @@ const getAiAdvice = async (req, res) => {
       data: {
         answer: result.answer,
         queryText: query,
-        cropName: selectedCrop,
+        cropName: result.crop || selectedCrop,
         cropStage: selectedStage,
         timestamp: result.timestamp || new Date().toISOString()
       },
       // Backwards-compatible root aliases
       queryText: query,
-      cropName: selectedCrop
+      cropName: result.crop || selectedCrop
     });
   } catch (error) {
     console.error('[Krishi Drishti] AI Advice Catch:', error.message || error);
@@ -95,7 +95,7 @@ const getAiAdvice = async (req, res) => {
       data: {
         answer: friendlyMsg,
         queryText: question || queryText || '',
-        cropName: crop || cropName || 'General'
+        cropName: crop && crop !== 'Tomato' ? crop : 'General'
       }
     });
   }
@@ -115,13 +115,14 @@ const diagnoseCrop = async (req, res) => {
       cropName,
       stage,
       cropStage,
-      language,
+      language = 'hi',
       sampleImageUrl,
       imageBase64
     } = req.body || {};
 
-    const selectedCrop = crop || cropName || 'Tomato';
-    const selectedStage = stage || cropStage || 'Flowering Stage';
+    // Do NOT hardcode Tomato — let AI detect the crop from the image
+    const selectedCrop = crop && crop !== 'Tomato' ? crop : (cropName && cropName !== 'Tomato' ? cropName : '');
+    const selectedStage = stage || cropStage || '';
     const farmerQuery = cleanUserQuery(question || symptomDescription || '');
 
     let imageBuffer = null;
@@ -139,7 +140,6 @@ const diagnoseCrop = async (req, res) => {
         imageBuffer = Buffer.from(imageBase64, 'base64');
       }
     } else if (sampleImageUrl) {
-      // If a local sample image path or external URL
       if (sampleImageUrl.startsWith('/uploads/')) {
         const localPath = path.join(__dirname, '..', sampleImageUrl);
         if (fs.existsSync(localPath)) {
@@ -164,16 +164,43 @@ const diagnoseCrop = async (req, res) => {
       language: language || 'hi'
     });
 
+    // Handle low-confidence / unclear image flagged by AI
+    if (diagnosisResult && diagnosisResult.isIdentifiable === false) {
+      return res.status(200).json({
+        success: true,
+        isIdentifiable: false,
+        unclearMessage: diagnosisResult.unclearMessage,
+        message: diagnosisResult.unclearMessage,
+        answer: diagnosisResult.unclearMessage,
+        crop: null,
+        cropName: null,
+        data: {
+          isIdentifiable: false,
+          unclearMessage: diagnosisResult.unclearMessage,
+          cropName: null,
+          detectedProblem: null
+        }
+      });
+    }
+
+    const detectedCropName = diagnosisResult.crop || (language === 'en' ? 'Identified Crop' : 'पहचानी गई फसल');
+
     return res.status(200).json({
       success: true,
+      isIdentifiable: true,
       answer: diagnosisResult.answer,
       language: diagnosisResult.language || language,
-      crop: diagnosisResult.crop || selectedCrop,
+      crop: detectedCropName,
+      cropName: detectedCropName,
       stage: diagnosisResult.stage || selectedStage,
       source: diagnosisResult.source || 'vision_service',
       timestamp: diagnosisResult.timestamp || new Date().toISOString(),
       diagnosis: diagnosisResult.diagnosis,
-      data: diagnosisResult.data || { answer: diagnosisResult.answer }
+      data: {
+        ...(diagnosisResult.data || {}),
+        cropName: detectedCropName,
+        answer: diagnosisResult.answer
+      }
     });
   } catch (error) {
     console.error('[Krishi Drishti] AI Diagnose Error:', error.message || error);

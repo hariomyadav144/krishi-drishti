@@ -292,8 +292,6 @@ const getFarmInsights = async (req, res) => {
         recentRecommendations: [],
       }
     });
-  } catch (error) {
-    res.json({ success: true, data: {} });
   }
 };
 

@@ -32,7 +32,6 @@ export default function ScanCrop({ setActiveTab }) {
   const { lang, t } = useLanguage();
   const { currentCrop } = useAuth();
 
-  const [cropName, setCropName] = useState(currentCrop?.cropName || 'Tomato');
   const [symptomDescription, setSymptomDescription] = useState('');
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState('');
@@ -54,24 +53,30 @@ export default function ScanCrop({ setActiveTab }) {
 
   const fileInputRef = useRef(null);
 
+  // Clear previous analysis immediately when language changes to guarantee fresh, unmixed output
+  useEffect(() => {
+    setAnalysisResult(null);
+    setError('');
+  }, [lang]);
+
   const sampleLeaves = [
+    {
+      title: 'Wheat Stripe Rust',
+      crop: 'Wheat',
+      url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+      desc: 'Yellow stripe powdery pustules on foliage'
+    },
+    {
+      title: 'Rice / Paddy Blast',
+      crop: 'Rice / Paddy',
+      url: 'https://images.unsplash.com/photo-1536657464919-892534f60d6e?w=600&auto=format&fit=crop&q=80',
+      desc: 'Spindle-shaped spots on rice leaves'
+    },
     {
       title: 'Tomato Blight',
       crop: 'Tomato',
       url: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=600&auto=format&fit=crop&q=80',
       desc: 'Dark concentric brown rings on leaf with yellow edges'
-    },
-    {
-      title: 'Leaf Curl Virus',
-      crop: 'Tomato',
-      url: 'https://images.unsplash.com/photo-1598170845058-32b9d6a5da37?w=600&auto=format&fit=crop&q=80',
-      desc: 'Upward curled crinkled leaves with whitefly nymphs'
-    },
-    {
-      title: 'Wheat Rust',
-      crop: 'Wheat',
-      url: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
-      desc: 'Yellow stripe powdery pustules on foliage'
     },
     {
       title: 'Cotton Bollworm',
@@ -209,6 +214,7 @@ export default function ScanCrop({ setActiveTab }) {
         const file = new File([blob], `crop-camera-capture-${Date.now()}.jpg`, { type: 'image/jpeg' });
         setSelectedFile(file);
         setSampleUrl('');
+        setAnalysisResult(null); // Clear previous result immediately
         const preview = URL.createObjectURL(file);
         setPreviewUrl(preview);
 
@@ -218,7 +224,7 @@ export default function ScanCrop({ setActiveTab }) {
         setFlashActive(true);
         setTimeout(() => setFlashActive(false), 250);
 
-        // Step 5 & 6: Automatically trigger the existing AI crop health analysis workflow!
+        // Step 5 & 6: Automatically trigger AI crop analysis workflow
         handleAnalyze(null, file);
       }
     }, 'image/jpeg', 0.92);
@@ -229,6 +235,7 @@ export default function ScanCrop({ setActiveTab }) {
     if (file) {
       setSelectedFile(file);
       setSampleUrl('');
+      setAnalysisResult(null); // Clear previous result immediately
       setPreviewUrl(URL.createObjectURL(file));
       setError('');
       setCameraError('');
@@ -237,11 +244,11 @@ export default function ScanCrop({ setActiveTab }) {
   };
 
   const handleSelectSample = (sample) => {
-    setCropName(sample.crop);
-    setSymptomDescription(sample.desc);
+    setSymptomDescription(sample.desc || '');
     setSampleUrl(sample.url);
     setPreviewUrl(sample.url);
     setSelectedFile(null);
+    setAnalysisResult(null); // Clear previous result immediately
     setError('');
     setCameraError('');
     stopCameraStream();
@@ -261,8 +268,12 @@ export default function ScanCrop({ setActiveTab }) {
 
     try {
       const formData = new FormData();
-      formData.append('cropName', cropName);
-      formData.append('symptomDescription', symptomDescription);
+      // Requirement 4 & 5: Pass the farmer's selected language explicitly
+      formData.append('language', lang);
+
+      if (symptomDescription) {
+        formData.append('symptomDescription', symptomDescription);
+      }
 
       if (fileToScan) {
         formData.append('image', fileToScan);
@@ -276,6 +287,11 @@ export default function ScanCrop({ setActiveTab }) {
 
       if (res.data?.success && res.data?.data) {
         setAnalysisResult(res.data.data);
+      } else if (res.data?.isIdentifiable === false || res.data?.data?.isIdentifiable === false) {
+        setAnalysisResult({
+          isIdentifiable: false,
+          unclearMessage: res.data?.message || res.data?.data?.unclearMessage
+        });
       }
     } catch (err) {
       console.error('Scan error:', err);
@@ -519,26 +535,22 @@ export default function ScanCrop({ setActiveTab }) {
         
         <form onSubmit={handleAnalyze} className="space-y-4">
           
-          {/* Crop Selector */}
-          <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              {t('diagnose.cropType')}
-            </label>
-            <select
-              value={cropName}
-              onChange={(e) => setCropName(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:bg-white focus:outline-none"
-            >
-              <option value="Tomato">Tomato (टमाटर)</option>
-              <option value="Rice / Paddy">Rice / Paddy (धान)</option>
-              <option value="Wheat">Wheat (गेहूं)</option>
-              <option value="Cotton">Cotton (कपास)</option>
-              <option value="Potato">Potato (आलू)</option>
-              <option value="Chilli / Pepper">Chilli / Pepper (मिर्च)</option>
-              <option value="Onion">Onion (प्याज)</option>
-              <option value="Sugarcane">Sugarcane (गन्ना)</option>
-              <option value="Maize / Corn">Maize / Corn (मक्का)</option>
-            </select>
+          {/* Automatic AI Crop Identification Banner (No manual crop selection) */}
+          <div className="flex items-center gap-3 p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200/90 rounded-2xl text-xs text-emerald-950 font-semibold shadow-xs">
+            <div className="w-9 h-9 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+              <Sparkles className="w-5 h-5 animate-pulse" />
+            </div>
+            <div>
+              <p className="font-extrabold text-emerald-950 text-xs sm:text-sm flex items-center gap-1.5">
+                <span>🌱</span>
+                <span>{t('diagnose.autoCropBanner')}</span>
+              </p>
+              <p className="text-[11px] text-emerald-800 font-normal mt-0.5">
+                {lang === 'hi'
+                  ? 'गेहूं, धान, टमाटर, आलू, कपास, मिर्च या किसी भी फसल की फोटो अपलोड करें — AI स्वतः पहचान करेगा।'
+                  : 'Upload or capture any crop photo (Wheat, Rice, Tomato, Potato, Cotton, etc.) — AI will detect it automatically.'}
+              </p>
+            </div>
           </div>
 
           {/* Photo Selection or Preview Area */}
@@ -758,22 +770,86 @@ export default function ScanCrop({ setActiveTab }) {
 
       </div>
 
-      {/* AI Diagnostic Result Display */}
-      {analysisResult && (
+      {/* Low-Confidence / Unclear Image Banner (Requirement 9) */}
+      {analysisResult && (analysisResult.isIdentifiable === false || analysisResult.unclearMessage) && (
+        <div className="agri-card p-5 bg-amber-50/95 border-2 border-amber-300 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3">
+          <div className="flex items-start gap-3">
+            <div className="w-12 h-12 rounded-2xl bg-amber-200 text-amber-900 flex items-center justify-center shrink-0 shadow-xs">
+              <AlertTriangle className="w-6 h-6 text-amber-800" />
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                {lang === 'hi' ? 'पहचान अस्पष्ट' : 'Unclear Image'}
+              </span>
+              <h3 className="text-base font-black text-amber-950">
+                {lang === 'hi' ? 'फसल की पहचान नहीं हो सकी' : 'Could Not Confidently Identify Crop'}
+              </h3>
+              <p className="text-xs text-amber-900 leading-relaxed font-medium">
+                {analysisResult.unclearMessage || t('diagnose.unclearImageMsg')}
+              </p>
+            </div>
+          </div>
+
+          <div className="p-3 bg-white/80 rounded-xl border border-amber-200 text-xs text-amber-950 space-y-1">
+            <p className="font-bold flex items-center gap-1.5 text-amber-900">
+              <Info className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>{lang === 'hi' ? 'स्पष्ट फोटो के लिए सुझाव:' : 'Tips for a Clear Photo:'}</span>
+            </p>
+            <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-900 pl-1">
+              <li>{lang === 'hi' ? 'अच्छी रोशनी में पौधे या प्रभावित पत्ती की नजदीक से फोटो लें।' : 'Take a close photo of the plant or affected leaf in good light.'}</li>
+              <li>{lang === 'hi' ? 'कैमरा फोकस साफ रखें और धुंधली तस्वीरों से बचें।' : 'Keep the camera focused and avoid blurry or shaky pictures.'}</li>
+              <li>{lang === 'hi' ? 'पत्ती के आगे और पीछे दोनों हिस्सों का स्पष्ट दृश्य रखें।' : 'Ensure the leaf surface and symptoms are clearly visible.'}</li>
+            </ul>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+            <button
+              type="button"
+              onClick={openCameraModal}
+              className="w-full sm:flex-1 py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-95"
+            >
+              <Camera className="w-4 h-4" />
+              <span>{lang === 'hi' ? 'कैमरे से साफ फोटो लें' : 'Retake Clear Photo'}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full sm:flex-1 py-3 px-4 bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-95"
+            >
+              <Upload className="w-4 h-4 text-amber-800" />
+              <span>{lang === 'hi' ? 'गैलरी से दूसरी फोटो चुनें' : 'Upload Another Photo'}</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Structured AI Agriculture Result (Requirement 8) */}
+      {analysisResult && analysisResult.isIdentifiable !== false && !analysisResult.unclearMessage && (
         <div className="agri-card p-5 bg-white border-agri-300 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3 printable-card">
           
-          {/* Result Title & Severity */}
+          {/* 🌱 Section 1: Detected Crop & Confidence */}
           <div className="flex items-start justify-between pb-3 border-b border-slate-100 gap-3">
             <div className="flex items-start gap-3">
-              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-agri-600 to-emerald-400 text-white flex items-center justify-center shadow-xs shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-agri-600 to-emerald-400 text-white flex items-center justify-center shadow-md shrink-0">
                 <Leaf className="w-6 h-6" />
               </div>
               <div>
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-agri-700 bg-agri-50 px-2 py-0.5 rounded">
-                  {analysisResult.cropName} • {analysisResult.confidence}% {t('diagnose.confidence')}
-                </span>
-                <h3 className="text-lg font-black text-slate-900 mt-1">
-                  {lang === 'hi' && analysisResult.detectedProblemHi ? analysisResult.detectedProblemHi : analysisResult.detectedProblem}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-xs font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/80 px-2.5 py-0.5 rounded-lg flex items-center gap-1">
+                    <span>🌱</span>
+                    <span>{t('diagnose.detectedCrop')}: <strong>{analysisResult.cropName}</strong></span>
+                  </span>
+                  {analysisResult.confidence ? (
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-600 bg-slate-100 px-2 py-0.5 rounded-lg">
+                      {analysisResult.confidence}% {t('diagnose.confidence')}
+                    </span>
+                  ) : null}
+                </div>
+                
+                {/* 🩺 Section 2: Crop Health / Problem */}
+                <h3 className="text-xl font-black text-slate-900 mt-1.5 flex items-center gap-2">
+                  <span className="text-base">🩺</span>
+                  <span>{lang === 'hi' && analysisResult.detectedProblemHi ? analysisResult.detectedProblemHi : analysisResult.detectedProblem}</span>
                 </h3>
               </div>
             </div>
@@ -789,59 +865,97 @@ export default function ScanCrop({ setActiveTab }) {
               {lang === 'hi' ? 'रोग निदान व उपचार विवरण सुनें:' : 'Listen to Diagnosis & Treatment:'}
             </span>
             <VoiceReader
-              textToRead={`${analysisResult.detectedProblem}. Severity is ${analysisResult.severity}. Recommended action: ${analysisResult.recommendedAction}. Next step: ${analysisResult.nextActionTimeline}`}
-              textToReadHi={`${analysisResult.detectedProblemHi || analysisResult.detectedProblem}। गंभीरता स्तर ${analysisResult.severity} है। अनुशंसित उपाय: ${analysisResult.recommendedActionHi || analysisResult.recommendedAction}`}
+              textToRead={`${analysisResult.cropName}. ${analysisResult.detectedProblem}. Severity is ${analysisResult.severity}. Recommended action: ${analysisResult.recommendedAction}. Next step: ${analysisResult.nextActionTimeline}`}
+              textToReadHi={`पहचानी गई फसल: ${analysisResult.cropName}। ${analysisResult.detectedProblemHi || analysisResult.detectedProblem}। गंभीरता स्तर ${analysisResult.severity} है। अनुशंसित उपाय: ${analysisResult.recommendedActionHi || analysisResult.recommendedAction}`}
             />
           </div>
 
-          {/* Cause and Symptoms */}
-          <div className="space-y-2 text-xs">
-            <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-100">
-              <p className="font-bold text-amber-900 flex items-center gap-1.5 mb-0.5">
-                <Info className="w-3.5 h-3.5" />
-                {t('diagnose.possibleCause')}
+          {/* 📋 Section 3: What AI Found */}
+          {(analysisResult.whatAiFound || analysisResult.cause) && (
+            <div className="bg-amber-50/70 p-3.5 rounded-2xl border border-amber-200/80 space-y-1 text-xs">
+              <p className="font-bold text-amber-950 flex items-center gap-1.5">
+                <span className="text-sm">📋</span>
+                <span>{t('diagnose.whatAiFound')}</span>
               </p>
-              <p className="text-amber-800 leading-relaxed">
-                {lang === 'hi' && analysisResult.causeHi ? analysisResult.causeHi : analysisResult.cause}
+              <p className="text-amber-900 text-xs leading-relaxed">
+                {analysisResult.whatAiFound || (lang === 'hi' && analysisResult.causeHi ? analysisResult.causeHi : analysisResult.cause)}
               </p>
             </div>
-          </div>
+          )}
 
-          {/* Recommended Action */}
-          <div className="bg-emerald-50/70 p-3.5 rounded-xl border border-emerald-200">
-            <p className="font-bold text-emerald-950 flex items-center gap-1.5 mb-1 text-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-700" />
-              {t('diagnose.recommendedAction')}
-            </p>
-            <p className="text-xs text-emerald-900 leading-relaxed">
-              {lang === 'hi' && analysisResult.recommendedActionHi ? analysisResult.recommendedActionHi : analysisResult.recommendedAction}
-            </p>
-          </div>
+          {/* 💊 Section 4: Recommended Solution */}
+          <div className="space-y-3">
+            <div className="bg-emerald-50/80 p-3.5 rounded-2xl border border-emerald-200">
+              <p className="font-bold text-emerald-950 flex items-center gap-1.5 mb-1 text-xs">
+                <span className="text-sm">💊</span>
+                <span>{t('diagnose.recommendedSolution')}</span>
+              </p>
+              <p className="text-xs text-emerald-900 leading-relaxed font-medium">
+                {lang === 'hi' && analysisResult.recommendedActionHi ? analysisResult.recommendedActionHi : analysisResult.recommendedAction}
+              </p>
+            </div>
 
-          {/* Organic vs Chemical Treatment */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            {analysisResult.organicTreatment && (
-              <div className="p-3 bg-green-50 rounded-xl border border-green-200">
-                <span className="font-bold text-green-900 block mb-1">
-                  🌿 {t('diagnose.organicTreatment')}
-                </span>
-                <p className="text-green-800 text-[11px] leading-relaxed">
-                  {analysisResult.organicTreatment}
-                </p>
+            {/* Organic vs Chemical Treatment cards */}
+            {(analysisResult.organicTreatment || analysisResult.chemicalTreatment) && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                {analysisResult.organicTreatment && (
+                  <div className="p-3 bg-green-50 rounded-xl border border-green-200">
+                    <span className="font-bold text-green-900 block mb-1">
+                      🌿 {t('diagnose.organicTreatment')}
+                    </span>
+                    <p className="text-green-800 text-[11px] leading-relaxed">
+                      {analysisResult.organicTreatment}
+                    </p>
+                  </div>
+                )}
+
+                {analysisResult.chemicalTreatment && (
+                  <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
+                    <span className="font-bold text-sky-900 block mb-1">
+                      🧪 {t('diagnose.chemicalTreatment')}
+                    </span>
+                    <p className="text-sky-800 text-[11px] leading-relaxed">
+                      {analysisResult.chemicalTreatment}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
+          </div>
 
-            {analysisResult.chemicalTreatment && (
-              <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
-                <span className="font-bold text-sky-900 block mb-1">
-                  🧪 {t('diagnose.chemicalTreatment')}
+          {/* 🛡️ Section 5: Prevention Tips */}
+          {analysisResult.preventionTips && (Array.isArray(analysisResult.preventionTips) ? analysisResult.preventionTips.length > 0 : true) && (
+            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-1.5 text-xs">
+              <p className="font-bold text-slate-900 flex items-center gap-1.5">
+                <span className="text-sm">🛡️</span>
+                <span>{t('diagnose.preventionTips')}</span>
+              </p>
+              {Array.isArray(analysisResult.preventionTips) ? (
+                <ul className="list-disc list-inside space-y-1 text-[11px] text-slate-700 pl-1">
+                  {analysisResult.preventionTips.map((tip, idx) => (
+                    <li key={idx} className="leading-relaxed">{tip}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-slate-700 text-[11px] leading-relaxed">{analysisResult.preventionTips}</p>
+              )}
+            </div>
+          )}
+
+          {/* ⚠️ Section 6: Important Note (Show only when present) */}
+          {analysisResult.importantNote && (
+            <div className="p-3 bg-red-50/80 rounded-xl border border-red-200 text-xs flex items-start gap-2.5">
+              <ShieldAlert className="w-4 h-4 text-red-700 shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <span className="font-bold text-red-950 block">
+                  {t('diagnose.importantNote')}
                 </span>
-                <p className="text-sky-800 text-[11px] leading-relaxed">
-                  {analysisResult.chemicalTreatment}
+                <p className="text-red-900 text-[11px] leading-relaxed">
+                  {analysisResult.importantNote}
                 </p>
               </div>
-            )}
-          </div>
+            </div>
+          )}
 
           {/* Timeline & Next Step */}
           {analysisResult.nextActionTimeline && (

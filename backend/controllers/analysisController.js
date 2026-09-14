@@ -37,7 +37,10 @@ const scanCrop = async (req, res) => {
       filename = sampleImageUrl;
     }
 
-    // Get active crop record if available
+    // Language selection from frontend (defaults to 'hi')
+    const language = req.body.language || 'hi';
+
+    // Get active crop record if available (used only for context if needed, NEVER as forced override)
     let activeCrop = null;
     if (userId) {
       try {
@@ -47,8 +50,6 @@ const scanCrop = async (req, res) => {
       }
     }
 
-    const selectedCropName = cropName || (activeCrop ? activeCrop.cropName : 'Tomato');
-
     let aiResult = null;
 
     // If image buffer and GEMINI_API_KEY exist, use real Gemini Multimodal Vision
@@ -57,11 +58,29 @@ const scanCrop = async (req, res) => {
         const geminiVision = await diagnoseCropWithGemini({
           imageBuffer,
           mimeType,
-          question: question || symptomDescription || 'Diagnose visible plant symptoms and recommended treatment.',
-          crop: selectedCropName,
-          cropStage: activeCrop?.cropStage || 'Flowering Stage',
-          language: req.body.language || 'hi'
+          question: question || symptomDescription || '',
+          crop: '', // Auto-detect crop from image
+          cropStage: activeCrop?.cropStage || '',
+          language
         });
+
+        // Handle low-confidence / unclear image flagged by AI
+        if (geminiVision && geminiVision.isIdentifiable === false) {
+          return res.status(200).json({
+            success: true,
+            isIdentifiable: false,
+            message: geminiVision.unclearMessage,
+            data: {
+              isIdentifiable: false,
+              unclearMessage: geminiVision.unclearMessage,
+              cropName: null,
+              detectedProblem: null,
+              imageUrl,
+              confidence: 0,
+              severity: 'None'
+            }
+          });
+        }
 
         if (geminiVision && geminiVision.data) {
           aiResult = {
@@ -75,15 +94,37 @@ const scanCrop = async (req, res) => {
       }
     }
 
-    // If Gemini Vision wasn't used or failed, use built-in agronomy pathology engine
+    // If Gemini Vision wasn't used or failed, use built-in agronomy pathology engine with auto-detection
     if (!aiResult) {
       aiResult = await analyzeCropImage({
-        cropName: selectedCropName,
+        cropName: cropName && cropName !== 'Tomato' ? cropName : '',
         symptomDescription: symptomDescription || '',
         originalname,
         filename,
+        language
       });
     }
+
+    // Handle low-confidence / unclear image flagged by AI
+    if (aiResult && aiResult.isIdentifiable === false) {
+      return res.status(200).json({
+        success: true,
+        isIdentifiable: false,
+        message: aiResult.unclearMessage,
+        data: {
+          isIdentifiable: false,
+          unclearMessage: aiResult.unclearMessage,
+          cropName: null,
+          detectedProblem: null,
+          imageUrl,
+          confidence: 0,
+          severity: 'None'
+        }
+      });
+    }
+
+    // Dynamic detected crop name (never hardcoded Tomato)
+    const detectedCropName = aiResult.cropName || (language === 'en' ? 'Identified Crop' : 'पहचानी गई फसल');
 
     // Save Analysis Record if DB available and user is authenticated
     let analysis = null;
@@ -92,7 +133,7 @@ const scanCrop = async (req, res) => {
         analysis = await CropAnalysis.create({
           farmerId: userId,
           cropId: activeCrop ? activeCrop._id : null,
-          cropName: selectedCropName,
+          cropName: detectedCropName,
           imageUrl,
           symptomDescription: symptomDescription || '',
           detectedProblem: aiResult.detectedProblem,
@@ -115,13 +156,15 @@ const scanCrop = async (req, res) => {
     }
 
     const responseData = analysis ? analysis.toObject() : {
-      cropName: selectedCropName,
+      isIdentifiable: true,
+      cropName: detectedCropName,
       imageUrl,
       symptomDescription: symptomDescription || '',
       detectedProblem: aiResult.detectedProblem,
       detectedProblemHi: aiResult.detectedProblemHi,
       confidence: aiResult.confidence,
       severity: aiResult.severity,
+      whatAiFound: aiResult.whatAiFound || aiResult.cause,
       cause: aiResult.cause,
       causeHi: aiResult.causeHi,
       symptoms: aiResult.symptoms,
@@ -130,6 +173,7 @@ const scanCrop = async (req, res) => {
       organicTreatment: aiResult.organicTreatment,
       chemicalTreatment: aiResult.chemicalTreatment,
       preventionTips: aiResult.preventionTips,
+      importantNote: aiResult.importantNote,
       nextActionTimeline: aiResult.nextActionTimeline,
       answer: aiResult.answer,
       diagnosis: aiResult.diagnosis
@@ -141,8 +185,8 @@ const scanCrop = async (req, res) => {
         farmerId: userId,
         cropId: activeCrop ? activeCrop._id : null,
         cropAnalysisId: analysis ? analysis._id : null,
-        title: `Isolate and inspect affected ${selectedCropName} foliage`,
-        titleHi: `प्रभावित ${selectedCropName} की पत्तियों की छंटाई व निरीक्षण करें`,
+        title: `Isolate and inspect affected ${detectedCropName} foliage`,
+        titleHi: `प्रभावित ${detectedCropName} की पत्तियों की छंटाई व निरीक्षण करें`,
         description: aiResult.recommendedAction,
         dayLabel: 'TODAY',
         priority: aiResult.severity === 'Critical' ? 'High' : 'Medium',
@@ -191,8 +235,8 @@ const scanCrop = async (req, res) => {
             userId,
             title: `Critical Alert: ${aiResult.detectedProblem}`,
             titleHi: `गंभीर चेतावनी: ${aiResult.detectedProblemHi || aiResult.detectedProblem}`,
-            message: `High severity detected on ${selectedCropName}. Action required within 24 hours.`,
-            messageHi: `${selectedCropName} पर गंभीर लक्षण पाए गए हैं। 24 घंटे के भीतर उपचार करें।`,
+            message: `High severity detected on ${detectedCropName}. Action required within 24 hours.`,
+            messageHi: `${detectedCropName} पर गंभीर लक्षण पाए गए हैं। 24 घंटे के भीतर उपचार करें।`,
             priority: 'critical',
             category: 'crop_health',
             actionUrl: `/diagnose`,

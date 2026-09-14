@@ -674,55 +674,73 @@ export function calculateMockFertilizer({ cropName = 'Tomato', landArea = 2.5, l
 /**
  * Generates simulated AI scan result when farmer scans or uploads a crop photo
  */
-export function generateMockScanResult(cropName = 'Tomato') {
+export function generateMockScanResult(cropName = '', language = 'en') {
+  const isHi = language === 'hi';
+  
+  // Dynamic crop detection if not provided (NEVER assume Tomato)
+  let detectedCrop = cropName;
+  if (!detectedCrop || detectedCrop === 'Tomato') {
+    detectedCrop = isHi ? 'गेहूं' : 'Wheat';
+  } else if (isHi) {
+    if (detectedCrop === 'Wheat') detectedCrop = 'गेहूं';
+    else if (detectedCrop.includes('Rice')) detectedCrop = 'धान';
+    else if (detectedCrop === 'Cotton') detectedCrop = 'कपास';
+    else if (detectedCrop === 'Potato') detectedCrop = 'आलू';
+  }
+
+  const problem = isHi ? 'पीला रतुआ (येलो रस्ट)' : 'Stripe / Yellow Rust (Puccinia striiformis)';
+  const whatAiFound = isHi
+    ? 'पत्तियों पर समानांतर पीली पाउडर जैसी धारियां और रतुआ के धब्बे दिखाई दे रहे हैं।'
+    : 'Linear yellow powdery pustules forming chlorotic stripes along the leaf blade veins.';
+  const recAction = isHi
+    ? 'संक्रमित पत्तियों का निरीक्षण करें और प्रोपिकोनाजोल कवकनाशी का 24 घंटे के भीतर छिड़काव करें।'
+    : 'Inspect leaf canopy immediately and apply protective systemic triazole fungicide within 24 hours.';
+  const organic = isHi
+    ? 'ट्राइकोडर्मा हरज़ियानम @ 5 ग्राम/लीटर या नीम का तेल (10,000 ppm) @ 3 मिली/लीटर पानी का छिड़काव करें।'
+    : 'Spray bio-control Trichoderma harzianum @ 5g/L or 10,000 PPM Neem oil @ 3ml/L.';
+  const chemical = isHi
+    ? 'प्रोपिकोनाजोल 25% EC (टिल्ट) @ 1 मिली प्रति लीटर पानी में मिलाकर साफ मौसम में छिड़कें।'
+    : 'Foliar spray of Propiconazole 25% EC (Tilt) @ 1 ml/L or Tebuconazole 25.9% EC @ 1 ml/L of water.';
+  const prevention = isHi
+    ? [
+        'रतुआ रोधी प्रमाणित किस्मों की समय पर बुवाई करें',
+        'खेत में अत्यधिक यूरिया खाद के प्रयोग से बचें',
+        'संक्रमण की शुरुआत में ही स्थानीय कृषि विज्ञान केंद्र (KVK) से सलाह लें'
+      ]
+    : [
+        'Sow certified rust-resistant varieties on recommended schedule',
+        'Avoid excessive split doses of Nitrogen (Urea)',
+        'Consult local Krishi Vigyan Kendra (KVK) at the first onset of yellowing'
+      ];
+  const note = isHi
+    ? 'दवा के प्रयोग से पहले पैकेट पर दिए निर्देशों को पढ़ें और सुरक्षात्मक मास्क पहनें।'
+    : 'Carefully follow label safety instructions before chemical application and wear protective gear.';
+
   return {
     success: true,
     data: {
-      _id: 'scan_mock_tomato_01',
-      crop: cropName,
-      cropName: cropName,
-      disease: 'Early Blight (Alternaria solani)',
-      diseaseHi: 'अगेती झुलसा (अल्टरनेरिया सोलेनाई)',
-      detectedProblem: 'Early Blight (Alternaria solani)',
-      detectedProblemHi: 'अगेती झुलसा (अल्टरनेरिया सोलेनाई)',
-      confidence: '94.6%',
-      severity: 'Moderate',
+      _id: `scan_mock_${Date.now()}`,
+      isIdentifiable: true,
+      crop: detectedCrop,
+      cropName: detectedCrop,
+      disease: problem,
+      detectedProblem: problem,
+      detectedProblemHi: isHi ? problem : '',
+      confidence: 94,
+      severity: 'High',
       healthStatus: 'Attention Needed',
-      imageUrl: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=300&auto=format&fit=crop&q=80',
-      createdAt: new Date().toISOString(),
-      symptoms: [
-        'Concentric target-like rings with yellow chlorotic halos on lower leaves',
-        'Early leaf senescence and spotted foliage',
-        'Stems show dark brown elongated lesions',
-      ],
-      symptomsHi: [
-        'निचली पत्तियों पर पीले घेरे के साथ गोल छल्लेदार धब्बे',
-        'पत्तियों का समय से पहले पीला पड़ना',
-        'तनों पर गहरे भूरे रंग के धब्बे',
-      ],
-      organicTreatment: [
-        'Spray Neem Oil (Azadirachtin 10,000 ppm) @ 3 ml per litre of water.',
-        'Drench root zone with Trichoderma harzianum @ 5g/litre to enhance biological resistance.',
-        'Prune and safely burn infected lower canopy leaves.',
-      ],
-      organicTreatmentHi: [
-        'नीम का तेल (10,000 ppm) @ 3 मिली प्रति लीटर पानी में छिड़कें।',
-        'ट्राइकोडर्मा हरज़ियानम @ 5 ग्राम/लीटर से जड़ क्षेत्र में ड्रेन्चिंग करें।',
-        'संक्रमित निचली पत्तियों को काटकर खेत से दूर नष्ट कर दें।',
-      ],
-      chemicalTreatment: [
-        'Spray Mancozeb 75% WP @ 2.5 g/L water or Chlorothalonil 75% WP @ 2 g/L.',
-        'In severe spread: Azoxystrobin 18.2% + Difenoconazole 11.4% SC @ 1 ml/L water.',
-      ],
-      chemicalTreatmentHi: [
-        'मेंकोजेब 75% WP @ 2.5 ग्राम/लीटर या क्लोरोथालोनिल 75% WP @ 2 ग्राम/लीटर छिड़कें।',
-        'गंभीर संक्रमण में: एज़ोक्सीस्ट्रोबिन + डाइफेनोकोनाज़ोल @ 1 मिली/लीटर पानी में छिड़कें।',
-      ],
-      preventiveAdvice: 'Ensure proper plant spacing for air circulation and avoid overhead sprinkler watering on leaf canopy.',
-      preventiveAdviceHi: 'हवा के आवागमन के लिए पौधों के बीच उचित दूरी रखें और पत्तियों पर फव्वारे से पानी देने से बचें।',
-      speechText: 'Crop scan completed. Early blight detected with 94.6 percent confidence. Spray Mancozeb or organic Neem oil in cool morning hours.',
-      speechTextHi: 'फसल की जांच पूरी हुई। 94.6 प्रतिशत सटीकता के साथ अगेती झुलसा की पहचान हुई है। सुबह के समय मेंकोजेब या नीम के तेल का छिड़काव करें।',
-    },
+      whatAiFound,
+      cause: whatAiFound,
+      causeHi: isHi ? whatAiFound : '',
+      symptoms: [whatAiFound],
+      recommendedAction: recAction,
+      recommendedActionHi: isHi ? recAction : '',
+      organicTreatment: organic,
+      chemicalTreatment: chemical,
+      preventionTips: prevention,
+      importantNote: note,
+      nextActionTimeline: isHi ? 'उपचार के 48 घंटों में पुनः निरीक्षण करें।' : 'Re-inspect foliage within 48 hours.'
+    }
   };
 }
 

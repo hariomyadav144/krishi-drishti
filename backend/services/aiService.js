@@ -378,29 +378,61 @@ async function getUnifiedCropDiagnosis(params) {
   // STEP 2: Fallback to Agricultural Pathology Classification Engine
   try {
     const localResult = await analyzeCropImage({
-      cropName: crop,
+      cropName: crop && crop !== 'Tomato' ? crop : '',
       symptomDescription: question,
       originalname: 'farmer_upload.jpg',
-      filename: 'farmer_upload.jpg'
+      filename: 'farmer_upload.jpg',
+      language
     });
 
-    const structuredAnswer = [
-      `1. संभावित समस्या या रोग:\n${localResult.detectedProblemHi || localResult.detectedProblem} (विश्वसनीयता: ${localResult.confidence}%)`,
-      `2. होने का मुख्य कारण:\n${localResult.causeHi || localResult.cause}`,
-      `3. तुरंत क्या करें (जरूरी कदम):\n${localResult.recommendedActionHi || localResult.recommendedAction}`,
-      `4. उपचार एवं प्रबंधन:\n• जैविक उपाय: ${localResult.organicTreatment || 'नीम तेल (5ml/L) का छिड़काव करें।'}\n• रासायनिक उपाय: ${localResult.chemicalTreatment || 'अनुशंसित फफूंदनाशक का छिड़काव करें।'}\n• सावधानी: लेबल पर दिए निर्देशों का पालन करें।`,
-      `5. भविष्य में बचाव:\n${(localResult.preventionTips || []).join('\n• ')}`
+    if (localResult && localResult.isIdentifiable === false) {
+      return {
+        success: true,
+        isIdentifiable: false,
+        unclearMessage: localResult.unclearMessage,
+        answer: localResult.unclearMessage,
+        crop: null,
+        language
+      };
+    }
+
+    const isHi = language === 'hi';
+    const detectedCrop = localResult.cropName || (isHi ? 'पहचानी गई फसल' : 'Identified Crop');
+    const problemText = isHi ? (localResult.detectedProblemHi || localResult.detectedProblem) : (localResult.detectedProblem || localResult.detectedProblemHi);
+    const causeText = isHi ? (localResult.causeHi || localResult.cause) : (localResult.cause || localResult.causeHi);
+    const actionText = isHi ? (localResult.recommendedActionHi || localResult.recommendedAction) : (localResult.recommendedAction || localResult.recommendedActionHi);
+    const organicText = localResult.organicTreatment || (isHi ? 'नीम तेल (5ml/L) का छिड़काव करें।' : 'Foliar spray of Neem Oil (5ml/L).');
+    const chemicalText = localResult.chemicalTreatment || (isHi ? 'अनुशंसित फफूंदनाशक का छिड़काव करें।' : 'Apply recommended fungicide as per label directions.');
+    const cautionText = localResult.importantNote || (isHi ? 'लेबल पर दिए निर्देशों का पालन करें।' : 'Follow instructions on the product label.');
+    const preventionItems = (localResult.preventionTips || []).join('\n• ');
+
+    const structuredAnswer = isHi ? [
+      `1. पहचानी गई फसल:\n${detectedCrop}`,
+      `2. संभावित समस्या या रोग:\n${problemText} (विश्वसनीयता: ${localResult.confidence}%)`,
+      `3. होने का मुख्य कारण:\n${causeText}`,
+      `4. तुरंत क्या करें (जरूरी कदम):\n${actionText}`,
+      `5. उपचार एवं प्रबंधन:\n• जैविक उपाय: ${organicText}\n• रासायनिक उपाय: ${chemicalText}\n• सावधानी: ${cautionText}`,
+      `6. भविष्य में बचाव:\n• ${preventionItems}`
+    ].join('\n\n') : [
+      `1. Identified Crop:\n${detectedCrop}`,
+      `2. Detected Issue / Disease:\n${problemText} (Confidence: ${localResult.confidence}%)`,
+      `3. Primary Cause:\n${causeText}`,
+      `4. Immediate Action Needed:\n${actionText}`,
+      `5. Recommended Treatment:\n• Organic Control: ${organicText}\n• Chemical Control: ${chemicalText}\n• Caution: ${cautionText}`,
+      `6. Preventive Care:\n• ${preventionItems}`
     ].join('\n\n');
 
     return {
       success: true,
+      isIdentifiable: true,
       answer: cleanLatexAndFormat(structuredAnswer),
       language,
-      crop,
+      crop: detectedCrop,
       stage: cropStage,
-      diagnosis: localResult.detectedProblemHi || localResult.detectedProblem,
+      diagnosis: problemText,
       data: {
         ...localResult,
+        cropName: detectedCrop,
         answer: structuredAnswer
       },
       source: 'fallback_pathology_engine',

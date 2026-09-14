@@ -262,7 +262,9 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 
   // Disease Scan / AI Diagnosis
   if (cleanUrl.startsWith('/analysis/scan')) {
-    return generateMockScanResult(data?.cropName || 'Tomato');
+    const lang = (typeof data?.get === 'function' ? data.get('language') : data?.language) || localStorage.getItem('krishi_language') || 'en';
+    const crop = (typeof data?.get === 'function' ? data.get('cropName') : data?.cropName) || '';
+    return generateMockScanResult(crop, lang);
   }
 
   // Satellite NDVI Radar
