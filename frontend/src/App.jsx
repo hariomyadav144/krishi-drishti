@@ -14,6 +14,7 @@ import FarmerDashboard from './pages/FarmerDashboard';
 // Lazy-load secondary tabs to minimize initial bundle size and ensure instant opening
 const Register = lazy(() => import('./pages/Register'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
+const FieldMappingPage = lazy(() => import('./pages/FieldMappingPage'));
 const ScanCrop = lazy(() => import('./pages/ScanCrop'));
 const AiAdvisor = lazy(() => import('./pages/AiAdvisor'));
 const MandiPrices = lazy(() => import('./pages/MandiPrices'));
@@ -30,7 +31,7 @@ const ExpertDashboard = lazy(() => import('./pages/ExpertDashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
 
 const VALID_TABS = [
-  'home', 'diagnose', 'advice', 'mandi', 'fertilizer', 
+  'home', 'field-mapping', 'mapping', 'diagnose', 'advice', 'mandi', 'fertilizer', 
   'satellite', 'schemes', 'outbreak', 'plans', 'weather', 
   'alerts', 'profile', 'insights', 'expert', 'admin'
 ];
@@ -38,6 +39,7 @@ const VALID_TABS = [
 function getTabFromHash() {
   if (typeof window === 'undefined') return 'home';
   const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0].trim().toLowerCase();
+  if (raw === 'mapping') return 'field-mapping';
   return VALID_TABS.includes(raw) ? raw : 'home';
 }
 
@@ -143,6 +145,19 @@ function MainApp() {
             >
               <span>🌾</span>
               <span>{t('nav.home')}</span>
+            </button>
+
+            <button
+              id="nav-btn-field-mapping"
+              onClick={() => setActiveTab('field-mapping')}
+              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+                activeTab === 'field-mapping' || activeTab === 'mapping'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'text-emerald-900 bg-emerald-50/70 hover:bg-emerald-100'
+              }`}
+            >
+              <span>🗺️</span>
+              <span>{t('nav.fieldMapping') || 'Field Mapping'}</span>
             </button>
 
             <button
@@ -299,6 +314,9 @@ function MainApp() {
         <TabErrorBoundary tabKey={activeTab} onNavigateHome={() => setActiveTab('home')}>
           <Suspense fallback={<TabLoadingSkeleton />}>
             {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
+            {(activeTab === 'field-mapping' || activeTab === 'mapping') && (
+              <FieldMappingPage setActiveTab={setActiveTab} />
+            )}
             {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
             {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
             {activeTab === 'mandi' && <MandiPrices />}

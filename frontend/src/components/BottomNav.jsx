@@ -15,7 +15,8 @@ import {
   CloudSun, 
   Bell, 
   User, 
-  X 
+  X,
+  Map 
 } from 'lucide-react';
 
 export default function BottomNav({ activeTab, setActiveTab }) {
@@ -55,6 +56,7 @@ export default function BottomNav({ activeTab, setActiveTab }) {
   ];
 
   const moreTools = [
+    { id: 'field-mapping', label: t('nav.fieldMapping') || 'Field Mapping', icon: Map, color: 'text-emerald-700 bg-emerald-100' },
     { id: 'fertilizer', label: t('nav.fertilizer'), icon: Calculator, color: 'text-teal-600 bg-teal-50' },
     { id: 'satellite', label: t('nav.satellite'), icon: Satellite, color: 'text-indigo-600 bg-indigo-50' },
     { id: 'schemes', label: t('nav.schemes'), icon: Building2, color: 'text-amber-600 bg-amber-50' },

@@ -292,11 +292,75 @@ const getFarmInsights = async (req, res) => {
         recentRecommendations: [],
       }
     });
+  } catch (error) {
+    res.json({ success: true, data: {} });
   }
+};
+
+// Field Mapping Memory Store
+let memoryFields = [
+  {
+    id: 'field_demo_maize_01',
+    fieldName: 'North Plot - Maize Block',
+    crop: 'Maize',
+    season: 'Kharif',
+    farmerName: 'Rameshwar Patil',
+    soilType: 'Black Soil / Regur',
+    notes: 'Drip irrigation installed. High density hybrid planting with mulch.',
+    points: [
+      { lat: 20.17482, lng: 73.98421 },
+      { lat: 20.17565, lng: 73.98583 },
+      { lat: 20.17512, lng: 73.98745 },
+      { lat: 20.17395, lng: 73.98782 },
+      { lat: 20.17281, lng: 73.98695 },
+      { lat: 20.17254, lng: 73.98512 },
+      { lat: 20.17342, lng: 73.98402 },
+    ],
+    center: { lat: 20.17404, lng: 73.98591 },
+    areaAcres: 8.95,
+    areaHectares: 3.62,
+    areaSqMeters: 36220,
+    formattedAcres: '8.95 acres',
+    formattedHectares: '3.62 hectares',
+    cornersCount: 7,
+    gpsStatus: 'GPS Connected',
+    gpsAccuracy: 18,
+    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const getFields = async (req, res) => {
+  res.json({ success: true, data: memoryFields });
+};
+
+const saveField = async (req, res) => {
+  const fieldData = req.body;
+  if (!fieldData || !fieldData.points || fieldData.points.length < 3) {
+    return res.status(400).json({ success: false, message: 'Invalid polygon boundary points.' });
+  }
+  const id = fieldData.id || `field_${Date.now()}`;
+  const saved = { ...fieldData, id, updatedAt: new Date().toISOString() };
+  const idx = memoryFields.findIndex(f => f.id === id);
+  if (idx >= 0) {
+    memoryFields[idx] = saved;
+  } else {
+    memoryFields.unshift(saved);
+  }
+  res.json({ success: true, data: saved });
+};
+
+const deleteField = async (req, res) => {
+  const { id } = req.params;
+  memoryFields = memoryFields.filter(f => f.id !== id);
+  res.json({ success: true, message: 'Field deleted', data: memoryFields });
 };
 
 module.exports = {
   completeOnboarding,
   getFarmerDashboard,
   getFarmInsights,
+  getFields,
+  saveField,
+  deleteField,
 };

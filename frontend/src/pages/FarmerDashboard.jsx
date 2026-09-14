@@ -34,7 +34,8 @@ import {
   Satellite,
   Building2,
   DollarSign,
-  Radio
+  Radio,
+  Map
 } from 'lucide-react';
 
 const safeParse = (key) => {
@@ -178,9 +179,32 @@ export default function FarmerDashboard({ setActiveTab }) {
         </button>
       </div>
 
-      {/* 2. Live Mandi & Satellite Live Tickers Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {/* 2. Live Field Mapping, Mandi & Satellite Live Tickers Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
+        {/* Field Intelligence Spotlight */}
+        <div 
+          onClick={() => setActiveTab('field-mapping')}
+          className="agri-card p-3.5 bg-gradient-to-r from-emerald-950 to-[#12381F] text-white border-emerald-700/60 shadow-sm cursor-pointer hover:border-emerald-400 transition"
+        >
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-300 flex items-center gap-1">
+              <Map className="w-3 h-3" />
+              Field Intelligence
+            </span>
+            <span className="text-[9px] bg-emerald-500/30 text-emerald-300 border border-emerald-400/40 font-bold px-2 py-0.5 rounded-full">
+              GPS Spatial ✓
+            </span>
+          </div>
+          <div className="flex items-baseline justify-between">
+            <div>
+              <h5 className="font-bold text-xs">Farm Boundary & Crop Area</h5>
+              <p className="text-[11px] text-emerald-200/80">Satellite Map & Live Polygon</p>
+            </div>
+            <span className="text-xs font-bold text-emerald-300 underline">Map →</span>
+          </div>
+        </div>
+
         {/* Mandi Spotlight */}
         <div 
           onClick={() => setActiveTab('mandi')}

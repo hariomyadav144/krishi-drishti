@@ -23,12 +23,14 @@ import {
   Tooltip, 
   CartesianGrid 
 } from 'recharts';
+import { getActiveField } from '../services/fieldService';
 
 export default function SatelliteRadar() {
   const { lang, t } = useLanguage();
   const [satelliteData, setSatelliteData] = useState(null);
   const [activeSector, setActiveSector] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [activeField, setActiveField] = useState(() => getActiveField());
 
   const fetchSatelliteData = async () => {
     try {
@@ -86,6 +88,33 @@ export default function SatelliteRadar() {
           <span>Refresh Orbit Telemetry</span>
         </button>
       </div>
+
+      {/* Spatial Field Anchor Linked Boundary */}
+      {activeField && activeField.points && activeField.points.length >= 3 && (
+        <div className="p-4 bg-emerald-950/95 text-white rounded-2xl border border-emerald-500/40 shadow-sm flex items-center justify-between flex-wrap gap-3 text-xs animate-in fade-in">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 flex items-center justify-center font-bold text-base">
+              🗺️
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-white text-sm">Spatial Anchor: {activeField.fieldName}</span>
+                <span className="text-[10px] bg-emerald-600 text-white font-black px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  {activeField.crop} • {activeField.formattedAcres || `${activeField.areaAcres.toFixed(2)} acres`}
+                </span>
+              </div>
+              <span className="text-[11px] text-emerald-200/80 block mt-0.5">
+                Targeting GPS polygon of {activeField.cornersCount || activeField.points.length} boundary points at {activeField.center?.lat?.toFixed(4)}°N, {activeField.center?.lng?.toFixed(4)}°E
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-900/60 border border-emerald-600/50 text-[11px] font-mono text-emerald-300">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span>Polygon Locked ✓</span>
+          </div>
+        </div>
+      )}
 
       {/* Orbit & Pass Info Banner */}
       <div className="agri-card p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white shadow-xl relative overflow-hidden">
