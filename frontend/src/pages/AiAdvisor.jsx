@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import VoiceReader from '../components/VoiceReader';
 import FeedbackModal from '../components/FeedbackModal';
+import FarmerActionDashboard from '../components/FarmerActionDashboard';
 import { assembleClientFarmContext } from '../services/farmIntelligenceService';
 import { 
   Sparkles, 
@@ -866,70 +867,14 @@ export default function AiAdvisor({ setActiveTab }) {
             </div>
           )}
 
-          {/* Section 16: Single Unified Farmer Advisory Card (Never Answer in Isolation) */}
+          {/* Section 16: Farmer Action Dashboard (Completely Redesigned Unified Advisory) */}
           {advisoryResult.isIdentifiable !== false && (
-            <div className="p-4 sm:p-5 bg-gradient-to-br from-white via-emerald-50/20 to-teal-50/30 rounded-2xl border-2 border-emerald-400 shadow-md space-y-4">
-              {/* Card Header & Badge */}
-              <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-emerald-100">
-                <div className="flex items-center gap-2">
-                  <span className="text-xl">🌱</span>
-                  <div>
-                    <h4 className="text-sm font-black text-emerald-950">
-                      {lang === 'hi' ? 'कृषि दृष्टि संपूर्ण कृषि परामर्श (Krishi Drishti Unified Advisory)' : 'Krishi Drishti Complete Farm Advisory'}
-                    </h4>
-                    <span className="text-[11px] text-emerald-700 font-bold block">
-                      {activeFarmContext?.crop || advisoryResult.cropName || 'Wheat'} • {activeFarmContext?.fieldName || 'Plot A'} • {activeFarmContext?.cropStage || 'Vegetative'}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-1.5">
-                  <span className="px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase bg-emerald-100 text-emerald-900 border border-emerald-300">
-                    ✓ {lang === 'hi' ? 'समग्र कृषि विश्लेषण' : 'Multi-Factor Cross-Validated'}
-                  </span>
-                </div>
-              </div>
-
-              {/* Natural Conversational Answer from AI */}
-              {advisoryResult.answer && (
-                <div className="p-3.5 bg-white rounded-xl border border-emerald-200 shadow-2xs">
-                  <div className="font-extrabold text-emerald-950 flex items-center gap-1.5 text-xs mb-1.5">
-                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>{lang === 'hi' ? 'विशेषज्ञ कृषि समाधान (Comprehensive Diagnosis):' : 'Expert Farm Diagnosis:'}</span>
-                  </div>
-                  <div className="text-xs sm:text-sm text-slate-800 font-normal leading-relaxed whitespace-pre-line">
-                    {cleanVisibleAdvice(advisoryResult.answer)}
-                  </div>
-                </div>
-              )}
-
-              {/* Multi-Factor Cross-Validation Evidence Badges */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500 block">
-                  ⚖️ {lang === 'hi' ? 'विश्लेषण में शामिल 8 कृषि आयाम (8 Evidence Dimensions Analyzed):' : '8 Evidence Dimensions Analyzed:'}
-                </span>
-                <div className="flex flex-wrap gap-1.5 text-[11px]">
-                  <span className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-800 font-semibold shadow-2xs">
-                    🌾 {lang === 'hi' ? 'मिट्टी NPK व pH' : 'Soil NPK & pH'}
-                  </span>
-                  <span className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-800 font-semibold shadow-2xs">
-                    ⏳ {lang === 'hi' ? 'फसल अवस्था' : 'Crop Stage'}
-                  </span>
-                  <span className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-800 font-semibold shadow-2xs">
-                    💧 {lang === 'hi' ? 'मिट्टी की नमी व जलभराव' : 'Soil Moisture & Saturation'}
-                  </span>
-                  <span className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-800 font-semibold shadow-2xs">
-                    ⛅ {lang === 'hi' ? 'वर्षा व छिड़काव उपयुक्तता' : 'Weather & Spray Window'}
-                  </span>
-                  <span className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-800 font-semibold shadow-2xs">
-                    🛰️ {lang === 'hi' ? 'उपग्रह NDVI हरियाली' : 'Satellite NDVI'}
-                  </span>
-                  <span className="px-2.5 py-1 bg-white rounded-lg border border-slate-200 text-slate-800 font-semibold shadow-2xs">
-                    📋 {lang === 'hi' ? 'पिछला खाद व छिड़काव' : 'Past Application History'}
-                  </span>
-                </div>
-              </div>
-            </div>
+            <FarmerActionDashboard
+              advisoryResult={advisoryResult}
+              activeFarmContext={activeFarmContext}
+              lang={lang}
+              onNavigateTab={setActiveTab}
+            />
           )}
 
           {/* Follow-up Context Indicator */}
@@ -943,68 +888,6 @@ export default function AiAdvisor({ setActiveTab }) {
               Farm Context Active ({chatHistory.length} msgs)
             </span>
           </div>
-
-          {/* Structured 5-Part Breakdown (Shown if structured data present) */}
-          {advisoryResult.issue && advisoryResult.issue !== advisoryResult.answer && (
-            <div className="space-y-3 pt-2">
-            
-              {/* 1. What is the issue? */}
-              <div className="p-3 bg-red-50/70 rounded-xl border border-red-200">
-                <span className="text-xs font-bold text-red-900 flex items-center gap-1.5 mb-1">
-                  <AlertCircle className="w-4 h-4 text-red-600" />
-                  {t('advisor.fivePart.issue')}
-                </span>
-                <p className="text-xs text-red-950 font-medium leading-relaxed">
-                  {lang === 'hi' && advisoryResult.issueHi ? advisoryResult.issueHi : advisoryResult.issue}
-                </p>
-              </div>
-
-              {/* 2. Why is it happening? */}
-              <div className="p-3 bg-amber-50/70 rounded-xl border border-amber-200">
-                <span className="text-xs font-bold text-amber-900 flex items-center gap-1.5 mb-1">
-                  <HelpCircle className="w-4 h-4 text-amber-600" />
-                  {t('advisor.fivePart.reason')}
-                </span>
-                <p className="text-xs text-amber-950 leading-relaxed">
-                  {lang === 'hi' && advisoryResult.reasonHi ? advisoryResult.reasonHi : advisoryResult.reason}
-                </p>
-              </div>
-
-              {/* 3. What should the farmer do? */}
-              <div className="p-3.5 bg-emerald-50 rounded-xl border border-emerald-300">
-                <span className="text-xs font-bold text-emerald-900 flex items-center gap-1.5 mb-1">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                  {t('advisor.fivePart.whatToDo')}
-                </span>
-                <p className="text-xs text-emerald-950 font-medium leading-relaxed">
-                  {lang === 'hi' && advisoryResult.whatToDoHi ? advisoryResult.whatToDoHi : advisoryResult.whatToDo}
-                </p>
-              </div>
-
-              {/* 4. When should the action be taken? */}
-              <div className="p-3 bg-sky-50 rounded-xl border border-sky-200">
-                <span className="text-xs font-bold text-sky-900 flex items-center gap-1.5 mb-1">
-                  <Calendar className="w-4 h-4 text-sky-600" />
-                  {t('advisor.fivePart.whenToDo')}
-                </span>
-                <p className="text-xs text-sky-950 leading-relaxed">
-                  {lang === 'hi' && advisoryResult.whenToDoHi ? advisoryResult.whenToDoHi : advisoryResult.whenToDo}
-                </p>
-              </div>
-
-              {/* 5. What should the farmer avoid? */}
-              <div className="p-3 bg-rose-50 rounded-xl border border-rose-200">
-                <span className="text-xs font-bold text-rose-900 flex items-center gap-1.5 mb-1">
-                  <XCircle className="w-4 h-4 text-rose-600" />
-                  {t('advisor.fivePart.whatToAvoid')}
-                </span>
-                <p className="text-xs text-rose-950 leading-relaxed">
-                  {lang === 'hi' && advisoryResult.whatToAvoidHi ? advisoryResult.whatToAvoidHi : advisoryResult.whatToAvoid}
-                </p>
-              </div>
-
-            </div>
-          )}
 
           {/* Action Plan Task CTA */}
           <div className="p-3 bg-agri-100 text-agri-950 rounded-xl flex items-center justify-between gap-2 text-xs">
