@@ -4,7 +4,10 @@
   "subTagline": "ਸਹੀ ਜਾਣਕਾਰੀ। ਬਿਹਤਰ ਫੈਸਲੇ। ਵੱਧ ਝਾੜ।",
   "nav": {
     "home": "ਮੁੱਖ ਪੰਨਾ",
+    "fieldMonitoring": "ਖੇਤ ਨਿਗਰਾਨੀ",
+    "fieldMapping": "ਖੇਤ ਮੈਪਿੰਗ",
     "diagnose": "ਫਸਲ ਜਾਂਚ",
+    "history": "ਫਸਲ ਇਤਿਹਾਸ",
     "advice": "AI ਸਲਾਹ",
     "mandi": "ਮੰਡੀ ਭਾਅ",
     "fertilizer": "ਖਾਦ ਕੈਲਕੁਲੇਟਰ",
@@ -37,7 +40,12 @@
     "quickActions": "ਤੁਰੰਤ ਸੇਵਾਵਾਂ",
     "mandiSpotlight": "ਅੱਜ ਦੇ ਲਾਈਵ ਮੰਡੀ ਭਾਅ",
     "satelliteHealth": "ਉਪਗ੍ਰਹਿ ਫਸਲ ਸਿਹਤ",
-    "pestWarning": "ਨੇੜੇ ਕੀਟ ਪ੍ਰਕੋਪ ਚੇਤਾਵਨੀ"
+    "pestWarning": "ਨੇੜੇ ਕੀਟ ਪ੍ਰਕੋਪ ਚੇਤਾਵਨੀ",
+    "yourCropHealth": "ਤੁਹਾਡੀ ਫਸਲ ਦੀ ਸਿਹਤ",
+    "viewDetailedHealth": "ਵੇਰਵੇ ਸਹਿਤ ਸਿਹਤ ਵੇਖੋ",
+    "primaryFactors": "ਸਿਹਤ ਨੂੰ ਪ੍ਰਭਾਵਿਤ ਕਰਨ ਵਾਲੇ ਮੁੱਖ ਕਾਰਕ",
+    "confidenceLevel": "ਭਰੋਸੇਯੋਗਤਾ ਪੱਧਰ",
+    "recalculateHealth": "ਮੁੜ ਗਣਨਾ ਕਰੋ"
   },
   "diagnose": {
     "title": "AI ਦੁਆਰਾ ਫਸਲ ਦੀ ਜਾਂਚ ਕਰੋ",

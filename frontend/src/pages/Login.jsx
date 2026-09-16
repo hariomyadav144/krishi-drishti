@@ -48,8 +48,17 @@ export default function Login({ onNavigateRegister }) {
 
         {/* Brand Header */}
         <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-agri-500 to-emerald-400 mx-auto flex items-center justify-center shadow-lg border border-agri-300/30 text-white mb-3">
-            <Sprout className="w-9 h-9" />
+          <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mx-auto flex items-center justify-center shadow-lg p-1.5 mb-3">
+            <img
+              src="/logo.svg"
+              alt="Krishi Drishti Logo"
+              className="w-13 h-13 object-contain rounded-xl"
+              onError={(e) => {
+                if (e.target.src.endsWith('/logo.svg')) {
+                  e.target.src = '/logo.png';
+                }
+              }}
+            />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
             KRISHI DRISHTI

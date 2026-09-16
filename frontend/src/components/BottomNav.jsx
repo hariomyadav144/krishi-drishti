@@ -16,7 +16,8 @@ import {
   Bell, 
   User, 
   X,
-  Map 
+  Map,
+  History 
 } from 'lucide-react';
 
 export default function BottomNav({ activeTab, setActiveTab }) {
@@ -56,7 +57,9 @@ export default function BottomNav({ activeTab, setActiveTab }) {
   ];
 
   const moreTools = [
+    { id: 'field-monitoring', label: t('nav.fieldMonitoring') || 'Field Monitoring', icon: Satellite, color: 'text-emerald-800 bg-emerald-100' },
     { id: 'field-mapping', label: t('nav.fieldMapping') || 'Field Mapping', icon: Map, color: 'text-emerald-700 bg-emerald-100' },
+    { id: 'history', label: t('nav.history') || 'Crop History', icon: History, color: 'text-teal-700 bg-teal-100' },
     { id: 'fertilizer', label: t('nav.fertilizer'), icon: Calculator, color: 'text-teal-600 bg-teal-50' },
     { id: 'satellite', label: t('nav.satellite'), icon: Satellite, color: 'text-indigo-600 bg-indigo-50' },
     { id: 'schemes', label: t('nav.schemes'), icon: Building2, color: 'text-amber-600 bg-amber-50' },

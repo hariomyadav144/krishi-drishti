@@ -25,6 +25,9 @@ const mandiRoutes = require('./routes/mandiRoutes');
 const toolsRoutes = require('./routes/toolsRoutes');
 const aiRoutes = require('./routes/aiRoutes');
 const aiAdviceRoutes = require('./routes/aiAdviceRoutes');
+const cropScanRoutes = require('./routes/cropScanRoutes');
+const fieldMonitoringRoutes = require('./routes/fieldMonitoringRoutes');
+const cropHealthRoutes = require('./routes/cropHealthRoutes');
 
 const app = express();
 
@@ -82,20 +85,37 @@ app.use('/ai-advice', aiAdviceRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/auth', authRoutes);
 app.use('/api/farmer', farmerRoutes);
+app.use('/farmer', farmerRoutes);
 app.use('/api/crops', cropRoutes);
+app.use('/crops', cropRoutes);
 app.use('/api/analysis', analysisRoutes);
+app.use('/analysis', analysisRoutes);
 app.use('/api/recommendations', recommendationRoutes);
 app.use('/recommendations', recommendationRoutes);
 app.use('/api/action-plans', actionPlanRoutes);
+app.use('/action-plans', actionPlanRoutes);
 app.use('/api/weather', weatherRoutes);
+app.use('/weather', weatherRoutes);
 app.use('/api/alerts', alertRoutes);
+app.use('/alerts', alertRoutes);
 app.use('/api/feedback', feedbackRoutes);
+app.use('/feedback', feedbackRoutes);
 app.use('/api/expert', expertRoutes);
+app.use('/expert', expertRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/admin', adminRoutes);
 app.use('/api/mandi', mandiRoutes);
+app.use('/mandi', mandiRoutes);
 app.use('/api/mandi-rates', mandiRoutes);
 app.use('/mandi-rates', mandiRoutes);
 app.use('/api/tools', toolsRoutes);
+app.use('/tools', toolsRoutes);
+app.use('/api/crop-scans', cropScanRoutes);
+app.use('/crop-scans', cropScanRoutes);
+app.use('/api/field-monitoring', fieldMonitoringRoutes);
+app.use('/field-monitoring', fieldMonitoringRoutes);
+app.use('/api/crop-health', cropHealthRoutes);
+app.use('/crop-health', cropHealthRoutes);
 
 // Health check endpoints (supports both /health and /api/health)
 const healthHandler = (req, res) => {

@@ -4,8 +4,10 @@
   "subTagline": "Right Information. Better Decisions. Higher Yield.",
   "nav": {
     "home": "Home",
+    "fieldMonitoring": "Field Monitoring",
     "fieldMapping": "Field Mapping",
     "diagnose": "Diagnose",
+    "history": "Crop History",
     "advice": "AI Advice",
     "mandi": "Mandi Rates",
     "fertilizer": "Fertilizer Calc",
@@ -38,7 +40,12 @@
     "quickActions": "Quick Actions",
     "mandiSpotlight": "Live Mandi Spotlight",
     "satelliteHealth": "Satellite Field Health",
-    "pestWarning": "Pest Outbreak Radar Alert"
+    "pestWarning": "Pest Outbreak Radar Alert",
+    "yourCropHealth": "Your Crop Health",
+    "viewDetailedHealth": "View Detailed Health",
+    "primaryFactors": "Primary Factors Shaping Health",
+    "confidenceLevel": "Confidence Level",
+    "recalculateHealth": "Recalculate Score"
   },
   "diagnose": {
     "title": "Scan Your Crop with AI Vision",

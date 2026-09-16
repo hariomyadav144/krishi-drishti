@@ -1,10 +1,12 @@
 const fs = require('fs');
 const CropAnalysis = require('../models/CropAnalysis');
+const CropScan = require('../models/CropScan');
 const Crop = require('../models/Crop');
 const ActionPlan = require('../models/ActionPlan');
 const Alert = require('../models/Alert');
 const { analyzeCropImage } = require('../services/aiVisionService');
 const { diagnoseCropWithGemini } = require('../services/geminiService');
+const { isDbConnected, getStatelessPreviousScan, createStatelessCropScan } = require('../utils/statelessStore');
 
 // @desc Scan and diagnose crop problem from image & symptoms
 // @route POST /api/analysis/scan
@@ -126,6 +128,61 @@ const scanCrop = async (req, res) => {
     // Dynamic detected crop name (never hardcoded Tomato)
     const detectedCropName = aiResult.cropName || (language === 'en' ? 'Identified Crop' : 'पहचानी गई फसल');
 
+    // Query for previous scan context
+    let previousScan = null;
+    let savedCropScan = null;
+    if (userId) {
+      const scanPayload = {
+        farmerId: userId,
+        cropName: detectedCropName,
+        cropVariety: activeCrop?.variety || 'Standard Variety',
+        cropStage: activeCrop?.cropStage || 'Vegetative Stage',
+        imageUrl,
+        thumbnailUrl: imageUrl,
+        symptomDescription: symptomDescription || '',
+        detectedProblem: aiResult.detectedProblem || 'Foliage Inspection',
+        detectedProblemHi: aiResult.detectedProblemHi || '',
+        confidence: aiResult.confidence || 90,
+        severity: aiResult.severity || 'Medium',
+        healthStatus: aiResult.severity === 'None (Healthy)' ? 'Healthy' : (aiResult.severity === 'Low' ? 'Good' : (aiResult.severity === 'Critical' ? 'Critical' : 'Moderate')),
+        healthScore: aiResult.severity === 'None (Healthy)' ? 95 : (aiResult.severity === 'Low' ? 85 : (aiResult.severity === 'Critical' ? 30 : 65)),
+        symptoms: aiResult.symptoms || [],
+        cause: aiResult.cause || '',
+        causeHi: aiResult.causeHi || '',
+        diagnosis: aiResult.diagnosis || aiResult.cause || '',
+        recommendedTreatment: {
+          organic: aiResult.organicTreatment || '',
+          chemical: aiResult.chemicalTreatment || '',
+          general: aiResult.recommendedAction || '',
+          timeline: aiResult.nextActionTimeline || 'Inspect within 48h'
+        },
+        scanDate: new Date(),
+        rawAiReport: aiResult
+      };
+
+      if (isDbConnected()) {
+        try {
+          previousScan = await CropScan.findOne({
+            farmerId: userId,
+            cropName: detectedCropName
+          }).sort({ scanDate: -1, createdAt: -1 });
+
+          savedCropScan = await CropScan.create({
+            ...scanPayload,
+            previousScanId: previousScan ? previousScan._id : null
+          });
+        } catch (scanErr) {
+          console.warn('CropScan save warning:', scanErr.message);
+        }
+      } else {
+        previousScan = getStatelessPreviousScan(userId, detectedCropName);
+        savedCropScan = createStatelessCropScan({
+          ...scanPayload,
+          previousScanId: previousScan ? previousScan._id : null
+        });
+      }
+    }
+
     // Save Analysis Record if DB available and user is authenticated
     let analysis = null;
     if (userId) {
@@ -153,6 +210,13 @@ const scanCrop = async (req, res) => {
       } catch (saveErr) {
         console.warn('Analysis save skipped:', saveErr.message);
       }
+
+      // Automatically recalculate real-time crop health in background
+      try {
+        const { calculateCropHealth } = require('../services/cropHealthEngine');
+        calculateCropHealth({ farmerId: userId, fieldId: savedCropScan?.fieldId || null })
+          .catch(e => console.warn('Crop health auto-update note:', e.message));
+      } catch (_) {}
     }
 
     const responseData = analysis ? analysis.toObject() : {
@@ -249,8 +313,16 @@ const scanCrop = async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: 'Crop analysis completed successfully!',
+      message: 'Crop analysis completed and permanently saved to history!',
       data: responseData,
+      savedScanId: savedCropScan ? savedCropScan._id : null,
+      previousScan: previousScan ? {
+        _id: previousScan._id,
+        scanDate: previousScan.scanDate,
+        healthStatus: previousScan.healthStatus,
+        detectedProblem: previousScan.detectedProblem,
+        imageUrl: previousScan.imageUrl
+      } : null,
       generatedTasks: actionTasks,
     });
   } catch (error) {

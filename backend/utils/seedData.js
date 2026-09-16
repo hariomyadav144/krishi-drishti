@@ -3,6 +3,9 @@ const User = require('../models/User');
 const FarmerProfile = require('../models/FarmerProfile');
 const Farm = require('../models/Farm');
 const Crop = require('../models/Crop');
+const Field = require('../models/Field');
+const CropScan = require('../models/CropScan');
+const CropComparison = require('../models/CropComparison');
 const CropAnalysis = require('../models/CropAnalysis');
 const Recommendation = require('../models/Recommendation');
 const ActionPlan = require('../models/ActionPlan');
@@ -17,7 +20,10 @@ async function seedDatabase() {
     User.deleteMany({}),
     FarmerProfile.deleteMany({}),
     Farm.deleteMany({}),
+    Field.deleteMany({}),
     Crop.deleteMany({}),
+    CropScan.deleteMany({}),
+    CropComparison.deleteMany({}),
     CropAnalysis.deleteMany({}),
     Recommendation.deleteMany({}),
     ActionPlan.deleteMany({}),
@@ -197,7 +203,281 @@ async function seedDatabase() {
     isCurrent: true,
   });
 
-  // 5. Crop Analyses (Disease Scan Records)
+  // 4.1. Fields (Field Mapping permanent polygon records)
+  const field1 = await Field.create({
+    farmerId: farmer1._id,
+    fieldName: 'North Plot - Wheat & Maize Block',
+    crop: 'Wheat',
+    season: 'Rabi',
+    farmerName: farmer1.name,
+    soilType: 'Black Soil / Regur',
+    notes: 'Drip irrigation installed with fertigation unit. DBW-187 certified seed block.',
+    points: [
+      { lat: 20.17482, lng: 73.98421 },
+      { lat: 20.17565, lng: 73.98583 },
+      { lat: 20.17512, lng: 73.98745 },
+      { lat: 20.17395, lng: 73.98782 },
+      { lat: 20.17281, lng: 73.98695 },
+      { lat: 20.17254, lng: 73.98512 },
+      { lat: 20.17342, lng: 73.98402 },
+    ],
+    center: { lat: 20.17404, lng: 73.98591 },
+    areaAcres: 8.95,
+    areaHectares: 3.62,
+    areaSqMeters: 36220,
+    formattedAcres: '8.95 acres',
+    formattedHectares: '3.62 hectares',
+    cornersCount: 7,
+    gpsStatus: 'GPS Connected (±12m)',
+    gpsAccuracy: 12,
+  });
+
+  const field2 = await Field.create({
+    farmerId: farmer1._id,
+    fieldName: 'South Plot - Tomato & Vegetable Patch',
+    crop: 'Tomato',
+    season: 'Kharif',
+    farmerName: farmer1.name,
+    soilType: 'Black Soil / Regur',
+    notes: 'Raised beds with silver-black mulch. Hybrid tomato Abhinav.',
+    points: [
+      { lat: 20.17150, lng: 73.98210 },
+      { lat: 20.17280, lng: 73.98390 },
+      { lat: 20.17190, lng: 73.98510 },
+      { lat: 20.17060, lng: 73.98320 },
+    ],
+    center: { lat: 20.17170, lng: 73.98357 },
+    areaAcres: 4.20,
+    areaHectares: 1.70,
+    areaSqMeters: 17000,
+    formattedAcres: '4.20 acres',
+    formattedHectares: '1.70 hectares',
+    cornersCount: 4,
+    gpsStatus: 'GPS Connected (±15m)',
+    gpsAccuracy: 15,
+  });
+
+  // 4.2. Permanent Multi-Month Crop Scan History (Farmer 1)
+  // Scan 1: September (Wheat, Poor / Leaf disease)
+  const wheatScanSep = await CropScan.create({
+    farmerId: farmer1._id,
+    fieldId: field1._id,
+    fieldName: field1.fieldName,
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Vegetative Stage',
+    imageUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+    symptomDescription: 'Yellow powdery spots spreading on lower wheat blades',
+    detectedProblem: 'Yellow Rust / Stripe Rust (Puccinia striiformis)',
+    detectedProblemHi: 'गेहूं का पीला रतुआ / स्ट्राइप रस्ट',
+    confidence: 94.5,
+    severity: 'High',
+    healthStatus: 'Needs Attention',
+    healthScore: 42,
+    symptoms: ['Linear yellow powdery pustules', 'Chlorosis', 'Premature leaf drying'],
+    cause: 'Fungal infection promoted by high morning humidity and cloudy weather.',
+    causeHi: 'अधिक नमी और बादलों के मौसम के कारण फैलने वाला फफूंद रोग।',
+    diagnosis: 'Active Stripe Rust sporulation along vascular leaf lines. Urgent fungicide treatment needed.',
+    diagnosisHi: 'पत्तियों की शिराओं पर पीले रतुए के सक्रिय लक्षण। तत्काल छिड़काव आवश्यक।',
+    recommendedTreatment: {
+      organic: 'Spray fermented neem leaf extract @ 50ml/L water.',
+      chemical: 'Spray Propiconazole 25% EC (Tilt) @ 1ml per litre water.',
+      general: 'Inspect border rows and refrain from high nitrogen application.',
+      timeline: 'Spray within 24-48 hours.'
+    },
+    fertilizerRecommendation: 'Hold urea; apply Potash and Micronutrients to strengthen cell walls.',
+    irrigationRecommendation: 'Withhold heavy watering to lower microclimate humidity.',
+    scanDate: new Date('2025-09-15T10:30:00Z'),
+    createdAt: new Date('2025-09-15T10:30:00Z'),
+  });
+
+  // Scan 2: October (Wheat, Mild fungal infection)
+  const wheatScanOct = await CropScan.create({
+    farmerId: farmer1._id,
+    fieldId: field1._id,
+    fieldName: field1.fieldName,
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Tillering Stage',
+    imageUrl: 'https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?w=600&auto=format&fit=crop&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1530595467537-0b5996c41f2d?w=600&auto=format&fit=crop&q=80',
+    symptomDescription: 'Spots slowing down, old lesions turning necrotic grey',
+    detectedProblem: 'Arresting Stripe Rust / Mild Fungal Residuals',
+    detectedProblemHi: 'नियंत्रित होता पीला रतुआ / हल्के धब्बे',
+    confidence: 89.2,
+    severity: 'Medium',
+    healthStatus: 'Moderate',
+    healthScore: 68,
+    symptoms: ['Brownish desiccated stripes', 'Significantly reduced fresh yellow spores'],
+    cause: 'Fungal growth arrested following curative systemic spray.',
+    causeHi: 'उपचारात्मक छिड़काव के बाद फफूंद का प्रसार रुका।',
+    diagnosis: 'Disease arrest verified. New tillers developing healthy foliage.',
+    diagnosisHi: 'रोग नियंत्रण में। नए कल्ले स्वस्थ निकल रहे हैं।',
+    recommendedTreatment: {
+      organic: 'Foliar spray with Trichoderma harzianum @ 5g/L.',
+      chemical: 'Repeat localized spot spray if active pustules noticed.',
+      general: 'Clean weeds around field edges.',
+      timeline: 'Re-inspect in 7 days.'
+    },
+    previousScanId: wheatScanSep._id,
+    scanDate: new Date('2025-10-20T11:15:00Z'),
+    createdAt: new Date('2025-10-20T11:15:00Z'),
+  });
+
+  // Scan 3: November (Wheat, Good / Significant Recovery)
+  const wheatScanNov = await CropScan.create({
+    farmerId: farmer1._id,
+    fieldId: field1._id,
+    fieldName: field1.fieldName,
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Jointing / Booting Stage',
+    imageUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?w=600&auto=format&fit=crop&q=80',
+    symptomDescription: 'Good canopy vigor, minor lower leaf tip drying',
+    detectedProblem: 'Minor Nutrient Chlorosis / Healthy Canopy',
+    detectedProblemHi: 'हल्की पोषक तत्व कमी / स्वस्थ फसल',
+    confidence: 92.0,
+    severity: 'Low',
+    healthStatus: 'Good',
+    healthScore: 84,
+    symptoms: ['Healthy dark green upper canopy', 'Slight pale tips on older leaves'],
+    cause: 'Vigorous vegetative uptake requiring supplementary Zinc and Sulphur.',
+    causeHi: 'तीव्र वानस्पतिक वृद्धि के कारण सूक्ष्म पोषक तत्वों की मांग।',
+    diagnosis: 'Stripe rust completely suppressed. Plant canopy shows healthy photosynthetic vigor.',
+    diagnosisHi: 'पीला रतुआ पूरी तरह नियंत्रित। फसल अच्छी वानस्पतिक स्थिति में।',
+    recommendedTreatment: {
+      organic: 'Apply bio-fertilizer and seaweed extract foliar spray.',
+      chemical: 'Spray Zinc Sulphate (0.5%) + Urea (1%) solution.',
+      general: 'Ensure timely irrigation during booting stage.',
+      timeline: 'Apply foliar nutrients within 3 days.'
+    },
+    previousScanId: wheatScanOct._id,
+    scanDate: new Date('2025-11-25T09:40:00Z'),
+    createdAt: new Date('2025-11-25T09:40:00Z'),
+  });
+
+  // Scan 4: December (Wheat, Excellent / Completely Healthy)
+  const wheatScanDec = await CropScan.create({
+    farmerId: farmer1._id,
+    fieldId: field1._id,
+    fieldName: field1.fieldName,
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Earhead / Flowering Stage',
+    imageUrl: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600&auto=format&fit=crop&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1500937386664-56d1dfef3854?w=600&auto=format&fit=crop&q=80',
+    symptomDescription: 'Vigorous crop canopy, strong earheads forming',
+    detectedProblem: 'Healthy Canopy (No Pathological Disease Detected)',
+    detectedProblemHi: 'पूर्णतः स्वस्थ फसल (कोई सक्रिय रोग नहीं)',
+    confidence: 96.8,
+    severity: 'None (Healthy)',
+    healthStatus: 'Healthy',
+    healthScore: 96,
+    symptoms: ['Clean flag leaves', 'Uniform green coloration', 'Robust tillers and spikes'],
+    cause: 'Optimal agronomic management and recovery from early-season rust stress.',
+    causeHi: 'उचित प्रबंधन और समय पर उपचार से रोगमुक्त सशक्त फसल।',
+    diagnosis: 'Fully recovered and disease-free. Flag leaf area index is optimal for grain filling.',
+    diagnosisHi: 'फसल पूरी तरह रोगमुक्त है। बालियों में दाना भराव के लिए पत्तियां पूर्ण स्वस्थ हैं।',
+    recommendedTreatment: {
+      organic: 'Continue regular field scouting and beneficial insect monitoring.',
+      chemical: 'No chemical pesticide application required.',
+      general: 'Maintain moist soil condition during grain filling stage.',
+      timeline: 'Re-inspect after 10-14 days.'
+    },
+    fertilizerRecommendation: 'Apply 0:0:50 (Potassium Sulphate) foliar spray for grain weight improvement.',
+    irrigationRecommendation: 'Irrigate at grain milk stage; avoid water stress.',
+    previousScanId: wheatScanNov._id,
+    scanDate: new Date('2025-12-15T14:20:00Z'),
+    createdAt: new Date('2025-12-15T14:20:00Z'),
+  });
+
+  // Tomato Scan: Field 2
+  await CropScan.create({
+    farmerId: farmer1._id,
+    fieldId: field2._id,
+    fieldName: field2.fieldName,
+    cropName: 'Tomato',
+    cropVariety: 'Abhinav Hybrid',
+    cropStage: 'Flowering & Fruiting Stage',
+    imageUrl: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=600&auto=format&fit=crop&q=80',
+    thumbnailUrl: 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=600&auto=format&fit=crop&q=80',
+    symptomDescription: 'Concentric brown rings on lower leaves with yellow halo',
+    detectedProblem: 'Tomato Early Blight (Alternaria solani)',
+    detectedProblemHi: 'टमाटर की अगेती झुलसा (अल्टरनेरिया)',
+    confidence: 93.4,
+    severity: 'Medium',
+    healthStatus: 'Moderate',
+    healthScore: 65,
+    symptoms: ['Concentric dark spots on lower foliage', 'Yellow halo surrounding lesions'],
+    cause: 'Fungal pathogen favored by warm humid days and rain splash.',
+    causeHi: 'गर्म आर्द्रता और मिट्टी से पत्तियों पर पानी की बूंदें पड़ने से फैलने वाला कवक रोग।',
+    diagnosis: 'Early stage Alternaria solani blight identified. Confined to lower 20% canopy.',
+    diagnosisHi: 'निचली पत्तियों पर अगेती झुलसा के लक्षण। समय पर रोकथाम आवश्यक।',
+    recommendedTreatment: {
+      organic: 'Spray Trichoderma viride @ 5g/L or 1% Bordeaux mixture on affected canopy.',
+      chemical: 'Spray Mancozeb 75% WP @ 2.5g/L or Azoxystrobin 23% SC @ 1ml/L of water.',
+      general: 'Prune leaves touching soil surface.',
+      timeline: 'Spray within 24 hours.'
+    },
+    scanDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+    createdAt: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000),
+  });
+
+  // Seeded Long-Term Comparison (September vs December for Wheat)
+  await CropComparison.create({
+    farmerId: farmer1._id,
+    cropName: 'Wheat',
+    fieldId: field1._id,
+    fieldName: field1.fieldName,
+    oldScanId: wheatScanSep._id,
+    newScanId: wheatScanDec._id,
+    comparisonResult: {
+      status: 'Resolved',
+      statusHi: 'रोग पूरी तरह ठीक हुआ',
+      progressScoreChange: 54,
+      daysBetweenScans: 91,
+      healthChange: 'Needs Attention (42%) → Healthy (96%)',
+      diseaseChange: 'Yellow Rust / Stripe Rust (High) → Healthy Canopy (None)',
+      symptomsChange: 'Yellow powdery pustules on lower leaves → Clean vigorous flag leaves and spikes',
+      conditionThenVsNow: {
+        then: 'Vegetative Stage | High Severity | Health Score: 42%',
+        now: 'Flowering Stage | Clean Canopy | Health Score: 96%'
+      },
+      diseaseThenVsNow: {
+        then: 'Yellow Rust / Stripe Rust (Puccinia striiformis)',
+        now: 'Healthy Canopy (No Pathological Disease Detected)'
+      },
+      healthStatusThenVsNow: {
+        then: 'Needs Attention',
+        now: 'Healthy'
+      },
+      symptomsThenVsNow: {
+        then: ['Linear yellow powdery pustules', 'Chlorosis', 'Premature leaf drying'],
+        now: ['Clean flag leaves', 'Uniform green coloration', 'Robust tillers and spikes']
+      },
+      diagnosisThenVsNow: {
+        then: 'Active Stripe Rust sporulation along vascular leaf lines. Urgent fungicide treatment needed.',
+        now: 'Fully recovered and disease-free. Flag leaf area index is optimal for grain filling.'
+      },
+      treatmentThenVsNow: {
+        then: 'Spray Propiconazole 25% EC (Tilt) @ 1ml per litre water. Refrain from excess urea.',
+        now: 'No chemical pesticide required. Apply Potassium Sulphate 0:0:50 for grain boldness.'
+      },
+      whatChanged: 'Your wheat crop has improved significantly over the last 3 months (91 days). Yellow rust lesions have been completely eradicated, and healthy new flag leaves have emerged to support robust grain filling.',
+      whatChangedHi: 'पिछले 3 महीनों (91 दिनों) में आपके गेहूं की फसल में शानदार सुधार हुआ है। पीला रतुआ पूरी तरह खत्म हो गया है और नई बालियां व पत्तियां पूर्णतः स्वस्थ हैं।',
+      possibleReason: 'Timely application of Propiconazole 25% EC combined with restricted nitrogen and regulated drip watering successfully broke the fungal life cycle.',
+      possibleReasonHi: 'समय पर प्रोपिकोनाजोल के छिड़काव और यूरिया के संतुलित प्रयोग से फफूंद का जीवन चक्र समाप्त हो गया।',
+      actionAdvice: 'Maintain light soil moisture during the critical grain filling stage. Apply Potassium Sulphate (0:0:50) foliar spray to maximize grain weight and luster.',
+      actionAdviceHi: 'दाना भराव के समय खेत में नमी बनाए रखें। दाने की चमक और वजन बढ़ाने के लिए 0:0:50 पोटैशियम सल्फेट का छिड़काव करें।',
+      aiSummary: 'Excellent recovery from severe Yellow Rust. Health score improved from 42% to 96% (+54%).',
+      aiSummaryHi: 'गंभीर पीले रतुए से शत-प्रतिशत सुधार। फसल स्वास्थ्य 42% से बढ़कर 96% (+54%) तक पहुंचा।'
+    },
+    comparisonDate: new Date()
+  });
+
+  // 5. Crop Analyses (Disease Scan Records for backward compatibility)
   const analysis1 = await CropAnalysis.create({
     farmerId: farmer1._id,
     cropId: crop1._id,

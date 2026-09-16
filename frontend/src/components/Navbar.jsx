@@ -10,6 +10,8 @@ export default function Navbar({ activeTab, setActiveTab }) {
   const { unreadCount } = useAlerts();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showLangMenu, setShowLangMenu] = useState(false);
+  const [logoLoaded, setLogoLoaded] = useState(false);
+  const [logoFailed, setLogoFailed] = useState(false);
 
   const currentLangObj = availableLanguages.find(l => l.code === lang) || availableLanguages[0];
 
@@ -23,8 +25,27 @@ export default function Navbar({ activeTab, setActiveTab }) {
             className="flex items-center gap-3 cursor-pointer"
             onClick={() => setActiveTab('home')}
           >
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-agri-400 flex items-center justify-center shadow-inner text-white">
-              <Sprout className="w-6 h-6" />
+            <div className="relative flex items-center justify-center">
+              {!logoFailed && (
+                <img
+                  src="/logo.svg"
+                  alt="Krishi Drishti Brand Logo"
+                  className={`h-10 w-10 object-contain rounded-xl transition-all duration-300 ${logoLoaded ? 'block' : 'hidden'}`}
+                  onLoad={() => setLogoLoaded(true)}
+                  onError={(e) => {
+                    if (e.target.src.endsWith('/logo.svg')) {
+                      e.target.src = '/logo.png';
+                    } else {
+                      setLogoFailed(true);
+                    }
+                  }}
+                />
+              )}
+              {(!logoLoaded || logoFailed) && (
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-emerald-500 to-agri-400 flex items-center justify-center shadow-inner text-white">
+                  <Sprout className="w-6 h-6" />
+                </div>
+              )}
             </div>
             <div>
               <div className="flex items-center gap-2">

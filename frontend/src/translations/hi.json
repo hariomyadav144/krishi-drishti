@@ -4,8 +4,10 @@
   "subTagline": "सही जानकारी। बेहतर निर्णय। अधिक पैदावार।",
   "nav": {
     "home": "मुख्य पृष्ठ",
+    "fieldMonitoring": "खेत निगरानी",
     "fieldMapping": "खेत मैपिंग",
     "diagnose": "फसल जांचें",
+    "history": "फसल इतिहास",
     "advice": "AI सलाह",
     "mandi": "मंडी भाव",
     "fertilizer": "खाद कैलकुलेटर",
@@ -38,7 +40,12 @@
     "quickActions": "त्वरित सेवाएं",
     "mandiSpotlight": "आज के लाइव मंडी भाव",
     "satelliteHealth": "उपग्रह फसल स्वास्थ्य",
-    "pestWarning": "आसपास कीट प्रकोप चेतावनी"
+    "pestWarning": "आसपास कीट प्रकोप चेतावनी",
+    "yourCropHealth": "आपकी फसल का स्वास्थ्य",
+    "viewDetailedHealth": "विस्तृत स्वास्थ्य देखें",
+    "primaryFactors": "स्वास्थ्य को प्रभावित करने वाले मुख्य कारण",
+    "confidenceLevel": "विश्वसनीयता स्तर",
+    "recalculateHealth": "पुनः गणना करें"
   },
   "diagnose": {
     "title": "AI दृष्टि से फसल की जांच करें",

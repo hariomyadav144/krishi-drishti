@@ -4,7 +4,10 @@
   "subTagline": "योग्य माहिती. उत्तम निर्णय. भरघोस उत्पन्न.",
   "nav": {
     "home": "मुख्य पृष्ठ",
+    "fieldMonitoring": "शेत देखरेख",
+    "fieldMapping": "शेत मॅपिंग",
     "diagnose": "पीक तपासणी",
+    "history": "पीक इतिहास",
     "advice": "AI सल्ला",
     "mandi": "बाजार भाव",
     "fertilizer": "खत कॅल्क्युलेटर",
@@ -37,7 +40,12 @@
     "quickActions": "त्वरित सेवा",
     "mandiSpotlight": "आजचे थेट बाजार भाव",
     "satelliteHealth": "उपग्रह पीक आरोग्य",
-    "pestWarning": "परिसरातील कीड इशारा"
+    "pestWarning": "परिसरातील कीड इशारा",
+    "yourCropHealth": "तुमच्या पिकाचे आरोग्य",
+    "viewDetailedHealth": "तपशीलवार आरोग्य पहा",
+    "primaryFactors": "आरोग्यावर परिणाम करणारे मुख्य घटक",
+    "confidenceLevel": "विश्वासार्हता पातळी",
+    "recalculateHealth": "पुन्हा गणना करा"
   },
   "diagnose": {
     "title": "AI द्वारे पिकाची तपासणी करा",

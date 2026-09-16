@@ -1,6 +1,7 @@
 const User = require('../models/User');
 const FarmerProfile = require('../models/FarmerProfile');
 const Farm = require('../models/Farm');
+const Field = require('../models/Field');
 const Crop = require('../models/Crop');
 const ActionPlan = require('../models/ActionPlan');
 const CropAnalysis = require('../models/CropAnalysis');
@@ -329,6 +330,17 @@ let memoryFields = [
 ];
 
 const getFields = async (req, res) => {
+  try {
+    const farmerId = req.user?._id;
+    if (isDbConnected() && farmerId) {
+      const dbFields = await Field.find({ farmerId }).sort({ createdAt: -1 });
+      if (dbFields && dbFields.length > 0) {
+        return res.json({ success: true, data: dbFields });
+      }
+    }
+  } catch (err) {
+    console.warn('Field lookup from DB warning:', err.message);
+  }
   res.json({ success: true, data: memoryFields });
 };
 
@@ -337,6 +349,29 @@ const saveField = async (req, res) => {
   if (!fieldData || !fieldData.points || fieldData.points.length < 3) {
     return res.status(400).json({ success: false, message: 'Invalid polygon boundary points.' });
   }
+
+  const farmerId = req.user?._id;
+  if (isDbConnected() && farmerId) {
+    try {
+      let savedDbField = null;
+      if (fieldData._id || (fieldData.id && fieldData.id.match(/^[0-9a-fA-F]{24}$/))) {
+        savedDbField = await Field.findOneAndUpdate(
+          { _id: fieldData._id || fieldData.id, farmerId },
+          { ...fieldData, farmerId },
+          { new: true, upsert: true }
+        );
+      } else {
+        savedDbField = await Field.create({
+          ...fieldData,
+          farmerId
+        });
+      }
+      return res.json({ success: true, data: savedDbField });
+    } catch (dbErr) {
+      console.warn('Field save to DB warning:', dbErr.message);
+    }
+  }
+
   const id = fieldData.id || `field_${Date.now()}`;
   const saved = { ...fieldData, id, updatedAt: new Date().toISOString() };
   const idx = memoryFields.findIndex(f => f.id === id);
@@ -350,7 +385,17 @@ const saveField = async (req, res) => {
 
 const deleteField = async (req, res) => {
   const { id } = req.params;
-  memoryFields = memoryFields.filter(f => f.id !== id);
+  const farmerId = req.user?._id;
+
+  if (isDbConnected() && farmerId) {
+    try {
+      await Field.findOneAndDelete({ _id: id, farmerId });
+    } catch (err) {
+      console.warn('Field deletion DB warning:', err.message);
+    }
+  }
+
+  memoryFields = memoryFields.filter(f => f.id !== id && f._id?.toString() !== id);
   res.json({ success: true, message: 'Field deleted', data: memoryFields });
 };
 

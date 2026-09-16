@@ -29,9 +29,11 @@ const FarmProfile = lazy(() => import('./pages/FarmProfile'));
 const FarmInsights = lazy(() => import('./pages/FarmInsights'));
 const ExpertDashboard = lazy(() => import('./pages/ExpertDashboard'));
 const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
+const CropHistory = lazy(() => import('./pages/CropHistory'));
+const FieldMonitoringPage = lazy(() => import('./pages/FieldMonitoringPage'));
 
 const VALID_TABS = [
-  'home', 'field-mapping', 'mapping', 'diagnose', 'advice', 'mandi', 'fertilizer', 
+  'home', 'field-monitoring', 'monitoring', 'field-mapping', 'mapping', 'diagnose', 'history', 'advice', 'mandi', 'fertilizer', 
   'satellite', 'schemes', 'outbreak', 'plans', 'weather', 
   'alerts', 'profile', 'insights', 'expert', 'admin'
 ];
@@ -39,6 +41,7 @@ const VALID_TABS = [
 function getTabFromHash() {
   if (typeof window === 'undefined') return 'home';
   const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0].trim().toLowerCase();
+  if (raw === 'monitoring') return 'field-monitoring';
   if (raw === 'mapping') return 'field-mapping';
   return VALID_TABS.includes(raw) ? raw : 'home';
 }
@@ -148,6 +151,19 @@ function MainApp() {
             </button>
 
             <button
+              id="nav-btn-field-monitoring"
+              onClick={() => setActiveTab('field-monitoring')}
+              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+                activeTab === 'field-monitoring' || activeTab === 'monitoring'
+                  ? 'bg-emerald-700 text-white shadow-xs'
+                  : 'text-emerald-900 bg-emerald-50/70 hover:bg-emerald-100'
+              }`}
+            >
+              <span>🛰️</span>
+              <span>{t('nav.fieldMonitoring') || 'Field Monitoring'}</span>
+            </button>
+
+            <button
               id="nav-btn-field-mapping"
               onClick={() => setActiveTab('field-mapping')}
               className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
@@ -170,6 +186,19 @@ function MainApp() {
             >
               <span>🔍</span>
               <span>{t('nav.diagnose')}</span>
+            </button>
+
+            <button
+              id="nav-btn-crop-history"
+              onClick={() => setActiveTab('history')}
+              className={`px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 ${
+                activeTab === 'history'
+                  ? 'bg-teal-700 text-white shadow-xs'
+                  : 'text-teal-900 bg-teal-50/70 hover:bg-teal-100'
+              }`}
+            >
+              <span>📜</span>
+              <span>{t('nav.history') || 'Crop History'}</span>
             </button>
 
             <button
@@ -314,10 +343,14 @@ function MainApp() {
         <TabErrorBoundary tabKey={activeTab} onNavigateHome={() => setActiveTab('home')}>
           <Suspense fallback={<TabLoadingSkeleton />}>
             {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
+            {(activeTab === 'field-monitoring' || activeTab === 'monitoring') && (
+              <FieldMonitoringPage setActiveTab={setActiveTab} />
+            )}
             {(activeTab === 'field-mapping' || activeTab === 'mapping') && (
               <FieldMappingPage setActiveTab={setActiveTab} />
             )}
             {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
+            {activeTab === 'history' && <CropHistory setActiveTab={setActiveTab} />}
             {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
             {activeTab === 'mandi' && <MandiPrices />}
             {activeTab === 'fertilizer' && <FertilizerCalculator />}

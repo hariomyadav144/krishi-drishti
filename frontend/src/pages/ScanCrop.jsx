@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
 import VoiceReader from '../components/VoiceReader';
 import FeedbackModal from '../components/FeedbackModal';
+import CropComparisonModal from '../components/CropComparisonModal';
+import { compareCropScans } from '../services/cropScanService';
 import { 
   Camera, 
   Upload, 
@@ -39,6 +41,10 @@ export default function ScanCrop({ setActiveTab }) {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisResult, setAnalysisResult] = useState(null);
   const [error, setError] = useState('');
+  const [previousScanContext, setPreviousScanContext] = useState(null);
+  const [savedScanId, setSavedScanId] = useState(null);
+  const [comparisonModalData, setComparisonModalData] = useState(null);
+  const [isComparingWithPrevious, setIsComparingWithPrevious] = useState(false);
 
   // Live Camera streaming states
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false);
@@ -287,6 +293,8 @@ export default function ScanCrop({ setActiveTab }) {
 
       if (res.data?.success && res.data?.data) {
         setAnalysisResult(res.data.data);
+        if (res.data.savedScanId) setSavedScanId(res.data.savedScanId);
+        if (res.data.previousScan) setPreviousScanContext(res.data.previousScan);
       } else if (res.data?.isIdentifiable === false || res.data?.data?.isIdentifiable === false) {
         setAnalysisResult({
           isIdentifiable: false,
@@ -298,6 +306,19 @@ export default function ScanCrop({ setActiveTab }) {
       setError(err.response?.data?.message || (lang === 'hi' ? 'AI रोग जांच में समस्या आई। पुनः प्रयास करें।' : 'Error running AI crop disease diagnosis.'));
     } finally {
       setIsAnalyzing(false);
+    }
+  };
+
+  const handleCompareWithPrevious = async () => {
+    if (!savedScanId || !previousScanContext?._id) return;
+    setIsComparingWithPrevious(true);
+    try {
+      const comp = await compareCropScans(previousScanContext._id, savedScanId, lang);
+      if (comp) setComparisonModalData(comp);
+    } catch (err) {
+      alert(err.response?.data?.message || (lang === 'hi' ? 'तुलना करने में समस्या आई।' : 'Error comparing with previous scan.'));
+    } finally {
+      setIsComparingWithPrevious(false);
     }
   };
 
@@ -826,6 +847,72 @@ export default function ScanCrop({ setActiveTab }) {
       {/* Structured AI Agriculture Result (Requirement 8) */}
       {analysisResult && analysisResult.isIdentifiable !== false && !analysisResult.unclearMessage && (
         <div className="agri-card p-5 bg-white border-agri-300 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3 printable-card">
+
+          {/* Permanent History & Cloud Storage Confirmation */}
+          <div className="bg-emerald-50/90 border border-emerald-300/80 rounded-2xl p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div>
+                <span className="text-xs font-black text-emerald-950 block">
+                  {lang === 'hi' ? 'स्थायी रूप से किसान इतिहास में सुरक्षित (Saved)' : 'Permanently Saved to Farmer History'}
+                </span>
+                <span className="text-[11px] text-emerald-800 font-medium">
+                  {lang === 'hi' ? 'यह रिपोर्ट MongoDB Atlas में हमेशा के लिए सुरक्षित कर दी गई है।' : 'Archived permanently under your farmer account in MongoDB Atlas.'}
+                </span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab && setActiveTab('history')}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold transition shadow-xs flex items-center justify-center gap-1.5 self-start sm:self-auto"
+            >
+              <span>{lang === 'hi' ? 'फसल इतिहास देखें' : 'View In History'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* Previous Scan Context & 1-Click Comparison Prompt */}
+          {previousScanContext && (
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center text-lg shadow-sm shrink-0">
+                  ⚖️
+                </div>
+                <div>
+                  <span className="text-xs font-extrabold uppercase tracking-wide text-amber-900 block">
+                    {lang === 'hi' ? 'पिछला स्कैन इतिहास उपलब्ध है' : 'Historical Scan Detected'}
+                  </span>
+                  <p className="text-xs font-bold text-amber-950">
+                    {lang === 'hi' 
+                      ? `आपने पहले ${new Date(previousScanContext.scanDate).toLocaleDateString('hi-IN')} को इस फसल को स्कैन किया था (${previousScanContext.detectedProblem})।`
+                      : `You previously scanned this crop on ${new Date(previousScanContext.scanDate).toLocaleDateString()} (${previousScanContext.detectedProblem}).`}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleCompareWithPrevious}
+                disabled={isComparingWithPrevious}
+                className="px-4 py-2.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-black transition shadow-md flex items-center justify-center gap-2 self-stretch sm:self-auto cursor-pointer active:scale-95"
+              >
+                {isComparingWithPrevious ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>{lang === 'hi' ? 'तुलना हो रही है...' : 'Comparing...'}</span>
+                  </>
+                ) : (
+                  <>
+                    <span>⚖️</span>
+                    <span>{lang === 'hi' ? 'पुराने स्कैन से तुलना करें' : 'Compare with Past Scan'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          )}
           
           {/* 🌱 Section 1: Detected Crop & Confidence */}
           <div className="flex items-start justify-between pb-3 border-b border-slate-100 gap-3">
@@ -1014,6 +1101,14 @@ export default function ScanCrop({ setActiveTab }) {
           />
 
         </div>
+      )}
+
+      {/* Comparative Analysis Modal */}
+      {comparisonModalData && (
+        <CropComparisonModal
+          comparisonData={comparisonModalData}
+          onClose={() => setComparisonModalData(null)}
+        />
       )}
 
     </div>

@@ -35,8 +35,18 @@ import {
   Building2,
   DollarSign,
   Radio,
-  Map
+  Map,
+  History
 } from 'lucide-react';
+import { fetchCropHistoryStats } from '../services/cropScanService';
+import { fetchMonitoringDashboardSummary } from '../services/fieldMonitoringService';
+import CropHealthCircle from '../components/CropHealthCircle';
+import CropHealthModal from '../components/CropHealthModal';
+import { 
+  fetchLatestCropHealth, 
+  fetchCropHealthSummary, 
+  recalculateCropHealth 
+} from '../services/cropHealthService';
 
 const safeParse = (key) => {
   if (typeof window === 'undefined') return null;
@@ -62,7 +72,7 @@ const getInitialDashboardData = () => {
     farm: MOCK_FARM,
     currentCrop: MOCK_CURRENT_CROP,
     crops: MOCK_CROPS,
-    healthScore: 92,
+    healthScore: null,
     pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
     recentAnalyses: [generateMockScanResult('Tomato').data],
     recentRecommendations: [
@@ -84,16 +94,38 @@ export default function FarmerDashboard({ setActiveTab }) {
   const [weatherData, setWeatherData] = useState(() => safeParse('krishi_weather_cache') || MOCK_WEATHER);
   const [mandiSpotlight, setMandiSpotlight] = useState(() => safeParse('krishi_mandi_cache') || null);
   const [outbreakAlerts, setOutbreakAlerts] = useState(() => safeParse('krishi_outbreak_cache') || MOCK_OUTBREAKS);
+  const [historyStats, setHistoryStats] = useState(null);
+  const [monitoringSummaries, setMonitoringSummaries] = useState([]);
   const [loading, setLoading] = useState(false);
+
+  // Real-Time Crop Health States
+  const [cropHealthData, setCropHealthData] = useState(() => safeParse('krishi_crop_health_cache') || null);
+  const [healthFieldsSummary, setHealthFieldsSummary] = useState([]);
+  const [selectedHealthFieldId, setSelectedHealthFieldId] = useState(null);
+  const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
+  const [isRecalculatingHealth, setIsRecalculatingHealth] = useState(false);
 
   const fetchDashboard = useCallback(async () => {
     try {
       setLoading(true);
-      const [dashRes, weatherRes, mandiRes, outbreakRes] = await Promise.all([
+      const [
+        dashRes, 
+        weatherRes, 
+        mandiRes, 
+        outbreakRes, 
+        historyRes, 
+        monitoringRes,
+        healthSummaryRes,
+        latestHealthRes
+      ] = await Promise.all([
         api.get('/farmer/dashboard'),
         api.get('/weather'),
         api.get('/mandi/prices?commodity=Tomato'),
-        api.get('/tools/outbreaks')
+        api.get('/tools/outbreaks'),
+        fetchCropHistoryStats().catch(() => null),
+        fetchMonitoringDashboardSummary().catch(() => []),
+        fetchCropHealthSummary().catch(() => []),
+        fetchLatestCropHealth(selectedHealthFieldId || 'default').catch(() => null)
       ]);
 
       if (dashRes?.data?.success) {
@@ -112,16 +144,60 @@ export default function FarmerDashboard({ setActiveTab }) {
         setOutbreakAlerts(outbreakRes.data);
         safeSet('krishi_outbreak_cache', outbreakRes.data);
       }
+      if (historyRes) {
+        setHistoryStats(historyRes);
+      }
+      if (Array.isArray(monitoringRes)) {
+        setMonitoringSummaries(monitoringRes);
+      }
+      if (Array.isArray(healthSummaryRes) && healthSummaryRes.length > 0) {
+        setHealthFieldsSummary(healthSummaryRes);
+      }
+      if (latestHealthRes) {
+        setCropHealthData(latestHealthRes);
+        safeSet('krishi_crop_health_cache', latestHealthRes);
+      }
     } catch (e) {
       console.warn('Dashboard background refresh note:', e.message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedHealthFieldId]);
 
   useEffect(() => {
     fetchDashboard();
   }, [fetchDashboard]);
+
+  const handleSelectHealthField = async (fieldId) => {
+    setSelectedHealthFieldId(fieldId);
+    try {
+      const data = await fetchLatestCropHealth(fieldId);
+      if (data) {
+        setCropHealthData(data);
+        safeSet('krishi_crop_health_cache', data);
+      }
+    } catch (err) {
+      console.warn('Field health switch note:', err);
+    }
+  };
+
+  const handleRecalculateHealth = async () => {
+    setIsRecalculatingHealth(true);
+    try {
+      const updated = await recalculateCropHealth(selectedHealthFieldId || 'default');
+      if (updated) {
+        setCropHealthData(updated);
+        safeSet('krishi_crop_health_cache', updated);
+      }
+      fetchCropHealthSummary().then(res => {
+        if (Array.isArray(res)) setHealthFieldsSummary(res);
+      });
+    } catch (err) {
+      console.error('Recalculate error:', err);
+    } finally {
+      setIsRecalculatingHealth(false);
+    }
+  };
 
   const handleToggleTask = async (taskId) => {
     try {
@@ -154,32 +230,131 @@ export default function FarmerDashboard({ setActiveTab }) {
   return (
     <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 pb-24 md:pb-10">
       
-      {/* 1. Welcome Header Banner */}
+      {/* 1. Brand & Farmer Header Banner */}
       <div className="bg-gradient-to-r from-[#14532d] via-[#166534] to-[#15803d] text-white p-5 rounded-3xl shadow-md border border-agri-600/30 flex items-center justify-between relative overflow-hidden">
-        <div className="relative z-10">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-[11px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-sm">
-              📍 {typeof profile?.village === 'string' ? `${profile.village}, ${profile.district || ''}` : 'Pimpalgaon, Nashik'}
-            </span>
+        <div className="relative z-10 flex items-center gap-3.5 sm:gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/25 flex items-center justify-center p-1 shrink-0 shadow-inner">
+            <img
+              src="/logo.svg"
+              alt="Krishi Drishti Logo"
+              className="w-10 h-10 object-contain rounded-xl"
+              onError={(e) => {
+                if (e.target.src.endsWith('/logo.svg')) {
+                  e.target.src = '/logo.png';
+                }
+              }}
+            />
           </div>
-          <h2 className="text-xl sm:text-2xl font-black tracking-tight">
-            {getGreeting()}
-          </h2>
-          <p className="text-xs text-agri-100/90 mt-0.5 font-medium">
-            {farmer?.name || 'Farmer'} • {farm?.farmSize || 4.5} {farm?.landUnit || 'Acres'} ({farm?.soilType || 'Black Soil'})
-          </p>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-black text-xs tracking-wider text-emerald-300 uppercase">
+                KRISHI DRISHTI
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+                📍 {typeof profile?.village === 'string' ? `${profile.village}, ${profile.district || ''}` : 'Pimpalgaon, Nashik'}
+              </span>
+            </div>
+            <h2 className="text-lg sm:text-2xl font-black tracking-tight leading-snug">
+              {getGreeting()}
+            </h2>
+            <p className="text-xs text-agri-100/90 mt-0.5 font-medium">
+              {farmer?.name || 'Farmer'} • {farm?.farmSize || 4.5} {farm?.landUnit || 'Acres'} ({farm?.soilType || 'Black Soil'})
+            </p>
+          </div>
         </div>
 
         <button
           onClick={fetchDashboard}
-          className="p-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition active:rotate-180"
+          className="p-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition active:rotate-180 shrink-0"
           title="Refresh Data"
         >
           <RefreshCw className="w-4 h-4" />
         </button>
       </div>
 
-      {/* 2. Live Field Mapping, Mandi & Satellite Live Tickers Grid */}
+      {/* 2. NEW HOMEPAGE HERO — LARGE CROP HEALTH CIRCLE */}
+      <CropHealthCircle
+        healthData={cropHealthData}
+        fieldsSummary={healthFieldsSummary}
+        selectedFieldId={selectedHealthFieldId}
+        onSelectField={handleSelectHealthField}
+        onOpenDetails={() => setIsHealthModalOpen(true)}
+        onRefresh={handleRecalculateHealth}
+        onAddField={() => setActiveTab('field-mapping')}
+        isRefreshing={isRecalculatingHealth}
+      />
+
+      {/* 3. 8 Quick Action Power Buttons Grid (Moved up for instant farmer access) */}
+      <div>
+        <div className="flex items-center justify-between mb-2.5 px-1">
+          <h3 className="font-extrabold text-sm text-slate-900">
+            {t('dashboard.quickActions')} (Krishi Drishti 2.0 Tools)
+          </h3>
+          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+            One-Tap Farming AI
+          </span>
+        </div>
+        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+          <QuickActionBtn
+            icon={ScanLine}
+            title={lang === 'hi' ? 'फसल जांच' : 'AI Scan'}
+            subtitle={lang === 'hi' ? 'कैमरा' : 'Doctor'}
+            onClick={() => setActiveTab('diagnose')}
+            color="emerald"
+          />
+          <QuickActionBtn
+            icon={Sparkles}
+            title={lang === 'hi' ? 'AI सलाह' : 'AI Advisor'}
+            subtitle={lang === 'hi' ? 'वॉइस' : 'Voice Q&A'}
+            onClick={() => setActiveTab('advice')}
+            color="amber"
+          />
+          <QuickActionBtn
+            icon={TrendingUp}
+            title={lang === 'hi' ? 'मंडी भाव' : 'Mandi'}
+            subtitle={lang === 'hi' ? 'लाइव दर' : 'Live Rates'}
+            onClick={() => setActiveTab('mandi')}
+            color="teal"
+          />
+          <QuickActionBtn
+            icon={Calculator}
+            title={lang === 'hi' ? 'खाद गणना' : 'Fertilizer'}
+            subtitle={lang === 'hi' ? 'NPK डोज' : 'NPK Calc'}
+            onClick={() => setActiveTab('fertilizer')}
+            color="emerald"
+          />
+          <QuickActionBtn
+            icon={Satellite}
+            title={lang === 'hi' ? 'उपग्रह' : 'Satellite'}
+            subtitle={lang === 'hi' ? 'NDVI' : 'Radar'}
+            onClick={() => setActiveTab('satellite')}
+            color="blue"
+          />
+          <QuickActionBtn
+            icon={Building2}
+            title={lang === 'hi' ? 'योजनाएं' : 'Schemes'}
+            subtitle={lang === 'hi' ? 'सब्सिडी' : 'Subsidies'}
+            onClick={() => setActiveTab('schemes')}
+            color="amber"
+          />
+          <QuickActionBtn
+            icon={CloudSun}
+            title={lang === 'hi' ? 'मौसम' : 'Weather'}
+            subtitle={lang === 'hi' ? '5-दिन' : '5-Day'}
+            onClick={() => setActiveTab('weather')}
+            color="blue"
+          />
+          <QuickActionBtn
+            icon={ShieldAlert}
+            title={lang === 'hi' ? 'कीट रडार' : 'Outbreak'}
+            subtitle={lang === 'hi' ? 'अलर्ट' : 'Radar'}
+            onClick={() => setActiveTab('outbreak')}
+            color="purple"
+          />
+        </div>
+      </div>
+
+      {/* 4. Live Field Mapping, Mandi & Satellite Live Tickers Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
         {/* Field Intelligence Spotlight */}
@@ -314,77 +489,147 @@ export default function FarmerDashboard({ setActiveTab }) {
         </div>
       </div>
 
-      {/* 4. Current Crop Card */}
+      {/* 3.5. MY FIELD MONITORING (AUTONOMOUS CONTINUOUS MONITORING) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-base">🛰️</span>
+            <div>
+              <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
+                {lang === 'hi' ? 'मेरे खेत की स्वचालित निगरानी' : 'MY FIELD MONITORING'}
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                {lang === 'hi'
+                  ? 'उपग्रह एवं पर्यावरण आधारित निरंतर स्वतः निगरानी'
+                  : 'Autonomous continuous satellite & environmental telemetry'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('field-monitoring')}
+            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+          >
+            <span>{lang === 'hi' ? 'विस्तृत निगरानी' : 'Full Telemetry'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {monitoringSummaries.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {monitoringSummaries.map((f) => (
+              <div
+                key={f.fieldId}
+                className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm hover:shadow-md transition space-y-4"
+              >
+                {/* Field Header */}
+                <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h4 className="font-black text-slate-900 text-sm sm:text-base flex items-center gap-1.5">
+                      <span>🌾</span>
+                      <span>{f.fieldName}</span>
+                    </h4>
+                    <p className="text-xs text-slate-500">
+                      {f.crop} • {f.area ? `${f.area} ${f.areaUnit}` : 'Surveyed Plot'} • {f.cropStage}
+                    </p>
+                  </div>
+                  <span className="px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold uppercase tracking-wide">
+                    {f.cropHealth || 'Healthy'}
+                  </span>
+                </div>
+
+                {/* 6 Mini Indicator Badges */}
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-xs">
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-0.5">🌱 CROP HEALTH</span>
+                    <strong className="text-slate-900 block truncate">{f.cropHealth} ({f.healthScore}/100)</strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-0.5">💧 MOISTURE</span>
+                    <strong className="text-slate-900 block truncate">
+                      {lang === 'hi' ? f.moistureStatusHi || f.moistureStatus : f.moistureStatus}
+                    </strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-0.5">🌧 RAIN FORECAST</span>
+                    <strong className="text-slate-900 block truncate">{f.rainForecast || 0}mm ({f.rainProbability || 0}%)</strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-0.5">🚜 IRRIGATION</span>
+                    <strong className={f.irrigationRecommendation === 'Recommended' ? 'text-rose-600 block truncate' : 'text-emerald-700 block truncate'}>
+                      {lang === 'hi'
+                        ? (f.irrigationRecommendation === 'Recommended' ? 'सिंचाई आवश्यक' : 'आज जरूरत नहीं')
+                        : f.irrigationRecommendation}
+                    </strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-0.5">🌿 NUTRIENTS</span>
+                    <strong className="text-slate-900 block truncate">
+                      {lang === 'hi' ? f.nutrientStatusHi : f.nutrientStatus}
+                    </strong>
+                  </div>
+
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
+                    <span className="text-[10px] font-bold text-slate-400 block mb-0.5">🦠 DISEASE RISK</span>
+                    <strong className="text-slate-900 block truncate">{f.diseaseRisk || 'Low'} Risk</strong>
+                  </div>
+                </div>
+
+                {/* Footer Action */}
+                <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs">
+                  <span className="text-[10px] text-slate-400">
+                    {f.lastSatelliteObservation
+                      ? `Sentinel-2: ${f.lastSatelliteObservation}`
+                      : 'Sentinel-2 Revisit Monitoring Active'}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (typeof window !== 'undefined') {
+                        window.location.hash = `#/field-monitoring?fieldId=${f.fieldId}`;
+                      }
+                      setActiveTab('field-monitoring');
+                    }}
+                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
+                  >
+                    <span>{lang === 'hi' ? 'खेत का विवरण देखें' : 'Open Field Monitor'}</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="bg-white rounded-3xl p-6 border border-dashed border-emerald-300 text-center space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center mx-auto text-xl font-bold">
+              🗺️
+            </div>
+            <h4 className="font-bold text-sm text-slate-900">
+              {lang === 'hi' ? 'कोई सक्रिय खेत निगरानी में नहीं है' : 'No Field Monitored Yet'}
+            </h4>
+            <p className="text-xs text-slate-500 max-w-md mx-auto">
+              {lang === 'hi'
+                ? 'नक्शे पर अपने खेत की सीमा बनाएं। कृषि दृष्टि उपग्रह और मौसम डेटा के साथ स्वतः निगरानी शुरू करेगा।'
+                : 'Mark your field polygon on the map to unlock automated 24/7 satellite & environmental monitoring.'}
+            </p>
+            <button
+              onClick={() => setActiveTab('field-mapping')}
+              className="px-4 py-2 rounded-xl bg-emerald-700 text-white font-bold text-xs shadow-sm hover:bg-emerald-600 transition"
+            >
+              {lang === 'hi' ? 'खेत की सीमा बनाएं' : 'Mark Field on Map'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 5. Current Crop Card */}
       <CropCard
         crop={currentCrop}
         onScanClick={() => setActiveTab('diagnose')}
         onViewDetails={() => setActiveTab('profile')}
       />
-
-      {/* 5. 8 Quick Action Power Buttons Grid */}
-      <div>
-        <h3 className="font-extrabold text-sm text-slate-900 mb-2.5 px-1">
-          {t('dashboard.quickActions')} (Krishi Drishti 2.0 Tools)
-        </h3>
-        <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-          <QuickActionBtn
-            icon={ScanLine}
-            title={lang === 'hi' ? 'फसल जांच' : 'AI Scan'}
-            subtitle={lang === 'hi' ? 'कैमरा' : 'Doctor'}
-            onClick={() => setActiveTab('diagnose')}
-            color="emerald"
-          />
-          <QuickActionBtn
-            icon={Sparkles}
-            title={lang === 'hi' ? 'AI सलाह' : 'AI Advisor'}
-            subtitle={lang === 'hi' ? 'वॉइस' : 'Voice Q&A'}
-            onClick={() => setActiveTab('advice')}
-            color="amber"
-          />
-          <QuickActionBtn
-            icon={TrendingUp}
-            title={lang === 'hi' ? 'मंडी भाव' : 'Mandi'}
-            subtitle={lang === 'hi' ? 'लाइव दर' : 'Live Rates'}
-            onClick={() => setActiveTab('mandi')}
-            color="teal"
-          />
-          <QuickActionBtn
-            icon={Calculator}
-            title={lang === 'hi' ? 'खाद गणना' : 'Fertilizer'}
-            subtitle={lang === 'hi' ? 'NPK डोज' : 'NPK Calc'}
-            onClick={() => setActiveTab('fertilizer')}
-            color="emerald"
-          />
-          <QuickActionBtn
-            icon={Satellite}
-            title={lang === 'hi' ? 'उपग्रह' : 'Satellite'}
-            subtitle={lang === 'hi' ? 'NDVI' : 'Radar'}
-            onClick={() => setActiveTab('satellite')}
-            color="blue"
-          />
-          <QuickActionBtn
-            icon={Building2}
-            title={lang === 'hi' ? 'योजनाएं' : 'Schemes'}
-            subtitle={lang === 'hi' ? 'सब्सिडी' : 'Subsidies'}
-            onClick={() => setActiveTab('schemes')}
-            color="amber"
-          />
-          <QuickActionBtn
-            icon={CloudSun}
-            title={lang === 'hi' ? 'मौसम' : 'Weather'}
-            subtitle={lang === 'hi' ? '5-दिन' : '5-Day'}
-            onClick={() => setActiveTab('weather')}
-            color="blue"
-          />
-          <QuickActionBtn
-            icon={ShieldAlert}
-            title={lang === 'hi' ? 'कीट रडार' : 'Outbreak'}
-            subtitle={lang === 'hi' ? 'अलर्ट' : 'Radar'}
-            onClick={() => setActiveTab('outbreak')}
-            color="purple"
-          />
-        </div>
-      </div>
 
       {/* 6. Weather Overview Widget */}
       <WeatherWidget
@@ -399,7 +644,84 @@ export default function FarmerDashboard({ setActiveTab }) {
         onSeeAllTasks={() => setActiveTab('plans')}
       />
 
-      {/* 8. Crop Health Summary & Recent Scans */}
+      {/* 8. Crop Health History Widget (Permanent MongoDB Atlas Archival) */}
+      <div className="agri-card p-5 bg-white border-slate-200 shadow-sm space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center shadow-xs shrink-0">
+              <History className="w-5 h-5" />
+            </div>
+            <div>
+              <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
+                <span>{lang === 'hi' ? 'फसल स्वास्थ्य इतिहास व तुलना' : 'Crop Health History & Comparison'}</span>
+                <span className="text-2xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
+                  MongoDB Cloud
+                </span>
+              </h4>
+              <p className="text-2xs text-slate-500 font-medium">
+                {lang === 'hi' ? 'खेत-वार सभी पुराने व नए स्कैन का सुरक्षित डेटा' : 'Permanent multi-month scan records across plots'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveTab('history')}
+              className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition shadow-xs flex items-center gap-1.5"
+            >
+              <span>{lang === 'hi' ? 'इतिहास देखें' : 'View History'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => setActiveTab('history')}
+              className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs transition"
+            >
+              <span>⚖️ {lang === 'hi' ? 'तुलना करें' : 'Compare'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* 4 Stat Pills */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-150">
+            <span className="text-2xs font-bold uppercase text-slate-400 block">
+              {lang === 'hi' ? 'कुल स्कैन' : 'Total Scans'}
+            </span>
+            <span className="text-lg font-black text-slate-800">
+              {historyStats?.totalScans ?? (recentAnalyses?.length || 4)}
+            </span>
+          </div>
+
+          <div className="bg-slate-50 p-3 rounded-2xl border border-slate-150">
+            <span className="text-2xs font-bold uppercase text-slate-400 block">
+              {lang === 'hi' ? 'सक्रिय फसलें' : 'Active Crops'}
+            </span>
+            <span className="text-lg font-black text-slate-800">
+              {historyStats?.activeCropsCount ?? 2}
+            </span>
+          </div>
+
+          <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200">
+            <span className="text-2xs font-bold uppercase text-emerald-600 block">
+              {lang === 'hi' ? 'स्वस्थ फसलें' : 'Healthy Crops'}
+            </span>
+            <span className="text-lg font-black text-emerald-700">
+              {historyStats?.healthyCount ?? 3}
+            </span>
+          </div>
+
+          <div className="bg-rose-50/70 p-3 rounded-2xl border border-rose-200">
+            <span className="text-2xs font-bold uppercase text-rose-600 block">
+              {lang === 'hi' ? 'ध्यान योग्य' : 'Needs Care'}
+            </span>
+            <span className="text-lg font-black text-rose-700">
+              {historyStats?.attentionCount ?? 1}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 9. Crop Health Summary & Recent Scans */}
       {recentAnalyses && recentAnalyses.length > 0 && (
         <div className="agri-card p-5 bg-white border-slate-200">
           <div className="flex items-center justify-between mb-3">
@@ -451,6 +773,15 @@ export default function FarmerDashboard({ setActiveTab }) {
           </div>
         </div>
       )}
+
+      {/* Detailed Crop Health Diagnostic Modal */}
+      <CropHealthModal
+        isOpen={isHealthModalOpen}
+        onClose={() => setIsHealthModalOpen(false)}
+        healthData={cropHealthData}
+        onRecalculate={handleRecalculateHealth}
+        isRecalculating={isRecalculatingHealth}
+      />
 
     </div>
   );

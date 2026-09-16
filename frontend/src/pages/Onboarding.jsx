@@ -68,8 +68,17 @@ export default function Onboarding({ onOnboardingComplete }) {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center px-4 py-8 max-w-lg mx-auto">
       <div className="text-center mb-6">
-        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-agri-600 to-emerald-400 mx-auto flex items-center justify-center text-white shadow-md mb-2">
-          <Sprout className="w-8 h-8" />
+        <div className="w-14 h-14 rounded-2xl bg-white shadow-md border border-slate-200/80 mx-auto flex items-center justify-center p-1.5 mb-2">
+          <img
+            src="/logo.svg"
+            alt="Krishi Drishti Logo"
+            className="w-11 h-11 object-contain rounded-xl"
+            onError={(e) => {
+              if (e.target.src.endsWith('/logo.svg')) {
+                e.target.src = '/logo.png';
+              }
+            }}
+          />
         </div>
         <h2 className="text-2xl font-black text-slate-900">
           {lang === 'hi' ? 'खेत का विवरण दर्ज करें' : 'Setup Your Smart Farm'}
