@@ -14,7 +14,8 @@ const {
 const {
   extractCropFromQuery,
   extractProblemFromQuery,
-  buildUniversalActionAdvice
+  buildUniversalActionAdvice,
+  generateStandardStructuredAdvice
 } = require('../utils/universalAgricultureEngine');
 
 function cleanUserQuery(raw) {
@@ -116,18 +117,34 @@ const getAiAdvice = async (req, res) => {
       farmContext
     });
 
+    const structured = result.structuredAdvice || generateStandardStructuredAdvice({
+      query,
+      crop: selectedCrop,
+      farmContext,
+      language
+    });
+
+    const finalCrop = structured.crop_name || (queryCrop ? (language === 'en' ? queryCrop.canonical : queryCrop.nameHi) : (result.crop || selectedCrop));
     const finalAnswer = result.answer;
-    const finalCrop = (queryCrop ? (language === 'en' ? queryCrop.canonical : queryCrop.nameHi) : (result.crop || selectedCrop));
 
     return res.status(200).json({
       success: true,
       answer: finalAnswer,
       language: result.language || language,
       crop: finalCrop,
+      crop_name: finalCrop,
+      detected_issue: structured.detected_issue,
+      severity: structured.severity,
+      health_score: structured.health_score,
+      what_needs_attention: structured.what_needs_attention,
+      what_to_do_now: structured.what_to_do_now,
+      why_is_this_happening: structured.why_is_this_happening,
+      action_timeline: structured.action_timeline,
+      structuredAdvice: structured,
       stage: selectedStage,
-      detectedProblem: queryProblem ? (language === 'en' ? queryProblem.titleEn : queryProblem.titleHi) : null,
+      detectedProblem: structured.detected_issue || (queryProblem ? (language === 'en' ? queryProblem.titleEn : queryProblem.titleHi) : null),
       problemCategory: queryProblem?.category || null,
-      priority: queryProblem?.severity || 'MEDIUM',
+      priority: structured.severity || queryProblem?.severity || 'MEDIUM',
       source: result.source || 'farm_intelligence_engine',
       timestamp: result.timestamp || new Date().toISOString(),
       farmContext: {
@@ -136,8 +153,8 @@ const getAiAdvice = async (req, res) => {
         crop: finalCrop,
         stage: selectedStage,
         soilType: farmContext.fieldInfo.soilType,
-        healthStatus: farmContext.cropHealth.overallStatus,
-        healthScore: farmContext.cropHealth.healthScore,
+        healthStatus: structured.health_score < 50 ? 'Needs Attention' : (structured.health_score < 75 ? 'Moderate' : 'Good'),
+        healthScore: structured.health_score,
         weather: {
           temp: farmContext.weatherEnvironment.temperatureC,
           humidity: farmContext.weatherEnvironment.humidityPercent,
@@ -150,8 +167,17 @@ const getAiAdvice = async (req, res) => {
         answer: finalAnswer,
         queryText: query,
         cropName: finalCrop,
+        crop_name: finalCrop,
         cropStage: selectedStage,
-        detectedProblem: queryProblem ? (language === 'en' ? queryProblem.titleEn : queryProblem.titleHi) : null,
+        detectedProblem: structured.detected_issue || (queryProblem ? (language === 'en' ? queryProblem.titleEn : queryProblem.titleHi) : null),
+        detected_issue: structured.detected_issue,
+        severity: structured.severity,
+        health_score: structured.health_score,
+        what_needs_attention: structured.what_needs_attention,
+        what_to_do_now: structured.what_to_do_now,
+        why_is_this_happening: structured.why_is_this_happening,
+        action_timeline: structured.action_timeline,
+        structuredAdvice: structured,
         timestamp: result.timestamp || new Date().toISOString()
       },
       // Backwards-compatible root aliases
@@ -160,17 +186,41 @@ const getAiAdvice = async (req, res) => {
     });
   } catch (error) {
     console.error('[Krishi Drishti] AI Advice Catch:', error.message || error);
-    // Never expose technical quota / 429 errors to farmers
+    const qText = question || queryText || '';
+    const fallbackStructured = generateStandardStructuredAdvice({
+      query: qText,
+      crop: crop || cropName || 'General',
+      language: language || 'hi'
+    });
     const friendlyMsg = getFriendlyBusyMessage(language);
     return res.status(200).json({
       success: true,
       answer: friendlyMsg,
       language,
       message: friendlyMsg,
+      crop: fallbackStructured.crop_name,
+      crop_name: fallbackStructured.crop_name,
+      detected_issue: fallbackStructured.detected_issue,
+      severity: fallbackStructured.severity,
+      health_score: fallbackStructured.health_score,
+      what_needs_attention: fallbackStructured.what_needs_attention,
+      what_to_do_now: fallbackStructured.what_to_do_now,
+      why_is_this_happening: fallbackStructured.why_is_this_happening,
+      action_timeline: fallbackStructured.action_timeline,
+      structuredAdvice: fallbackStructured,
       data: {
         answer: friendlyMsg,
-        queryText: question || queryText || '',
-        cropName: crop && crop !== 'Tomato' ? crop : 'General'
+        queryText: qText,
+        cropName: fallbackStructured.crop_name,
+        crop_name: fallbackStructured.crop_name,
+        detected_issue: fallbackStructured.detected_issue,
+        severity: fallbackStructured.severity,
+        health_score: fallbackStructured.health_score,
+        what_needs_attention: fallbackStructured.what_needs_attention,
+        what_to_do_now: fallbackStructured.what_to_do_now,
+        why_is_this_happening: fallbackStructured.why_is_this_happening,
+        action_timeline: fallbackStructured.action_timeline,
+        structuredAdvice: fallbackStructured
       }
     });
   }

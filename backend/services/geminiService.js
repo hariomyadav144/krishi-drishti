@@ -2,6 +2,7 @@ const path = require('path');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 require('dotenv').config();
 const { GoogleGenAI } = require('@google/genai');
+const { generateStandardStructuredAdvice } = require('../utils/universalAgricultureEngine');
 
 /**
  * Krishi Drishti Agricultural AI System Instruction
@@ -276,8 +277,104 @@ function sanitizeAiResponse(text) {
   return cleaned.trim();
 }
 
+const SENIOR_SCIENTIST_SYSTEM_INSTRUCTION = `You are a Senior Agricultural Scientist (Senior Krishi Vigyan Kendra - KVK Expert) and Chief Agronomist at Krishi Drishti & SWAR.
+Your mission is to accurately diagnose real farmer problems and provide precise, practical, and dynamic agricultural solutions tailored specifically to the farmer's raw voice/text query and farm context.
+
+CRITICAL EXPERT INSTRUCTIONS:
+1. ACCURATE SPECIFIC DIAGNOSIS:
+   - Identify the exact crop and exact diagnostic condition from the farmer's question.
+   - For example:
+     * "tamatar ke leaf pe white spots" -> Crop: "Tomato (टमाटर)", Issue: "Powdery Mildew / छाछिया रोग (सफेद फफूंद धब्बे)"
+     * "gehun kala ho gaya" -> Crop: "Wheat (गेहूं)", Issue: "Karnal Bunt / Loose Smut / करनाल बंट व काला धब्बा रोग"
+     * "khet me pani lag gaya" or "pani bhar gaya" -> Crop: detected crop or "Field Crop", Issue: "Waterlogging & Root Zone Saturation (खेत में जलभराव व जड़ों का दम घुटना)"
+     * "patte brown ho rahe hain" -> Crop: detected crop, Issue: "Foliar Blight / Leaf Necrosis (अगेती/पछेती झुलसा व पत्तियों का भूरापन)"
+     * "keede lag gaye" -> Crop: detected crop, Issue: "Pest Infestation (कीट / इल्ली / रस चूसक कीटों का प्रकोप)"
+     * "healthy hai" / no problem reported -> Crop: detected crop, Issue: "Healthy Crop - Normal Growth (फसल स्वस्थ है)"
+
+2. REALISTIC DYNAMIC HEALTH SCORE (Between 1 and 100):
+   - Critical disease / severe waterlogging / severe pest: 30 to 45 (CRITICAL).
+   - High disease / significant pest attack / drought: 46 to 59 (NEEDS ATTENTION).
+   - Moderate stress / mild yellowing / poor growth: 60 to 75 (MODERATE).
+   - Healthy / normal growth: 85 to 95 (GOOD).
+   - NEVER return 87 if there is an active disease, pest, or waterlogging!
+
+3. STRICT DYNAMIC JSON SCHEMA ENFORCEMENT:
+   You MUST return ONLY a valid JSON object adhering strictly to this schema:
+{
+  "crop_name": "string (detected from query or default)",
+  "detected_issue": "string (exact diagnostic, e.g., Powdery Mildew, Waterlogging, Karnal Bunt)",
+  "severity": "Low | Moderate | High | Critical",
+  "health_score": 45,
+  "what_needs_attention": {
+    "title": "Short Hindi summary of the exact threat",
+    "description": "Clear explanation of why this issue happened"
+  },
+  "what_to_do_now": [
+    {
+      "action_title": "Primary immediate remedy (e.g., specific fungicide name/dose or water drainage steps)",
+      "timing": "Aaj (Immediate) | 24 ghante ke andar",
+      "instruction": "Step-by-step actionable advice in farmer-friendly Hindi"
+    }
+  ],
+  "why_is_this_happening": "Underlying root cause (humidity, poor drainage, fungal attack, nutrient deficiency)",
+  "action_timeline": {
+    "today": "string",
+    "in_24_hours": "string",
+    "in_2_3_days": "string",
+    "next_7_days": "string"
+  }
+}
+
+Use respectful, clear Hindi (or the user's preferred regional language). Do not wrap in markdown or backticks. Return pure JSON only.`;
+
+function buildReadableAnswerFromStructured(s, lang = 'hi') {
+  if (!s) return '';
+  const isEn = lang === 'en';
+  const lines = [];
+
+  const crop = s.crop_name || (isEn ? 'Your Crop' : 'आपकी फसल');
+  const issue = s.detected_issue || (isEn ? 'Crop Consultation' : 'फसल परामर्श');
+  const sev = s.severity || 'Normal';
+  const score = s.health_score ?? 80;
+
+  lines.push(isEn ? `🌾 Crop: ${crop} | Issue: ${issue}` : `🌾 फसल: ${crop} | समस्या: ${issue}`);
+  lines.push(isEn ? `🚨 Priority: ${sev} (Crop Health Score: ${score}%)` : `🚨 प्राथमिकता: ${sev} (फसल स्वास्थ्य स्कोर: ${score}%)`);
+  lines.push('');
+
+  if (s.what_needs_attention?.title) {
+    lines.push(isEn ? `⚠️ What Needs Attention:` : `⚠️ क्या ध्यान देने की आवश्यकता है:`);
+    lines.push(`• ${s.what_needs_attention.title}: ${s.what_needs_attention.description || ''}`);
+    lines.push('');
+  }
+
+  if (s.why_is_this_happening) {
+    lines.push(isEn ? `💡 Why This Is Happening:` : `💡 ऐसा क्यों हो रहा है:`);
+    lines.push(s.why_is_this_happening);
+    lines.push('');
+  }
+
+  if (Array.isArray(s.what_to_do_now) && s.what_to_do_now.length > 0) {
+    lines.push(isEn ? `✅ What You Should Do Now:` : `✅ अभी आपको क्या करना चाहिए:`);
+    s.what_to_do_now.forEach((item, idx) => {
+      lines.push(`${idx + 1}. [${item.timing || 'Immediate'}] ${item.action_title ? item.action_title + ' — ' : ''}${item.instruction}`);
+    });
+    lines.push('');
+  }
+
+  if (s.action_timeline) {
+    lines.push(isEn ? `⏰ Action Timeline:` : `⏰ समय-सारणी:`);
+    if (s.action_timeline.today) lines.push(isEn ? `• Today: ${s.action_timeline.today}` : `• आज: ${s.action_timeline.today}`);
+    if (s.action_timeline.in_24_hours) lines.push(isEn ? `• 24 Hours: ${s.action_timeline.in_24_hours}` : `• 24 घंटे में: ${s.action_timeline.in_24_hours}`);
+    if (s.action_timeline.in_2_3_days) lines.push(isEn ? `• In 2–3 Days: ${s.action_timeline.in_2_3_days}` : `• 2–3 दिन में: ${s.action_timeline.in_2_3_days}`);
+    if (s.action_timeline.next_7_days) lines.push(isEn ? `• Next 7 Days: ${s.action_timeline.next_7_days}` : `• अगले 7 दिन में: ${s.action_timeline.next_7_days}`);
+  }
+
+  return lines.join('\n').trim();
+}
+
 /**
  * Ask Gemini Conversational Agriculture Advisor
+ * Senior Agricultural Scientist (KVK Expert) with Strict Dynamic JSON Schema Enforcement
  */
 async function askGeminiAdvisor({
   question,
@@ -320,35 +417,20 @@ async function askGeminiAdvisor({
   const langPromptName = getLanguagePromptName(language);
   contextTokens.push(`Language: ${langPromptName}`);
 
-  // Conversation history
-  const contents = [];
-  if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
-    for (const msg of conversationHistory) {
-      if (msg && msg.content && typeof msg.content === 'string' && msg.content.trim()) {
-        contents.push({
-          role: msg.role === 'user' ? 'user' : 'model',
-          parts: [{ text: msg.content.trim() }]
-        });
-      }
-    }
-  }
-
-  // Construct final prompt with complete Farm Intelligence context
-  let finalPrompt = q;
+  // Construct prompt
+  let finalPrompt = `Farmer Raw Query: "${q}"\nCrop Context: ${crop} | Stage: ${cropStage || 'Vegetative'} | Soil: ${soil?.soilType || 'Normal'} | Weather: ${weather?.temp || 27}°C\n\nDiagnose the exact agricultural issue and return JSON matching the required schema:`;
   if (unifiedPrompt && typeof unifiedPrompt === 'string' && unifiedPrompt.trim()) {
-    finalPrompt = unifiedPrompt.trim();
-  } else if (contextTokens.length > 0) {
-    finalPrompt = `[Agricultural Context: ${contextTokens.join(' | ')}]\n\nFarmer Question: ${q}`;
+    finalPrompt = `${unifiedPrompt.trim()}\n\nCRITICAL: Return your response ONLY as valid JSON according to the Senior Scientist schema.`;
   }
 
-  contents.push({
+  const contents = [{
     role: 'user',
     parts: [{ text: finalPrompt }]
-  });
+  }];
 
   let lastError = null;
   let successfulModel = null;
-  let answerText = '';
+  let structuredAdvice = null;
 
   for (const modelName of candidateModels) {
     try {
@@ -356,35 +438,67 @@ async function askGeminiAdvisor({
         model: modelName,
         contents,
         config: {
-          systemInstruction: getSystemInstruction(language),
-          temperature: 0.7,
+          systemInstruction: SENIOR_SCIENTIST_SYSTEM_INSTRUCTION,
+          responseMimeType: 'application/json',
+          temperature: 0.2,
         }
       });
 
       const text = response?.text?.trim() || '';
       if (text) {
-        answerText = sanitizeAiResponse(text);
-        successfulModel = modelName;
-        break;
+        try {
+          structuredAdvice = JSON.parse(text);
+          successfulModel = modelName;
+          break;
+        } catch (_) {
+          const match = text.match(/\{[\s\S]*\}/);
+          if (match) {
+            try {
+              structuredAdvice = JSON.parse(match[0]);
+              successfulModel = modelName;
+              break;
+            } catch (err) {}
+          }
+        }
       }
     } catch (err) {
-      console.warn(`[Krishi Drishti] Gemini model ${modelName} error:`, err.message || err);
+      console.warn(`[Krishi Drishti] Gemini model ${modelName} json advice error:`, err.message || err);
       lastError = err;
-      // Continue to next model if available
     }
   }
 
-  if (!answerText) {
-    throw formatGeminiError(lastError);
+  // If Gemini provided valid structured advice, build answer and return
+  if (structuredAdvice && structuredAdvice.detected_issue) {
+    const answerText = buildReadableAnswerFromStructured(structuredAdvice, language);
+    return {
+      success: true,
+      answer: answerText,
+      structuredAdvice,
+      language: language || 'hi',
+      crop: structuredAdvice.crop_name || crop,
+      stage: cropStage,
+      model: successfulModel,
+      timestamp: new Date().toISOString()
+    };
   }
+
+  // Graceful, dynamic expert fallback rule generation (NEVER static dummy data)
+  console.log('[Krishi Drishti] Generating dynamic Senior KVK Scientist advice via Agronomy Rule Engine...');
+  const fallbackAdvice = generateStandardStructuredAdvice({
+    query: q,
+    crop,
+    farmContext,
+    language
+  });
 
   return {
     success: true,
-    answer: answerText,
+    answer: buildReadableAnswerFromStructured(fallbackAdvice, language),
+    structuredAdvice: fallbackAdvice,
     language: language || 'hi',
-    crop,
+    crop: fallbackAdvice.crop_name || crop,
     stage: cropStage,
-    model: successfulModel,
+    model: 'kvk_scientific_rules_engine',
     timestamp: new Date().toISOString()
   };
 }

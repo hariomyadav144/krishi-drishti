@@ -80,8 +80,27 @@ export default function FarmerActionDashboard({
     return () => { isMounted = false; };
   }, [activeFarmContext?.fieldId, trendPeriod]);
 
-  // Derive dynamic crop health values
-  const healthScore = typeof healthData?.healthScore === 'number' ? healthData.healthScore : 78;
+  // Universal Query-First Crop & Problem Extraction
+  const userQuery = advisoryResult?.queryText || '';
+  const queryCrop = useMemo(() => extractCropFromQuery(userQuery), [userQuery]);
+  const queryProblem = useMemo(() => extractProblemFromQuery(userQuery), [userQuery]);
+
+  // Derive dynamic crop health values: prioritize advisoryResult.health_score or structuredAdvice.health_score
+  const healthScore = useMemo(() => {
+    if (typeof advisoryResult?.health_score === 'number') {
+      return advisoryResult.health_score;
+    }
+    if (typeof advisoryResult?.structuredAdvice?.health_score === 'number') {
+      return advisoryResult.structuredAdvice.health_score;
+    }
+    if (queryProblem && typeof queryProblem.severity === 'string') {
+      if (queryProblem.severity === 'URGENT' || queryProblem.category === 'BLACK_SMUT_KARNAL_BUNT') return 38;
+      if (queryProblem.severity === 'HIGH' || queryProblem.category === 'WATERLOGGING' || queryProblem.category === 'POWDERY_MILDEW_WHITE_SPOTS') return 48;
+      if (queryProblem.category === 'HEALTHY_MAINTENANCE') return 90;
+      if (queryProblem.severity === 'MODERATE' || queryProblem.severity === 'MEDIUM') return 58;
+    }
+    return typeof healthData?.healthScore === 'number' ? healthData.healthScore : 78;
+  }, [advisoryResult?.health_score, advisoryResult?.structuredAdvice, queryProblem, healthData?.healthScore]);
 
   // Color logic according to requirements:
   // 80–100 → Good
@@ -136,16 +155,14 @@ export default function FarmerActionDashboard({
     }
   }, [healthScore]);
 
-  // Universal Query-First Crop & Problem Extraction
-  const userQuery = advisoryResult?.queryText || '';
-  const queryCrop = useMemo(() => extractCropFromQuery(userQuery), [userQuery]);
-  const queryProblem = useMemo(() => extractProblemFromQuery(userQuery), [userQuery]);
-
   // Derived Crop Name:
-  // Priority: 1. Current query crop -> 2. advisoryResult crop -> 3. activeFarmContext crop -> 4. General
+  // Priority: 1. Current query crop -> 2. advisoryResult crop_name -> 3. advisoryResult cropName -> 4. activeFarmContext crop -> 5. General
   const cropName = useMemo(() => {
     if (queryCrop) {
       return isHindi ? queryCrop.nameHi : queryCrop.canonical;
+    }
+    if (advisoryResult?.crop_name && advisoryResult.crop_name !== 'General' && advisoryResult.crop_name !== 'Field Crop' && advisoryResult.crop_name !== 'फसल') {
+      return advisoryResult.crop_name;
     }
     if (advisoryResult?.cropName && advisoryResult.cropName !== 'Krishi Drishti AI' && advisoryResult.cropName !== 'General') {
       return advisoryResult.cropName;
@@ -154,7 +171,7 @@ export default function FarmerActionDashboard({
       return activeFarmContext.crop;
     }
     return isHindi ? 'आपकी फसल' : 'Your Crop';
-  }, [queryCrop, advisoryResult?.cropName, activeFarmContext?.crop, isHindi]);
+  }, [queryCrop, advisoryResult?.crop_name, advisoryResult?.cropName, activeFarmContext?.crop, isHindi]);
 
   const cropStage = activeFarmContext?.cropStage || 'Vegetative Stage';
   const fieldName = activeFarmContext?.fieldName || (isHindi ? 'मुख्य खेत' : 'Main Field');
@@ -187,8 +204,38 @@ export default function FarmerActionDashboard({
   const detectedProblems = useMemo(() => {
     const list = [];
 
-    // 1. Current Query Problem (Highest Priority)
-    if (queryProblem && queryProblem.category !== 'HEALTHY_MAINTENANCE') {
+    // 0. Structured Attention item from Senior KVK Agricultural Scientist
+    const structuredAttention = advisoryResult?.what_needs_attention || advisoryResult?.structuredAdvice?.what_needs_attention;
+    if (structuredAttention && (structuredAttention.title || structuredAttention.description)) {
+      const severity = advisoryResult?.severity || advisoryResult?.structuredAdvice?.severity || (queryProblem ? queryProblem.severity : 'Moderate');
+      const isCritical = severity.toLowerCase() === 'critical' || severity.toLowerCase() === 'urgent';
+      const isHigh = severity.toLowerCase() === 'high';
+      const isLow = severity.toLowerCase() === 'low';
+
+      list.push({
+        id: 'structured_attention_issue',
+        urgency: 0,
+        icon: isCritical ? '🚨' : (isHigh ? '⚠️' : (isLow ? '✅' : '⚡')),
+        titleEn: advisoryResult?.detected_issue || structuredAttention.title,
+        titleHi: structuredAttention.title,
+        statusEn: severity.toUpperCase(),
+        statusHi: isCritical 
+          ? (isHindi ? '🚨 गंभीर स्थिति (CRITICAL)' : 'CRITICAL') 
+          : (isHigh 
+              ? (isHindi ? '⚠️ तुरंत ध्यान दें (HIGH)' : 'HIGH') 
+              : (isLow ? (isHindi ? '✓ सामान्य (NORMAL)' : 'NORMAL') : (isHindi ? 'मुख्य समस्या' : 'ATTENTION'))),
+        descEn: structuredAttention.description || advisoryResult?.detected_issue || '',
+        descHi: structuredAttention.description,
+        badgeClass: isCritical 
+          ? 'bg-rose-100 text-rose-900 border-rose-300' 
+          : (isHigh 
+              ? 'bg-orange-100 text-orange-900 border-orange-300' 
+              : (isLow ? 'bg-emerald-100 text-emerald-900 border-emerald-300' : 'bg-amber-100 text-amber-900 border-amber-300'))
+      });
+    }
+
+    // 1. Current Query Problem (if not already covered by structured attention)
+    if (queryProblem && queryProblem.category !== 'HEALTHY_MAINTENANCE' && list.length === 0) {
       let icon = '⚠️';
       if (queryProblem.category === 'WATERLOGGING') icon = '💧';
       else if (queryProblem.category === 'PEST_ATTACK') icon = '🐛';
@@ -196,7 +243,7 @@ export default function FarmerActionDashboard({
       else if (queryProblem.category === 'DROUGHT_MOISTURE') icon = '🏜️';
       else if (queryProblem.category === 'POOR_GROWTH') icon = '🌱';
       else if (queryProblem.category === 'FLOWER_FRUIT_DROP') icon = '🌸';
-      else if (queryProblem.category === 'DISEASE_SPOTS') icon = '🦠';
+      else if (queryProblem.category === 'DISEASE_SPOTS' || queryProblem.category === 'POWDERY_MILDEW_WHITE_SPOTS' || queryProblem.category === 'BLACK_SMUT_KARNAL_BUNT') icon = '🦠';
 
       list.push({
         id: 'user_reported_issue',
@@ -279,11 +326,34 @@ export default function FarmerActionDashboard({
     }
 
     return list.slice(0, 3);
-  }, [queryProblem, moistureScore, hasDiseaseDetected, detectedProblem, weatherRain24h, weatherTemp, isHindi]);
+  }, [advisoryResult?.what_needs_attention, advisoryResult?.structuredAdvice?.what_needs_attention, advisoryResult?.severity, advisoryResult?.detected_issue, queryProblem, moistureScore, hasDiseaseDetected, detectedProblem, weatherRain24h, weatherTemp, isHindi]);
 
   // 3. "WHAT SHOULD I DO NOW?" SECTION (Dynamic Action Cards: 1 to 3 actions based purely on problem)
   const actionCards = useMemo(() => {
     const actions = [];
+
+    // CASE 0: Structured Actions from KVK Senior Agricultural Scientist (Highest Priority)
+    const structuredActions = advisoryResult?.what_to_do_now || advisoryResult?.structuredAdvice?.what_to_do_now;
+    if (Array.isArray(structuredActions) && structuredActions.length > 0) {
+      structuredActions.forEach((act, idx) => {
+        const timing = act.timing || (idx === 0 ? 'आज ही (तुरंत)' : '24 घंटे के भीतर');
+        const isUrgent = idx === 0 || timing.toLowerCase().includes('aaj') || timing.toLowerCase().includes('immediate') || timing.includes('तुरंत');
+        actions.push({
+          priority: isUrgent ? 'URGENT' : (idx === 1 ? 'HIGH' : 'MEDIUM'),
+          priorityColor: isUrgent ? '🔴' : (idx === 1 ? '🟠' : '🟡'),
+          badgeClass: isUrgent ? 'bg-rose-100 text-rose-800 border-rose-300' : (idx === 1 ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-amber-100 text-amber-800 border-amber-300'),
+          categoryEn: act.action_title || 'PRIMARY REMEDY',
+          categoryHi: act.action_title || 'प्राथमिक उपचार',
+          whatEn: act.instruction || act.action_title,
+          whatHi: act.instruction || act.action_title,
+          whyEn: advisoryResult?.why_is_this_happening || advisoryResult?.structuredAdvice?.why_is_this_happening || '',
+          whyHi: advisoryResult?.why_is_this_happening || advisoryResult?.structuredAdvice?.why_is_this_happening || '',
+          whenEn: timing,
+          whenHi: timing
+        });
+      });
+      return actions.slice(0, 3);
+    }
 
     // CASE 1: Farmer asked a specific problem in current query
     if (queryProblem && queryProblem.category !== 'HEALTHY_MAINTENANCE') {
@@ -407,10 +477,16 @@ export default function FarmerActionDashboard({
     });
 
     return actions;
-  }, [queryProblem, hasDiseaseDetected, detectedProblem, moistureScore]);
+  }, [advisoryResult?.what_to_do_now, advisoryResult?.structuredAdvice?.what_to_do_now, advisoryResult?.why_is_this_happening, advisoryResult?.structuredAdvice?.why_is_this_happening, queryProblem, hasDiseaseDetected, detectedProblem, moistureScore]);
 
   // 6. SHORT "WHY IS THIS HAPPENING?" (1–2 short sentences only)
   const shortWhyExplanation = useMemo(() => {
+    if (advisoryResult?.why_is_this_happening) {
+      return advisoryResult.why_is_this_happening;
+    }
+    if (advisoryResult?.structuredAdvice?.why_is_this_happening) {
+      return advisoryResult.structuredAdvice.why_is_this_happening;
+    }
     if (queryProblem && queryProblem.category !== 'HEALTHY_MAINTENANCE') {
       return isHindi ? queryProblem.whyHi : queryProblem.whyEn;
     }
@@ -431,7 +507,30 @@ export default function FarmerActionDashboard({
         ? 'अनुकूल मौसम और पर्याप्त नमी के कारण फसल का विकास सामान्य और स्वस्थ है।'
         : 'Favorable weather and adequate soil moisture are supporting healthy crop growth.';
     }
-  }, [queryProblem, hasDiseaseDetected, moistureScore, isHindi]);
+  }, [advisoryResult?.why_is_this_happening, advisoryResult?.structuredAdvice?.why_is_this_happening, queryProblem, hasDiseaseDetected, moistureScore, isHindi]);
+
+  // Dynamic Timeline values
+  const timelineData = useMemo(() => {
+    const rawTimeline = advisoryResult?.action_timeline || advisoryResult?.structuredAdvice?.action_timeline;
+    if (rawTimeline && (rawTimeline.today || rawTimeline.in_24_hours || rawTimeline.in_2_3_days || rawTimeline.next_7_days)) {
+      return {
+        today: rawTimeline.today,
+        in24h: rawTimeline.in_24_hours,
+        in23Days: rawTimeline.in_2_3_days,
+        next7Days: rawTimeline.next_7_days
+      };
+    }
+    return {
+      today: moistureScore < 50 
+        ? (isHindi ? 'खेत में सिंचाई जांचें' : 'Check / apply irrigation') 
+        : (isHindi ? 'फसल की सामान्य जांच करें' : 'Inspect crop foliage'),
+      in24h: hasDiseaseDetected 
+        ? (isHindi ? 'संभावित रोग का उपचार करें' : 'Apply plant treatment') 
+        : (isHindi ? 'नमी व फसल तनाव पर नजर रखें' : 'Monitor crop stress'),
+      in23Days: isHindi ? 'फसल की स्थिति दोबारा जांचें' : 'Recheck crop condition',
+      next7Days: isHindi ? 'स्वास्थ्य प्रगति की समीक्षा करें' : 'Review crop health trend'
+    };
+  }, [advisoryResult?.action_timeline, advisoryResult?.structuredAdvice?.action_timeline, moistureScore, hasDiseaseDetected, isHindi]);
 
   // 12. CROP HEALTH TREND (7d / 30d / 90d)
   const trendAnalysis = useMemo(() => {
@@ -866,9 +965,7 @@ export default function FarmerActionDashboard({
               🔴 {isHindi ? 'आज (TODAY)' : 'TODAY'}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
-              {moistureScore < 50 
-                ? (isHindi ? 'खेत में सिंचाई जांचें' : 'Check / apply irrigation') 
-                : (isHindi ? 'फसल की सामान्य जांच करें' : 'Inspect crop foliage')}
+              {timelineData.today}
             </p>
           </div>
 
@@ -877,9 +974,7 @@ export default function FarmerActionDashboard({
               🟠 {isHindi ? 'अगले 24 घंटे' : 'NEXT 24 HOURS'}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
-              {hasDiseaseDetected 
-                ? (isHindi ? 'संभावित रोग का उपचार करें' : 'Apply plant treatment') 
-                : (isHindi ? 'नमी व फसल तनाव पर नजर रखें' : 'Monitor crop stress')}
+              {timelineData.in24h}
             </p>
           </div>
 
@@ -888,7 +983,7 @@ export default function FarmerActionDashboard({
               🟡 {isHindi ? '2–3 दिन बाद' : 'NEXT 2–3 DAYS'}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
-              {isHindi ? 'फसल की स्थिति दोबारा जांचें' : 'Recheck crop condition'}
+              {timelineData.in23Days}
             </p>
           </div>
 
@@ -897,7 +992,7 @@ export default function FarmerActionDashboard({
               🟢 {isHindi ? 'अगले 7 दिन' : 'NEXT 7 DAYS'}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
-              {isHindi ? 'स्वास्थ्य प्रगति की समीक्षा करें' : 'Review crop health trend'}
+              {timelineData.next7Days}
             </p>
           </div>
         </div>

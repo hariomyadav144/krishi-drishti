@@ -7,6 +7,7 @@ const {
 } = require('./geminiService');
 const { getAgronomyFallbackAdvice } = require('./agronomyFallbackEngine');
 const { analyzeCropImage } = require('./aiVisionService');
+const { generateStandardStructuredAdvice } = require('../utils/universalAgricultureEngine');
 
 // Request in-flight deduplication cache
 const activeRequests = new Map();
@@ -228,12 +229,19 @@ async function getUnifiedAiAdvice(params) {
           'Gemini Primary'
         );
 
-        if (geminiResult && geminiResult.answer) {
+        if (geminiResult && (geminiResult.answer || geminiResult.structuredAdvice)) {
+          const structured = geminiResult.structuredAdvice || generateStandardStructuredAdvice({
+            query: cleanQ,
+            crop,
+            farmContext,
+            language
+          });
           return {
             success: true,
             answer: geminiResult.answer,
+            structuredAdvice: structured,
             language: geminiResult.language || language,
-            crop: geminiResult.crop || crop,
+            crop: structured.crop_name || geminiResult.crop || crop,
             stage: geminiResult.stage || cropStage,
             source: 'primary_ai',
             timestamp: new Date().toISOString()
@@ -257,6 +265,13 @@ async function getUnifiedAiAdvice(params) {
 
     console.log('[AI Service] Primary provider unavailable. Seamlessly engaging Fallback Engine...');
 
+    const dynamicFallback = generateStandardStructuredAdvice({
+      query: cleanQ,
+      crop,
+      farmContext,
+      language
+    });
+
     // STEP 2: Attempt Cloud Fallback Provider if configured (Groq, OpenAI, Secondary Gemini)
     try {
       const cloudFallback = await callCloudFallbackProvider({
@@ -272,8 +287,9 @@ async function getUnifiedAiAdvice(params) {
         return {
           success: true,
           answer: cloudFallback.answer,
+          structuredAdvice: dynamicFallback,
           language,
-          crop,
+          crop: dynamicFallback.crop_name || crop,
           stage: cropStage,
           source: 'cloud_fallback',
           timestamp: new Date().toISOString()
@@ -284,7 +300,6 @@ async function getUnifiedAiAdvice(params) {
     }
 
     // STEP 3: Fallback Agronomy Knowledge Engine
-    // Generates verified, structured Hindi agricultural advice tailored to crop & issue
     try {
       const agronomyResult = getAgronomyFallbackAdvice({
         question: cleanQ,
@@ -298,8 +313,9 @@ async function getUnifiedAiAdvice(params) {
         return {
           success: true,
           answer: agronomyResult.answer,
+          structuredAdvice: dynamicFallback,
           language,
-          crop: agronomyResult.crop || crop,
+          crop: dynamicFallback.crop_name || agronomyResult.crop || crop,
           stage: cropStage,
           source: 'agronomy_knowledge_engine',
           timestamp: new Date().toISOString()
@@ -309,15 +325,15 @@ async function getUnifiedAiAdvice(params) {
       console.error('[AI Service] Agronomy Fallback error:', agronomyErr.message);
     }
 
-    // STEP 4: Absolute Emergency Safe Fallback
-    // NEVER expose technical 429/quota/keys to the farmer
+    // STEP 4: Absolute Emergency Safe Fallback with dynamic structured diagnosis
     return {
       success: true,
-      answer: getFriendlyBusyMessage(language),
+      answer: dynamicFallback.why_is_this_happening || getFriendlyBusyMessage(language),
+      structuredAdvice: dynamicFallback,
       language,
-      crop,
+      crop: dynamicFallback.crop_name || crop,
       stage: cropStage,
-      source: 'safe_emergency_response',
+      source: 'kvk_scientific_rules_engine',
       timestamp: new Date().toISOString()
     };
   })();

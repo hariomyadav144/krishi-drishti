@@ -6,6 +6,7 @@ import VoiceReader from '../components/VoiceReader';
 import FeedbackModal from '../components/FeedbackModal';
 import FarmerActionDashboard from '../components/FarmerActionDashboard';
 import { assembleClientFarmContext } from '../services/farmIntelligenceService';
+import { generateStandardStructuredAdvice } from '../services/universalCropEngine';
 import { 
   Sparkles, 
   Send, 
@@ -326,9 +327,18 @@ export default function AiAdvisor({ setActiveTab }) {
           answer: cleanedAnswer,
           queryText: userQuery,
           cropName: detectedCrop,
+          crop_name: res.data.crop_name || res.data.data?.crop_name || detectedCrop,
+          detected_issue: res.data.detected_issue || res.data.data?.detected_issue,
+          severity: res.data.severity || res.data.data?.severity,
+          health_score: typeof res.data.health_score === 'number' ? res.data.health_score : (typeof res.data.data?.health_score === 'number' ? res.data.data.health_score : undefined),
+          what_needs_attention: res.data.what_needs_attention || res.data.data?.what_needs_attention,
+          what_to_do_now: res.data.what_to_do_now || res.data.data?.what_to_do_now,
+          why_is_this_happening: res.data.why_is_this_happening || res.data.data?.why_is_this_happening,
+          action_timeline: res.data.action_timeline || res.data.data?.action_timeline,
+          structuredAdvice: res.data.structuredAdvice || res.data.data?.structuredAdvice,
           plantPart: res.data.plantPart || res.data.data?.plantPart || (lang === 'hi' ? 'पत्ती / पौधा' : 'Leaf / Plant'),
           healthStatus: res.data.healthStatus || res.data.data?.healthStatus || (res.data.farmContext?.healthStatus) || 'Healthy',
-          detectedProblem: res.data.detectedProblem || res.data.data?.detectedProblem,
+          detectedProblem: res.data.detectedProblem || res.data.data?.detectedProblem || res.data.detected_issue,
           confidence: res.data.confidence || res.data.data?.confidence || 90,
           confidenceLevel: res.data.confidenceLevel || res.data.data?.confidenceLevel || 'High',
           visibleSymptoms: res.data.visibleSymptoms || res.data.data?.visibleSymptoms || res.data.data?.whatAiFound || '',
@@ -355,10 +365,42 @@ export default function AiAdvisor({ setActiveTab }) {
       }
     } catch (err) {
       console.warn('Advisor query notice:', err.message || err);
-      const friendlyMsg = lang === 'en'
-        ? 'AI advice is temporarily busy. Please try again shortly.'
-        : 'अभी सलाह सेवा थोड़ी व्यस्त है। कृपया कुछ देर बाद फिर कोशिश करें।';
-      setError(friendlyMsg);
+      // Offline / network fallback: dynamically generate structured advice
+      const targetCrop = activeFarmContext?.crop || currentCrop?.cropName || 'Field Crop';
+      const fallbackStructured = generateStandardStructuredAdvice({
+        query,
+        crop: targetCrop,
+        farmContext: activeFarmContext,
+        language: lang || 'hi'
+      });
+      const fallbackAnswer = fallbackStructured.what_to_do_now[0]?.instruction || (lang === 'en' ? 'AI advice is temporarily busy.' : 'अभी सलाह सेवा थोड़ी व्यस्त है।');
+
+      setAdvisoryResult({
+        answer: fallbackAnswer,
+        queryText: query,
+        cropName: fallbackStructured.crop_name,
+        crop_name: fallbackStructured.crop_name,
+        detected_issue: fallbackStructured.detected_issue,
+        severity: fallbackStructured.severity,
+        health_score: fallbackStructured.health_score,
+        what_needs_attention: fallbackStructured.what_needs_attention,
+        what_to_do_now: fallbackStructured.what_to_do_now,
+        why_is_this_happening: fallbackStructured.why_is_this_happening,
+        action_timeline: fallbackStructured.action_timeline,
+        structuredAdvice: fallbackStructured,
+        isIdentifiable: true,
+        isPlant: true,
+        wasImageQuery: !!imageFile,
+        farmContext: activeFarmContext
+      });
+
+      setChatHistory(prev => [
+        ...prev,
+        { role: 'user', content: query || (lang === 'hi' ? 'पौधे की फोटो जांच' : 'Crop Photo Inspection') },
+        { role: 'model', content: fallbackAnswer }
+      ]);
+      setQueryText('');
+      removeImage();
     } finally {
       setLoading(false);
       isSubmittingRef.current = false;

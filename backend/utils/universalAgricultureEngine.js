@@ -75,7 +75,8 @@ const PROBLEM_PATTERNS = [
     keywords: [
       'pani bhar gaya', 'paani bhar gaya', 'waterlogging', 'excess water', 
       'jalbharav', 'water logging', 'flood', 'flooding', 'standing water', 
-      'जलभराव', 'पानी भर गया', 'डूब गया', 'अत्यधिक पानी', 'जल भराव', 'पानी भरा', 'पानी भर'
+      'pani lag gaya', 'paani lag gaya', 'pani jama', 'paani jama', 'pani ruk gaya',
+      'जलभराव', 'पानी भर गया', 'डूब गया', 'अत्यधिक पानी', 'जल भराव', 'पानी भरा', 'पानी भर', 'पानी लग गया', 'पानी जमा'
     ],
     titleEn: 'Excess Water & Waterlogging Stress',
     titleHi: 'खेत में अतिरिक्त जलभराव (Waterlogging)',
@@ -215,6 +216,70 @@ const PROBLEM_PATTERNS = [
     whenHi: 'अगले 24 से 36 घंटे में (धूप वाले दिन)।',
     monitorEn: 'Look for new spot emergence on top fresh leaves.',
     monitorHi: 'देखें कि नई निकल रही पत्तियों पर धब्बे तो नहीं आ रहे।'
+  },
+
+  // 4.1 Powdery Mildew / White Spots / Chachia
+  {
+    category: 'POWDERY_MILDEW_WHITE_SPOTS',
+    keywords: [
+      'white spot', 'white spots', 'safed dhabbe', 'safed daag', 'safed dhaba', 'chachia', 'chaachia',
+      'powdery', 'mildew', 'safed fafund', 'white powder', 'सफेद धब्बे', 'सफेद दाग', 'छाछिया', 'सफेद फफूंद', 'सफेद पाउडर'
+    ],
+    titleEn: 'Powdery Mildew & Foliar White Spots',
+    titleHi: 'पत्तियों पर सफेद फफूंद / छाछिया रोग (Powdery Mildew)',
+    severity: 'HIGH',
+    urgencyPriority: 2,
+    healthScore: 48,
+    actionTitle: 'घुलनशील गंधक या हेक्साकोनाज़ोल का छिड़काव',
+    timing: 'आज ही (24 घंटे के भीतर)',
+    immediateStepsEn: [
+      'Spray Wettable Sulphur 80% WP @ 2g/L or Hexaconazole 5% EC @ 1ml/L of water in early morning or evening.',
+      'Remove and safely destroy heavily infected bottom leaves to reduce fungal spore spread.',
+      'Avoid overhead irrigation to keep leaf foliage dry.'
+    ],
+    immediateStepsHi: [
+      'घुलनशील सल्फर (Wettable Sulphur 80% WP) 2 ग्राम प्रति लीटर या हेक्साकोनाज़ोल 5% EC 1 मिली/लीटर पानी में मिलाकर छिड़कें।',
+      'अधिक संक्रमित निचली पत्तियों को तोड़कर खेत से दूर नष्ट करें ताकि फफूंद के बीजाणु न फैलें।',
+      'फसल पर ऊपर से पानी छिड़कने से बचें ताकि पत्तियां गीली न रहें।'
+    ],
+    whyEn: 'High relative humidity (>70%) and warm canopy temperatures (20–28°C) trigger rapid Oidium fungal spore multiplication on leaf surfaces.',
+    whyHi: 'हवा में 70% से अधिक नमी और अनुकूल तापमान के कारण ओइडियम फंगस के बीजाणु पत्तियों पर तेजी से फैलते हैं।',
+    whenEn: 'Within 24 hours (morning or evening hours).',
+    whenHi: 'अगले 24 घंटे के भीतर (सुबह या शाम के समय)।',
+    monitorEn: 'Inspect leaf undersides after 3 days to verify fungal spread has stopped.',
+    monitorHi: '3 दिन बाद पत्तियों की निचली सतह देखें कि सफेद चूर्ण का फैलाव रुका या नहीं।'
+  },
+
+  // 4.2 Karnal Bunt / Black Ear Smut / Kala Ho Gaya
+  {
+    category: 'BLACK_SMUT_KARNAL_BUNT',
+    keywords: [
+      'kala ho gaya', 'kale ho gaye', 'kali bali', 'kala daag', 'karnal bunt', 'smut', 'loose smut',
+      'blackening', 'black ear', 'kala pad gaya', 'काला हो गया', 'काली बाली', 'करनाल बंट', 'काला कंडुआ', 'काला'
+    ],
+    titleEn: 'Karnal Bunt & Black Smut Ear Infection',
+    titleHi: 'बालियों व दानों का काला पड़ना (Karnal Bunt / Smut)',
+    severity: 'CRITICAL',
+    urgencyPriority: 1,
+    healthScore: 38,
+    actionTitle: 'प्रभावित बालियां हटाएं व प्रोपिकोनाजोल स्प्रे करें',
+    timing: 'तुरंत (Immediate)',
+    immediateStepsEn: [
+      'Spray Propiconazole 25% EC (Tilt) @ 1ml per litre of water immediately across the affected field.',
+      'Collect and carefully burn heavily infected black ears away from the field in polythene bags.',
+      'Do not use grain from affected plots for next season sowing.'
+    ],
+    immediateStepsHi: [
+      'टिल्ट (Propiconazole 25% EC) 1 मिली प्रति लीटर पानी की दर से पूरे खेत में तुरंत छिड़काव करें।',
+      'काली और संक्रमित बालियों को पॉलीथिन में बंद कर खेत से दूर ले जाकर नष्ट या जला दें।',
+      'प्रभावित खेत के दानों को अगले वर्ष बीज के रूप में कदापि प्रयोग न करें।'
+    ],
+    whyEn: 'Fungal pathogen Tilletia indica infects developing grains at flowering during cool, cloudy, high-humidity periods, converting grain contents into foul-smelling black teliospores.',
+    whyHi: 'फूल आने के समय उच्च आर्द्रता और बादलों वाले मौसम में टिलेशिया इंडिका फफूंद दानों को काले बदबूदार चूर्ण में बदल देती है।',
+    whenEn: 'Immediately (within 12–24 hours).',
+    whenHi: 'तुरंत (अगले 12 से 24 घंटे के भीतर)।',
+    monitorEn: 'Check adjacent healthy tillers 2 days after spray for any black powder emergence.',
+    monitorHi: 'छिड़काव के 2 दिन बाद आसपास की स्वस्थ बालियों की जांच करें।'
   },
 
   // 5. Low Moisture / Drought / Dry Field
@@ -456,10 +521,112 @@ function buildUniversalActionAdvice({ crop, problem, language = 'hi', queryText 
   }
 }
 
+/**
+ * Generate standard structured advice conforming strictly to the KVK Senior Agricultural Scientist JSON schema
+ */
+function generateStandardStructuredAdvice({ query = '', crop = '', farmContext = null, language = 'hi' }) {
+  const isEn = language === 'en';
+  const queryCrop = extractCropFromQuery(query);
+  const detectedProb = extractProblemFromQuery(query);
+
+  let cropName = '';
+  if (queryCrop) {
+    cropName = isEn ? queryCrop.canonical : queryCrop.nameHi;
+  } else if (crop && crop !== 'General' && crop !== 'Field Crop') {
+    cropName = crop;
+  } else if (farmContext?.cropInfo?.crop) {
+    cropName = farmContext.cropInfo.crop;
+  } else {
+    cropName = isEn ? 'Field Crop' : 'आपकी फसल';
+  }
+
+  if (detectedProb) {
+    const isCritical = detectedProb.severity === 'URGENT' || detectedProb.category === 'BLACK_SMUT_KARNAL_BUNT';
+    const isHigh = detectedProb.severity === 'HIGH' || detectedProb.category === 'WATERLOGGING' || detectedProb.category === 'POWDERY_MILDEW_WHITE_SPOTS';
+    const isLow = detectedProb.category === 'HEALTHY_MAINTENANCE';
+
+    const severityStr = isCritical ? 'Critical' : (isHigh ? 'High' : (isLow ? 'Low' : 'Moderate'));
+    let healthScore = detectedProb.healthScore || (isCritical ? 38 : (isHigh ? 48 : (isLow ? 90 : 65)));
+
+    const title = isEn ? detectedProb.titleEn : detectedProb.titleHi;
+    const why = isEn ? detectedProb.whyEn : detectedProb.whyHi;
+    const steps = isEn ? detectedProb.immediateStepsEn : detectedProb.immediateStepsHi;
+
+    const what_to_do_now = [];
+    if (steps && steps.length > 0) {
+      what_to_do_now.push({
+        action_title: detectedProb.actionTitle || (isEn ? steps[0].split('.')[0] : steps[0].split('।')[0]),
+        timing: isCritical ? (isEn ? 'Immediate (Today)' : 'आज ही (तुरंत)') : (isEn ? 'Within 24 hours' : '24 घंटे के भीतर'),
+        instruction: steps[0]
+      });
+      if (steps.length > 1) {
+        what_to_do_now.push({
+          action_title: isEn ? 'Secondary Protection Step' : 'द्वितीयक बचाव कदम',
+          timing: isEn ? 'Next 24–48 hours' : 'अगले 24 से 48 घंटे में',
+          instruction: steps[1]
+        });
+      }
+      if (detectedProb.monitorHi || detectedProb.monitorEn) {
+        what_to_do_now.push({
+          action_title: isEn ? 'Field Monitoring & Next Inspection' : 'खेत की निगरानी व पुनः जांच',
+          timing: isEn ? 'In 2–3 days' : '2 से 3 दिन बाद',
+          instruction: isEn ? detectedProb.monitorEn : detectedProb.monitorHi
+        });
+      }
+    }
+
+    return {
+      crop_name: cropName,
+      detected_issue: title,
+      severity: severityStr,
+      health_score: healthScore,
+      what_needs_attention: {
+        title: title,
+        description: why
+      },
+      what_to_do_now,
+      why_is_this_happening: why,
+      action_timeline: {
+        today: what_to_do_now[0]?.instruction || (isEn ? 'Inspect affected plot' : 'प्रभावित खेत का निरीक्षण करें'),
+        in_24_hours: what_to_do_now[1]?.instruction || (isEn ? 'Execute primary remedy' : 'प्राथमिक उपचार पूरा करें'),
+        in_2_3_days: isEn ? 'Recheck treated crops for recovery' : 'फसल में सुधार की जांच करें',
+        next_7_days: isEn ? 'Routine monitoring' : 'साप्ताहिक सामान्य निरीक्षण'
+      }
+    };
+  }
+
+  // General healthy/inquiry default
+  return {
+    crop_name: cropName,
+    detected_issue: isEn ? 'General Crop Care' : 'सामान्य फसल देखभाल व पोषण',
+    severity: 'Low',
+    health_score: 85,
+    what_needs_attention: {
+      title: isEn ? 'No Major Threat Detected' : 'कोई गंभीर समस्या नहीं (No Major Threat)',
+      description: isEn ? 'Current field conditions and query indicate normal crop vigor.' : 'वर्तमान आंकड़ों और विवरण के अनुसार फसल पर कोई गंभीर तनाव या रोग नहीं है।'
+    },
+    what_to_do_now: [
+      {
+        action_title: isEn ? 'Balanced Irrigation & Weekly Scouting' : 'संतुलित सिंचाई व साप्ताहिक निरीक्षण',
+        timing: isEn ? 'Weekly' : 'साप्ताहिक',
+        instruction: isEn ? 'Maintain optimal root moisture according to crop growth stage and scout foliage weekly.' : 'फसल अवस्था के अनुसार सामान्य संतुलित सिंचाई जारी रखें और सप्ताह में एक बार खेत का निरीक्षण करें।'
+      }
+    ],
+    why_is_this_happening: isEn ? 'Crop is in normal growth condition without active pest or disease infestation.' : 'फसल में कोई सक्रिय कीट या फफूंद का प्रकोप नहीं है, बढ़वार सामान्य है।',
+    action_timeline: {
+      today: isEn ? 'Check soil moisture' : 'मिट्टी में नमी की जांच करें',
+      in_24_hours: isEn ? 'Maintain normal watering schedule' : 'सामान्य सिंचाई चक्र बनाए रखें',
+      in_2_3_days: isEn ? 'Scout foliage' : 'पत्तियों का सामान्य निरीक्षण करें',
+      next_7_days: isEn ? 'Weekly review' : 'साप्ताहिक समीक्षा'
+    }
+  };
+}
+
 module.exports = {
   extractCropFromQuery,
   extractProblemFromQuery,
   buildUniversalActionAdvice,
+  generateStandardStructuredAdvice,
   CROP_MAP,
   PROBLEM_PATTERNS
 };
