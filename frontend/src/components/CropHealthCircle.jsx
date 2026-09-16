@@ -70,8 +70,8 @@ export default function CropHealthCircle({
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mt-1.5 leading-relaxed font-medium">
             {lang === 'hi'
-              ? 'फसल स्वास्थ्य की वास्तविक निगरानी शुरू करने के लिए अपने खेत और फसल की जानकारी जोड़ें।'
-              : 'Add your field and crop information to start monitoring crop health.'}
+              ? 'फसल स्वास्थ्य निगरानी शुरू करने के लिए अपने खेत और फसल की जानकारी जोड़ें।'
+              : 'Add your field and crop information to start crop health monitoring.'}
           </p>
         </div>
         <button

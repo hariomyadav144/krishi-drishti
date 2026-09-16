@@ -45,7 +45,8 @@ import CropHealthModal from '../components/CropHealthModal';
 import { 
   fetchLatestCropHealth, 
   fetchCropHealthSummary, 
-  recalculateCropHealth 
+  recalculateCropHealth,
+  calculateCropHealth
 } from '../services/cropHealthService';
 
 const safeParse = (key) => {
@@ -98,8 +99,18 @@ export default function FarmerDashboard({ setActiveTab }) {
   const [monitoringSummaries, setMonitoringSummaries] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Real-Time Crop Health States
-  const [cropHealthData, setCropHealthData] = useState(() => safeParse('krishi_crop_health_cache') || null);
+  // Real-Time Crop Health States: calculate synchronously on initial load so it renders immediately!
+  const [cropHealthData, setCropHealthData] = useState(() => {
+    const cached = safeParse('krishi_crop_health_cache');
+    if (cached && typeof cached.healthScore === 'number') return cached;
+    const initialDash = getInitialDashboardData();
+    return calculateCropHealth('default', {
+      farm: initialDash.farm,
+      currentCrop: initialDash.currentCrop,
+      recentAnalyses: initialDash.recentAnalyses,
+      weatherData: safeParse('krishi_weather_cache') || MOCK_WEATHER
+    });
+  });
   const [healthFieldsSummary, setHealthFieldsSummary] = useState([]);
   const [selectedHealthFieldId, setSelectedHealthFieldId] = useState(null);
   const [isHealthModalOpen, setIsHealthModalOpen] = useState(false);
@@ -125,7 +136,12 @@ export default function FarmerDashboard({ setActiveTab }) {
         fetchCropHistoryStats().catch(() => null),
         fetchMonitoringDashboardSummary().catch(() => []),
         fetchCropHealthSummary().catch(() => []),
-        fetchLatestCropHealth(selectedHealthFieldId || 'default').catch(() => null)
+        fetchLatestCropHealth(selectedHealthFieldId || 'default', {
+          farm: dashboardData?.farm,
+          currentCrop: dashboardData?.currentCrop,
+          recentAnalyses: dashboardData?.recentAnalyses,
+          weatherData
+        }).catch(() => null)
       ]);
 
       if (dashRes?.data?.success) {
@@ -153,9 +169,8 @@ export default function FarmerDashboard({ setActiveTab }) {
       if (Array.isArray(healthSummaryRes) && healthSummaryRes.length > 0) {
         setHealthFieldsSummary(healthSummaryRes);
       }
-      if (latestHealthRes) {
+      if (latestHealthRes && typeof latestHealthRes.healthScore === 'number') {
         setCropHealthData(latestHealthRes);
-        safeSet('krishi_crop_health_cache', latestHealthRes);
       }
     } catch (e) {
       console.warn('Dashboard background refresh note:', e.message);
@@ -170,11 +185,24 @@ export default function FarmerDashboard({ setActiveTab }) {
 
   const handleSelectHealthField = async (fieldId) => {
     setSelectedHealthFieldId(fieldId);
+    // Instant dynamic recalculation for selected field
+    const immediateData = calculateCropHealth(fieldId, {
+      farm: dashboardData?.farm,
+      currentCrop: dashboardData?.currentCrop,
+      recentAnalyses: dashboardData?.recentAnalyses,
+      weatherData
+    });
+    setCropHealthData(immediateData);
+
     try {
-      const data = await fetchLatestCropHealth(fieldId);
-      if (data) {
+      const data = await fetchLatestCropHealth(fieldId, {
+        farm: dashboardData?.farm,
+        currentCrop: dashboardData?.currentCrop,
+        recentAnalyses: dashboardData?.recentAnalyses,
+        weatherData
+      });
+      if (data && typeof data.healthScore === 'number') {
         setCropHealthData(data);
-        safeSet('krishi_crop_health_cache', data);
       }
     } catch (err) {
       console.warn('Field health switch note:', err);
@@ -184,13 +212,17 @@ export default function FarmerDashboard({ setActiveTab }) {
   const handleRecalculateHealth = async () => {
     setIsRecalculatingHealth(true);
     try {
-      const updated = await recalculateCropHealth(selectedHealthFieldId || 'default');
-      if (updated) {
+      const updated = await recalculateCropHealth(selectedHealthFieldId || 'default', {
+        farm: dashboardData?.farm,
+        currentCrop: dashboardData?.currentCrop,
+        recentAnalyses: dashboardData?.recentAnalyses,
+        weatherData
+      });
+      if (updated && typeof updated.healthScore === 'number') {
         setCropHealthData(updated);
-        safeSet('krishi_crop_health_cache', updated);
       }
       fetchCropHealthSummary().then(res => {
-        if (Array.isArray(res)) setHealthFieldsSummary(res);
+        if (Array.isArray(res) && res.length > 0) setHealthFieldsSummary(res);
       });
     } catch (err) {
       console.error('Recalculate error:', err);
@@ -354,7 +386,73 @@ export default function FarmerDashboard({ setActiveTab }) {
         </div>
       </div>
 
-      {/* 4. Live Field Mapping, Mandi & Satellite Live Tickers Grid */}
+      {/* 4. Agro-Weather Forecast (Directly visible near top) */}
+      <WeatherWidget
+        weatherData={weatherData}
+        onSeeFullForecast={() => setActiveTab('weather')}
+      />
+
+      {/* 5. Upcoming Tasks & Action Plan */}
+      <ActionPlanChecklist
+        tasks={pendingTasks}
+        onToggleTask={handleToggleTask}
+        onSeeAllTasks={() => setActiveTab('plans')}
+      />
+
+      {/* 6. Recent AI Crop Scans */}
+      {recentAnalyses && recentAnalyses.length > 0 && (
+        <div className="agri-card p-5 bg-white border-slate-200">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="font-bold text-slate-900 text-sm">{t('dashboard.recentAnalyses')}</h4>
+            <button
+              onClick={() => setActiveTab('insights')}
+              className="text-xs font-semibold text-agri-700 hover:text-agri-800 flex items-center gap-1"
+            >
+              <TrendingUp className="w-3.5 h-3.5" />
+              <span>{t('nav.insights')}</span>
+            </button>
+          </div>
+
+          <div className="space-y-3">
+            {recentAnalyses.map((item) => (
+              <div
+                key={item._id || item.id || Math.random()}
+                onClick={() => setActiveTab('diagnose')}
+                className="p-3 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 flex items-center justify-between gap-3 cursor-pointer transition"
+              >
+                <div className="flex items-center gap-3">
+                  <img
+                    src={item.imageUrl || 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=300&auto=format&fit=crop&q=80'}
+                    alt={item.cropName || item.crop || 'Crop'}
+                    className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
+                    onError={(e) => {
+                      e.target.src = 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=300&auto=format&fit=crop&q=80';
+                    }}
+                  />
+                  <div>
+                    <h5 className="font-bold text-xs text-slate-900">
+                      {lang === 'hi' ? (item.detectedProblemHi || item.diseaseHi || 'अगेती झुलसा') : (item.detectedProblem || item.disease || 'Early Blight')}
+                    </h5>
+                    <p className="text-[11px] text-slate-500">
+                      {item.cropName || item.crop || 'Tomato'} • {item.confidence || '94.6%'} Confidence
+                    </p>
+                  </div>
+                </div>
+
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
+                  item.severity === 'Critical' || item.severity === 'High'
+                    ? 'bg-red-50 text-red-700 border-red-200'
+                    : 'bg-amber-50 text-amber-700 border-amber-200'
+                }`}>
+                  {item.severity}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 7. Other existing sections: Live Field Mapping, Mandi & Satellite Live Tickers Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         
         {/* Field Intelligence Spotlight */}
@@ -449,7 +547,7 @@ export default function FarmerDashboard({ setActiveTab }) {
 
       </div>
 
-      {/* 3. Today's Smart Advice Banner */}
+      {/* Today's Smart Advice Banner */}
       <div className="agri-card p-4 sm:p-5 bg-gradient-to-br from-amber-500/10 via-white to-emerald-500/10 border-amber-200 shadow-sm relative">
         <div className="flex items-start justify-between gap-3">
           <div className="flex items-start gap-3">
@@ -489,7 +587,7 @@ export default function FarmerDashboard({ setActiveTab }) {
         </div>
       </div>
 
-      {/* 3.5. MY FIELD MONITORING (AUTONOMOUS CONTINUOUS MONITORING) */}
+      {/* MY FIELD MONITORING (AUTONOMOUS CONTINUOUS MONITORING) */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2">
@@ -624,27 +722,14 @@ export default function FarmerDashboard({ setActiveTab }) {
         )}
       </div>
 
-      {/* 5. Current Crop Card */}
+      {/* Current Active Crop Card */}
       <CropCard
         crop={currentCrop}
         onScanClick={() => setActiveTab('diagnose')}
         onViewDetails={() => setActiveTab('profile')}
       />
 
-      {/* 6. Weather Overview Widget */}
-      <WeatherWidget
-        weatherData={weatherData}
-        onSeeFullForecast={() => setActiveTab('weather')}
-      />
-
-      {/* 7. Upcoming Tasks & Action Plan Checklist */}
-      <ActionPlanChecklist
-        tasks={pendingTasks}
-        onToggleTask={handleToggleTask}
-        onSeeAllTasks={() => setActiveTab('plans')}
-      />
-
-      {/* 8. Crop Health History Widget (Permanent MongoDB Atlas Archival) */}
+      {/* Crop Health History Widget (Permanent MongoDB Atlas Archival) */}
       <div className="agri-card p-5 bg-white border-slate-200 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div className="flex items-center gap-2.5">
@@ -720,59 +805,6 @@ export default function FarmerDashboard({ setActiveTab }) {
           </div>
         </div>
       </div>
-
-      {/* 9. Crop Health Summary & Recent Scans */}
-      {recentAnalyses && recentAnalyses.length > 0 && (
-        <div className="agri-card p-5 bg-white border-slate-200">
-          <div className="flex items-center justify-between mb-3">
-            <h4 className="font-bold text-slate-900 text-sm">{t('dashboard.recentAnalyses')}</h4>
-            <button
-              onClick={() => setActiveTab('insights')}
-              className="text-xs font-semibold text-agri-700 hover:text-agri-800 flex items-center gap-1"
-            >
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{t('nav.insights')}</span>
-            </button>
-          </div>
-
-          <div className="space-y-3">
-            {recentAnalyses.map((item) => (
-              <div
-                key={item._id || item.id || Math.random()}
-                onClick={() => setActiveTab('diagnose')}
-                className="p-3 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 flex items-center justify-between gap-3 cursor-pointer transition"
-              >
-                <div className="flex items-center gap-3">
-                  <img
-                    src={item.imageUrl || 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=300&auto=format&fit=crop&q=80'}
-                    alt={item.cropName || item.crop || 'Crop'}
-                    className="w-12 h-12 rounded-xl object-cover border border-slate-200 shrink-0"
-                    onError={(e) => {
-                      e.target.src = 'https://images.unsplash.com/photo-1592417817098-8f3d6eb22509?w=300&auto=format&fit=crop&q=80';
-                    }}
-                  />
-                  <div>
-                    <h5 className="font-bold text-xs text-slate-900">
-                      {lang === 'hi' ? (item.detectedProblemHi || item.diseaseHi || 'अगेती झुलसा') : (item.detectedProblem || item.disease || 'Early Blight')}
-                    </h5>
-                    <p className="text-[11px] text-slate-500">
-                      {item.cropName || item.crop || 'Tomato'} • {item.confidence || '94.6%'} Confidence
-                    </p>
-                  </div>
-                </div>
-
-                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shrink-0 ${
-                  item.severity === 'Critical' || item.severity === 'High'
-                    ? 'bg-red-50 text-red-700 border-red-200'
-                    : 'bg-amber-50 text-amber-700 border-amber-200'
-                }`}>
-                  {item.severity}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Detailed Crop Health Diagnostic Modal */}
       <CropHealthModal
