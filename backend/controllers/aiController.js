@@ -6,6 +6,11 @@ const {
   getFriendlyBusyMessage
 } = require('../services/aiService');
 const { testGeminiDiagnostic } = require('../services/geminiService');
+const {
+  loadFarmIntelligenceContext,
+  crossValidateAgronomicSignals,
+  constructUnifiedFarmPrompt
+} = require('../services/farmIntelligenceEngine');
 
 function cleanUserQuery(raw) {
   if (!raw || typeof raw !== 'string') return '';
@@ -33,6 +38,7 @@ const getAiAdvice = async (req, res) => {
     soil,
     weather,
     location,
+    fieldId,
     language = 'hi',
     conversationHistory
   } = req.body || {};
@@ -48,19 +54,39 @@ const getAiAdvice = async (req, res) => {
       });
     }
 
-    const selectedCrop = crop && crop !== 'Tomato' ? crop : (cropName && cropName !== 'Tomato' ? cropName : 'General');
-    const selectedStage = stage || cropStage || '';
+    const userId = req.user ? req.user._id : (req.body?.farmerId || req.body?.userId || 'demo_farmer');
 
-    // Execute Unified AI Service (Primary -> Cloud Fallback -> Agronomy Engine)
+    // 1. Load Complete Farm Intelligence Context (8 Dimensions)
+    const farmContext = await loadFarmIntelligenceContext(userId, fieldId || req.body?.fieldId || 'default');
+
+    // Override or augment with any explicit payload values
+    if (crop && crop !== 'Tomato') farmContext.cropInfo.crop = crop;
+    if (cropName && cropName !== 'Tomato') farmContext.cropInfo.crop = cropName;
+    if (stage || cropStage) farmContext.cropInfo.cropStage = stage || cropStage;
+    if (soil && typeof soil === 'object') Object.assign(farmContext.soilInfo, soil);
+    if (weather && typeof weather === 'object') Object.assign(farmContext.weatherEnvironment, weather);
+
+    const selectedCrop = farmContext.cropInfo.crop || 'Wheat';
+    const selectedStage = farmContext.cropInfo.cropStage || 'Vegetative';
+
+    // 2. Perform Multi-Factor Agronomic Cross-Validation
+    const crossValidationSignals = crossValidateAgronomicSignals(farmContext, query);
+
+    // 3. Construct Unified Farm Context Prompt
+    const unifiedPrompt = constructUnifiedFarmPrompt(farmContext, query, crossValidationSignals, language);
+
+    // 4. Execute Unified AI Service with Complete Farm Intelligence Context
     const result = await getUnifiedAiAdvice({
       question: query,
       crop: selectedCrop,
       cropStage: selectedStage,
-      soil: soil || null,
-      weather: weather || null,
-      location: location || '',
+      soil: farmContext.soilInfo,
+      weather: farmContext.weatherEnvironment,
+      location: location || `${farmContext.farmInfo.district}, ${farmContext.farmInfo.state}`,
       language: language || 'hi',
-      conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : []
+      conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : [],
+      unifiedPrompt,
+      farmContext
     });
 
     return res.status(200).json({
@@ -69,9 +95,24 @@ const getAiAdvice = async (req, res) => {
       language: result.language || language,
       crop: result.crop || selectedCrop,
       stage: selectedStage,
-      source: result.source || 'ai_service',
+      source: result.source || 'farm_intelligence_engine',
       timestamp: result.timestamp || new Date().toISOString(),
-      message: 'Agricultural advice generated successfully',
+      farmContext: {
+        fieldId: farmContext.fieldInfo.fieldId,
+        fieldName: farmContext.fieldInfo.fieldName,
+        crop: selectedCrop,
+        stage: selectedStage,
+        soilType: farmContext.fieldInfo.soilType,
+        healthStatus: farmContext.cropHealth.overallStatus,
+        healthScore: farmContext.cropHealth.healthScore,
+        weather: {
+          temp: farmContext.weatherEnvironment.temperatureC,
+          humidity: farmContext.weatherEnvironment.humidityPercent,
+          rain24h: farmContext.weatherEnvironment.precipitationForecast24h
+        },
+        signals: crossValidationSignals
+      },
+      message: 'Complete farm intelligence advisory generated successfully',
       data: {
         answer: result.answer,
         queryText: query,

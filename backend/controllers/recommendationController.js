@@ -4,6 +4,11 @@ const Farm = require('../models/Farm');
 const ActionPlan = require('../models/ActionPlan');
 const { getUnifiedAiAdvice } = require('../services/aiService');
 const { getFarmWeather } = require('../services/weatherService');
+const {
+  loadFarmIntelligenceContext,
+  crossValidateAgronomicSignals,
+  constructUnifiedFarmPrompt
+} = require('../services/farmIntelligenceEngine');
 
 function cleanUserQuery(raw) {
   if (!raw || typeof raw !== 'string') return '';
@@ -19,39 +24,40 @@ function cleanUserQuery(raw) {
 // @route POST /api/recommendations/ask
 const askAdvisor = async (req, res) => {
   try {
-    const { queryText, question, cropName, crop, cropStage, language, conversationHistory } = req.body;
-    const userId = req.user ? req.user._id : null;
+    const { queryText, question, cropName, crop, cropStage, fieldId, language, conversationHistory } = req.body;
+    const userId = req.user ? req.user._id : (req.body?.farmerId || req.body?.userId || 'demo_farmer');
     const actualQuery = cleanUserQuery(queryText || question || '');
 
     if (!actualQuery) {
       return res.status(400).json({ success: false, message: 'Please provide a farming question or topic.' });
     }
 
-    // Fetch farmer context if user is logged in
-    let activeCrop = null;
-    let farm = null;
-    if (userId) {
-      try {
-        [activeCrop, farm] = await Promise.all([
-          Crop.findOne({ farmerId: userId, isCurrent: true }),
-          Farm.findOne({ farmerId: userId }),
-        ]);
-      } catch (dbErr) {
-        console.warn('DB lookup skipped in askAdvisor:', dbErr.message);
-      }
-    }
+    // 1. Load Complete Farm Intelligence Context (8 Dimensions)
+    const farmContext = await loadFarmIntelligenceContext(userId, fieldId || req.body?.fieldId || 'default');
 
-    const targetCropName = crop || cropName || (activeCrop ? activeCrop.cropName : 'Tomato');
-    const targetCropStage = cropStage || (activeCrop ? activeCrop.cropStage : 'Flowering Stage');
+    if (crop && crop !== 'Tomato') farmContext.cropInfo.crop = crop;
+    if (cropName && cropName !== 'Tomato') farmContext.cropInfo.crop = cropName;
+    if (cropStage) farmContext.cropInfo.cropStage = cropStage;
 
-    // Call Unified AI Service (Primary Gemini -> Cloud Fallback -> Agronomy Engine)
+    const targetCropName = farmContext.cropInfo.crop || 'Wheat';
+    const targetCropStage = farmContext.cropInfo.cropStage || 'Vegetative';
+
+    // 2. Perform Multi-Factor Agronomic Cross-Validation
+    const crossValidationSignals = crossValidateAgronomicSignals(farmContext, actualQuery);
+
+    // 3. Construct Unified Farm Context Prompt
+    const unifiedPrompt = constructUnifiedFarmPrompt(farmContext, actualQuery, crossValidationSignals, language || 'hi');
+
+    // 4. Call Unified AI Service with Complete Farm Intelligence Context
     const geminiResult = await getUnifiedAiAdvice({
       question: actualQuery,
       crop: targetCropName,
       cropStage: targetCropStage,
-      location: farm ? (farm.district || farm.state || '') : '',
+      location: `${farmContext.farmInfo.district}, ${farmContext.farmInfo.state}`,
       language: language || 'hi',
-      conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : []
+      conversationHistory: Array.isArray(conversationHistory) ? conversationHistory : [],
+      unifiedPrompt,
+      farmContext
     });
 
     const advice = {

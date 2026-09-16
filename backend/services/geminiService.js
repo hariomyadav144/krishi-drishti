@@ -261,10 +261,12 @@ async function askGeminiAdvisor({
   weather = null,
   location = '',
   language = 'hi',
-  conversationHistory = []
+  conversationHistory = [],
+  unifiedPrompt = null,
+  farmContext = null
 }) {
   const q = (question || '').trim();
-  if (!q) {
+  if (!q && !unifiedPrompt) {
     const error = new Error('Please provide a farming question or topic.');
     error.statusCode = 400;
     throw error;
@@ -286,17 +288,15 @@ async function askGeminiAdvisor({
     if (soilStr && soilStr !== '{}') contextTokens.push(`Soil: ${soilStr}`);
   }
   if (weather) {
-    const wStr = typeof weather === 'object' ? (weather.summary || weather.condition || (weather.temp ? `${weather.temp}°C` : '')) : String(weather);
-    if (wStr && wStr !== '{}') contextTokens.push(`Weather: ${wStr}`);
+    const weatherStr = typeof weather === 'object' ? `${weather.temp || weather.temperature || ''}°C, ${weather.condition || ''}` : String(weather);
+    if (weatherStr.trim() !== '°C,') contextTokens.push(`Weather: ${weatherStr}`);
   }
   const langPromptName = getLanguagePromptName(language);
   contextTokens.push(`Language: ${langPromptName}`);
 
-  // Assemble conversation contents
+  // Conversation history
   const contents = [];
-
-  // Add conversation history if available
-  if (Array.isArray(conversationHistory)) {
+  if (Array.isArray(conversationHistory) && conversationHistory.length > 0) {
     for (const msg of conversationHistory) {
       if (msg && msg.content && typeof msg.content === 'string' && msg.content.trim()) {
         contents.push({
@@ -307,9 +307,11 @@ async function askGeminiAdvisor({
     }
   }
 
-  // Construct final prompt with context
+  // Construct final prompt with complete Farm Intelligence context
   let finalPrompt = q;
-  if (contextTokens.length > 0) {
+  if (unifiedPrompt && typeof unifiedPrompt === 'string' && unifiedPrompt.trim()) {
+    finalPrompt = unifiedPrompt.trim();
+  } else if (contextTokens.length > 0) {
     finalPrompt = `[Agricultural Context: ${contextTokens.join(' | ')}]\n\nFarmer Question: ${q}`;
   }
 

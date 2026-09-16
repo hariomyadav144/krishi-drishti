@@ -182,11 +182,13 @@ async function getUnifiedAiAdvice(params) {
     weather = null,
     location = '',
     language = 'hi',
-    conversationHistory = []
+    conversationHistory = [],
+    unifiedPrompt = null,
+    farmContext = null
   } = params || {};
 
   const cleanQ = (question || '').trim();
-  if (!cleanQ) {
+  if (!cleanQ && !unifiedPrompt) {
     const error = new Error('Please provide a farming question or topic.');
     error.statusCode = 400;
     throw error;
@@ -218,7 +220,9 @@ async function getUnifiedAiAdvice(params) {
             weather,
             location,
             language,
-            conversationHistory
+            conversationHistory,
+            unifiedPrompt,
+            farmContext
           }),
           16000,
           'Gemini Primary'
