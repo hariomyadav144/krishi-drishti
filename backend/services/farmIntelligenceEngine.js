@@ -399,45 +399,37 @@ FARMER QUESTION / PROBLEM:
 ==================================================
 
 CRITICAL INSTRUCTIONS FOR YOUR ADVISORY:
-1. NEVER suggest urea or fertilizer in isolation if yellowing is caused by soil saturation or pH lockup.
-2. If rain is expected in 24h, WARN the farmer NOT to spray chemicals immediately.
-3. Calculate exact fertilizer or remedy quantities for ${f.areaAcres || 4.5} ${context.farmInfo?.landUnit || 'Acres'}.
-4. Provide structured, respectful, farmer-friendly response in ${langPrompt} formatted as:
+1. CORE PRINCIPLE: ALWAYS ANSWER THE FARMER'S ACTUAL CURRENT QUESTION FIRST!
+   - If the farmer mentions ANY crop in the question (e.g. Paddy, Tomato, Potato, Sugarcane, Mustard, Cotton, Maize, Chana, Onion, etc.), use THAT CROP. Never let saved or default farm data override the crop the farmer is asking about!
+   - If the farmer asks about a specific problem (e.g. "pani bhar gaya" / waterlogging, "keede lag gaye" / pest, "growth nahi ho rahi" / stunted growth, "phool gir rahe hain" / flower dropping), address THAT PROBLEM directly.
+   - DO NOT INVENT unmentioned diseases or nutrient deficiencies if there is no evidence.
+2. ACTION FIRST:
+   - Provide clear, immediate action steps: WHAT to do, WHY to do it, and WHEN to do it.
+3. NEVER suggest urea or fertilizer in isolation if problem is waterlogging, soil saturation, or pH lockup.
+4. If rain is expected in 24h, WARN the farmer NOT to spray chemicals immediately.
+5. Calculate exact fertilizer or remedy quantities for ${f.areaAcres || 4.5} ${context.farmInfo?.landUnit || 'Acres'}.
+6. Provide structured, respectful, farmer-friendly response in ${langPrompt} formatted as:
 
-### 🌱 Krishi Drishti Farm Advisory (कृषि दृष्टि संपूर्ण कृषि परामर्श)
-**फसल (Crop):** ${c.crop || 'Wheat'} (${c.cropVariety || 'Hybrid'}) | **खेत (Field):** ${f.fieldName || 'Plot A'} (${f.areaAcres || 4.5} एकड़) | **अवस्था (Stage):** ${c.cropStage || 'Vegetative'}
-**वर्तमान स्थिति (Overall Status):** ${h.overallStatus || 'Healthy'}
+### 🌾 फसल (Crop): ${c.crop || 'Crop'} | समस्या (Issue): ${signals?.detectedProblemTitle || 'कृषि मार्गदर्शन'}
+**प्राथमिकता (Priority):** ${signals?.urgency || 'HIGH'}
 
-### 🔍 कृषि दृष्टि ने आपके खेत में क्या पाया (What Krishi Drishti Found)
-[Direct diagnostic summary addressing the specific question using farm telemetry]
+### ⚠️ क्या समस्या है (Problem Summary)
+[Direct 1-2 line summary of the farmer's current problem]
 
-### 💡 संभावित मुख्य कारण (Most Likely Root Cause)
-- [Root cause with confidence level, explaining WHY based on soil, crop stage, and moisture]
+### 💡 ऐसा क्यों हो रहा है (Why This Is Happening)
+[1-2 clear, simple sentences explaining why based on crop, weather, and soil]
 
-### ⚖️ विभिन्न कारकों का मिलान व विश्लेषण (Why This Is Happening)
-- **मिट्टी व पोषण (Soil & Nutrients):** [Detail pH, NPK, and micronutrients relation]
-- **फसल अवस्था (Crop Stage):** [Why this crop stage is sensitive to this factor]
-- **नमी व सिंचाई (Moisture & Water):** [Soil moisture relation]
-- **मौसम (Weather):** [Temperature & rainfall impact]
+### ✅ तुरंत क्या करें (What You Should Do Now - Action Steps)
+1. **तुरंत (Immediate Action):** [Step 1]
+2. **अगले 24-48 घंटों में (Within 24-48 Hours):** [Step 2]
+3. **निगरानी (Monitoring):** [Step 3]
 
-### ⚡ तुरंत क्या करें (What You Should Do Now - Prioritized)
-1. **आज / तुरंत (Immediate Action):** [Action 1]
-2. **अगले 2–3 दिनों में (Within 2-3 Days):** [Action 2]
-3. **निगरानी (Monitor):** [Scouting inspection step]
+### 🧪 उपचार व प्रबंधन (Treatment & Remedy)
+- **जैविक या सुरक्षित उपाय:** [Organic or cultural control]
+- **अनुशंसित उपचार व मात्रा:** [Exact recommended dosage for ${f.areaAcres || 4.5} ${context.farmInfo?.landUnit || 'Acres'}]
 
-### 🧪 पोषण व उर्वरक प्रबंधन (Nutrition & Fertilizer Plan)
-- **उर्वरक / पोषक तत्व:** [Exact recommended product, e.g. 19:19:19, Zinc Sulphate, or Chelated Iron]
-- **मात्रा (Dosage):** [Exact calculated dosage for ${f.areaAcres || 4.5} एकड़]
-- **प्रयोग की विधि व समय:** [Foliar spray / Drip fertigation / Broadcasting]
-
-### 💧 सिंचाई मार्गदर्शन (Water & Irrigation)
-[Specific irrigation guidance considering rain forecast of ${w.precipitationForecast24h || 0}mm and current ${wi.moistureScore || 78}% moisture]
-
-### ⚠️ मौसम व सुरक्षा सावधानी (Weather & Safety Caution)
-[Spray safety, rain timing warning, and pesticide label precautions]
-
-### 📅 अगली जांच (Next Check & Re-inspection)
-[Exact date/time when farmer should inspect field or upload a new photo]`;
+### ⏰ कब करें व अगली जांच (Timeline & Next Check)
+[When to execute and when to inspect the field again]`;
 }
 
 module.exports = {

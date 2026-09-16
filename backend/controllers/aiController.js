@@ -11,6 +11,11 @@ const {
   crossValidateAgronomicSignals,
   constructUnifiedFarmPrompt
 } = require('../services/farmIntelligenceEngine');
+const {
+  extractCropFromQuery,
+  extractProblemFromQuery,
+  buildUniversalActionAdvice
+} = require('../utils/universalAgricultureEngine');
 
 function cleanUserQuery(raw) {
   if (!raw || typeof raw !== 'string') return '';
@@ -59,18 +64,40 @@ const getAiAdvice = async (req, res) => {
     // 1. Load Complete Farm Intelligence Context (8 Dimensions)
     const farmContext = await loadFarmIntelligenceContext(userId, fieldId || req.body?.fieldId || 'default');
 
-    // Override or augment with any explicit payload values
-    if (crop && crop !== 'Tomato') farmContext.cropInfo.crop = crop;
-    if (cropName && cropName !== 'Tomato') farmContext.cropInfo.crop = cropName;
+    // DYNAMIC CROP RESOLUTION:
+    // Core Rule: The current query ALWAYS takes top priority.
+    // Check if the farmer explicitly mentioned a crop in the current query:
+    const queryCrop = extractCropFromQuery(query);
+    const queryProblem = extractProblemFromQuery(query);
+
+    let selectedCrop;
+    if (queryCrop) {
+      // Latest farmer message explicitly provided a crop -> ALWAYS use it
+      selectedCrop = language === 'en' ? queryCrop.canonical : queryCrop.nameHi;
+      farmContext.cropInfo.crop = selectedCrop;
+    } else if (crop && crop !== 'General' && crop !== 'Tomato') {
+      selectedCrop = crop;
+      farmContext.cropInfo.crop = crop;
+    } else if (cropName && cropName !== 'General' && cropName !== 'Tomato') {
+      selectedCrop = cropName;
+      farmContext.cropInfo.crop = cropName;
+    } else {
+      selectedCrop = farmContext.cropInfo.crop || (language === 'en' ? 'Field Crop' : 'फसल');
+    }
+
     if (stage || cropStage) farmContext.cropInfo.cropStage = stage || cropStage;
     if (soil && typeof soil === 'object') Object.assign(farmContext.soilInfo, soil);
     if (weather && typeof weather === 'object') Object.assign(farmContext.weatherEnvironment, weather);
 
-    const selectedCrop = farmContext.cropInfo.crop || 'Wheat';
-    const selectedStage = farmContext.cropInfo.cropStage || 'Vegetative';
+    const selectedStage = farmContext.cropInfo.cropStage || 'Vegetative Stage';
 
     // 2. Perform Multi-Factor Agronomic Cross-Validation
     const crossValidationSignals = crossValidateAgronomicSignals(farmContext, query);
+    if (queryProblem) {
+      crossValidationSignals.detectedProblemCategory = queryProblem.category;
+      crossValidationSignals.detectedProblemTitle = language === 'en' ? queryProblem.titleEn : queryProblem.titleHi;
+      crossValidationSignals.urgency = queryProblem.severity;
+    }
 
     // 3. Construct Unified Farm Context Prompt
     const unifiedPrompt = constructUnifiedFarmPrompt(farmContext, query, crossValidationSignals, language);
@@ -89,18 +116,24 @@ const getAiAdvice = async (req, res) => {
       farmContext
     });
 
+    const finalAnswer = result.answer;
+    const finalCrop = (queryCrop ? (language === 'en' ? queryCrop.canonical : queryCrop.nameHi) : (result.crop || selectedCrop));
+
     return res.status(200).json({
       success: true,
-      answer: result.answer,
+      answer: finalAnswer,
       language: result.language || language,
-      crop: result.crop || selectedCrop,
+      crop: finalCrop,
       stage: selectedStage,
+      detectedProblem: queryProblem ? (language === 'en' ? queryProblem.titleEn : queryProblem.titleHi) : null,
+      problemCategory: queryProblem?.category || null,
+      priority: queryProblem?.severity || 'MEDIUM',
       source: result.source || 'farm_intelligence_engine',
       timestamp: result.timestamp || new Date().toISOString(),
       farmContext: {
         fieldId: farmContext.fieldInfo.fieldId,
         fieldName: farmContext.fieldInfo.fieldName,
-        crop: selectedCrop,
+        crop: finalCrop,
         stage: selectedStage,
         soilType: farmContext.fieldInfo.soilType,
         healthStatus: farmContext.cropHealth.overallStatus,
@@ -114,15 +147,16 @@ const getAiAdvice = async (req, res) => {
       },
       message: 'Complete farm intelligence advisory generated successfully',
       data: {
-        answer: result.answer,
+        answer: finalAnswer,
         queryText: query,
-        cropName: result.crop || selectedCrop,
+        cropName: finalCrop,
         cropStage: selectedStage,
+        detectedProblem: queryProblem ? (language === 'en' ? queryProblem.titleEn : queryProblem.titleHi) : null,
         timestamp: result.timestamp || new Date().toISOString()
       },
       // Backwards-compatible root aliases
       queryText: query,
-      cropName: result.crop || selectedCrop
+      cropName: finalCrop
     });
   } catch (error) {
     console.error('[Krishi Drishti] AI Advice Catch:', error.message || error);
