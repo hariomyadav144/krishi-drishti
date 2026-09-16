@@ -318,7 +318,21 @@ function crossValidateAgronomicSignals(context, queryText, imageAnalysis = null)
  * for Gemini / AI service.
  */
 function constructUnifiedFarmPrompt(context, queryText, signals, language = 'hi') {
-  const langPrompt = language === 'en' ? 'English' : (language === 'mr' ? 'Marathi' : (language === 'pa' ? 'Punjabi' : 'Hindi'));
+  const langMap = {
+    en: 'English',
+    hi: 'Hindi (हिंदी)',
+    mr: 'Marathi (मराठी)',
+    pa: 'Punjabi (ਪੰਜਾਬੀ)',
+    gu: 'Gujarati (ગુજરાતી)',
+    bn: 'Bengali (বাংলা)',
+    ta: 'Tamil (தமிழ்)',
+    te: 'Telugu (తెలుగు)',
+    kn: 'Kannada (ಕನ್ನಡ)',
+    ml: 'Malayalam (മലയാളം)',
+    or: 'Odia (ଓଡ଼ିଆ)',
+    as: 'Assamese (অসমীয়া)'
+  };
+  const langPrompt = langMap[language?.toLowerCase()] || 'Hindi (हिंदी)';
   const f = context.fieldInfo || {};
   const c = context.cropInfo || {};
   const s = context.soilInfo || {};
@@ -327,9 +341,9 @@ function constructUnifiedFarmPrompt(context, queryText, signals, language = 'hi'
   const h = context.cropHealth || {};
   const a = context.actionHistory || {};
 
-  return `You are Krishi Drishti Farm Intelligence Engine, advising an Indian farmer based on their REAL FARM TELEMETRY.
+  return `You are SWAR (स्वर), Krishi Drishti's Voice-First Farm Intelligence & Agricultural Advisory Assistant.
 MANDATORY: You must NOT give isolated or generic advice. You MUST explicitly evaluate and reference the farmer's complete farm context below.
-Language: Generate your complete output strictly in ${langPrompt}.
+Language: Generate your complete output strictly in ${langPrompt}. Do not mix languages.
 
 ==================================================
 COMPLETE FARM INTELLIGENCE CONTEXT FOR THIS FARM:
@@ -374,10 +388,10 @@ COMPLETE FARM INTELLIGENCE CONTEXT FOR THIS FARM:
    - Preventive Sprays: ${a.previousPesticides || 'Neem oil spray'}
 
 8. MULTI-FACTOR CROSS-VALIDATION SIGNALS:
-   - Primary Intent: ${signals.primaryIntent}
-   - Hypothesized Causes: ${signals.possibleRootCauses.map(r => r.cause).join('; ')}
-   - Eliminated Causes: ${signals.eliminatedCauses.map(e => `${e.cause} (${e.reason})`).join('; ')}
-   - Conflicting Data Points: ${signals.conflictingSignals.join('; ') || 'None - telemetry consistent'}
+   - Primary Intent: ${signals?.primaryIntent || 'General Agronomy'}
+   - Hypothesized Causes: ${(signals?.possibleRootCauses || []).map(r => r.cause).join('; ') || 'Standard crop nutrition'}
+   - Eliminated Causes: ${(signals?.eliminatedCauses || []).map(e => `${e.cause} (${e.reason})`).join('; ') || 'None'}
+   - Conflicting Data Points: ${(signals?.conflictingSignals || []).join('; ') || 'None - telemetry consistent'}
 
 ==================================================
 FARMER QUESTION / PROBLEM:

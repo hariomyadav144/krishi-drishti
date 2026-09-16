@@ -65,7 +65,18 @@ export default function Navbar({ activeTab, setActiveTab }) {
           {/* Right Action Icons & Profile */}
           <div className="flex items-center gap-2 sm:gap-3">
 
-            {/* 4-Language Dropdown Switcher */}
+            {/* SWAR Voice Assistant Quick Trigger */}
+            <button
+              id="nav-btn-swar"
+              onClick={() => setActiveTab('advice')}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow-xs transition active:scale-95 border border-emerald-400/40"
+              title="Talk to SWAR (स्वर)"
+            >
+              <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
+              <span>🎙️ SWAR</span>
+            </button>
+
+            {/* Multilingual 12-Language Dropdown Switcher */}
             <div className="relative">
               <button
                 onClick={() => setShowLangMenu(!showLangMenu)}
@@ -79,11 +90,12 @@ export default function Navbar({ activeTab, setActiveTab }) {
 
               {showLangMenu && (
                 <div 
-                  className="absolute right-0 mt-2 w-40 bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 text-slate-800 z-50 text-xs animate-in fade-in slide-in-from-top-2"
+                  className="absolute right-0 mt-2 w-56 max-h-80 overflow-y-auto bg-white rounded-2xl shadow-2xl border border-slate-200 py-1.5 text-slate-800 z-50 text-xs animate-in fade-in slide-in-from-top-2 pr-1"
                   onClick={() => setShowLangMenu(false)}
                 >
-                  <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100">
-                    Select Language
+                  <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
+                    <span>Select Language</span>
+                    <Globe className="w-3 h-3" />
                   </div>
                   {availableLanguages.map((l) => (
                     <button
@@ -97,7 +109,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
                     >
                       <span className="flex items-center gap-2">
                         <span>{l.icon}</span>
-                        <span>{l.native} ({l.label})</span>
+                        <span>{l.native} <span className="text-[10px] text-slate-400 font-normal">({l.label})</span></span>
                       </span>
                       {lang === l.code && <Check className="w-3.5 h-3.5 text-emerald-600" />}
                     </button>

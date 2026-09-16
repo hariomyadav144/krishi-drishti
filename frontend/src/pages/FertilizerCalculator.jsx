@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLanguage } from '../context/LanguageContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../services/api';
+import VoiceFormField from '../components/VoiceFormField';
 import { 
   Calculator, 
   Leaf, 
@@ -108,19 +109,15 @@ export default function FertilizerCalculator() {
               </select>
             </div>
 
-            {/* Land Area */}
+            {/* Land Area with Voice Input */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                {t('fertilizer.landSize')}
-              </label>
-              <input
-                type="number"
-                step="0.1"
-                min="0.1"
+              <VoiceFormField
+                label={t('fertilizer.landSize') || 'Land Size'}
+                fieldType="quantity"
                 value={landArea}
                 onChange={(e) => setLandArea(e.target.value)}
                 placeholder="e.g. 2.5"
-                className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold focus:bg-white focus:outline-none"
+                unit={landUnit}
               />
             </div>
 

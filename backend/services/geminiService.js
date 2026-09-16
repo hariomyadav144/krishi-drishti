@@ -97,11 +97,29 @@ const SYSTEM_INSTRUCTION_MR = `IMPORTANT: You are an agricultural expert advisin
 
 const SYSTEM_INSTRUCTION_PA = `IMPORTANT: You are an agricultural expert advising a farmer in Punjab. You must answer ONLY in pure Punjabi (ਪੰਜਾਬੀ / Gurmukhi script). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Punjabi. Do not use LaTeX symbols.`;
 
+const SYSTEM_INSTRUCTION_GU = `IMPORTANT: You are an agricultural expert advising a farmer in Gujarat. You must answer ONLY in pure Gujarati (ગુજરાતી). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Gujarati. Do not use LaTeX symbols.`;
+
+const SYSTEM_INSTRUCTION_BN = `IMPORTANT: You are an agricultural expert advising a farmer in West Bengal. You must answer ONLY in pure Bengali (বাংলা). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Bengali. Do not use LaTeX symbols.`;
+
+const SYSTEM_INSTRUCTION_TA = `IMPORTANT: You are an agricultural expert advising a farmer in Tamil Nadu. You must answer ONLY in pure Tamil (தமிழ்). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Tamil. Do not use LaTeX symbols.`;
+
+const SYSTEM_INSTRUCTION_TE = `IMPORTANT: You are an agricultural expert advising a farmer in Andhra Pradesh or Telangana. You must answer ONLY in pure Telugu (తెలుగు). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Telugu. Do not use LaTeX symbols.`;
+
+const SYSTEM_INSTRUCTION_KN = `IMPORTANT: You are an agricultural expert advising a farmer in Karnataka. You must answer ONLY in pure Kannada (ಕನ್ನಡ). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Kannada. Do not use LaTeX symbols.`;
+
+const SYSTEM_INSTRUCTION_ML = `IMPORTANT: You are an agricultural expert advising a farmer in Kerala. You must answer ONLY in pure Malayalam (മലയാളം). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Malayalam. Do not use LaTeX symbols.`;
+
 function getSystemInstruction(language = 'hi') {
   const l = (language || 'hi').toLowerCase();
   if (l === 'en') return SYSTEM_INSTRUCTION_EN;
   if (l === 'mr') return SYSTEM_INSTRUCTION_MR;
   if (l === 'pa') return SYSTEM_INSTRUCTION_PA;
+  if (l === 'gu') return SYSTEM_INSTRUCTION_GU;
+  if (l === 'bn') return SYSTEM_INSTRUCTION_BN;
+  if (l === 'ta') return SYSTEM_INSTRUCTION_TA;
+  if (l === 'te') return SYSTEM_INSTRUCTION_TE;
+  if (l === 'kn') return SYSTEM_INSTRUCTION_KN;
+  if (l === 'ml') return SYSTEM_INSTRUCTION_ML;
   return SYSTEM_INSTRUCTION_HI;
 }
 
@@ -110,6 +128,14 @@ function getLanguagePromptName(language = 'hi') {
   if (l === 'en') return 'English';
   if (l === 'mr') return 'Marathi (मराठी)';
   if (l === 'pa') return 'Punjabi (ਪੰਜਾਬੀ)';
+  if (l === 'gu') return 'Gujarati (ગુજરાતી)';
+  if (l === 'bn') return 'Bengali (বাংলা)';
+  if (l === 'ta') return 'Tamil (தமிழ்)';
+  if (l === 'te') return 'Telugu (తెలుగు)';
+  if (l === 'kn') return 'Kannada (ಕನ್ನಡ)';
+  if (l === 'ml') return 'Malayalam (മലയാളം)';
+  if (l === 'or') return 'Odia (ଓଡ଼ିଆ)';
+  if (l === 'as') return 'Assamese (অসমীয়া)';
   return 'Hindi (हिंदी)';
 }
 

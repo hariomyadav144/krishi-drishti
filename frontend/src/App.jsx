@@ -2,10 +2,13 @@ import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AlertProvider } from './context/AlertContext';
+import { SwarProvider } from './context/SwarContext';
 
 import Navbar from './components/Navbar';
 import BottomNav from './components/BottomNav';
 import TabErrorBoundary from './components/TabErrorBoundary';
+import SwarAssistant from './components/SwarAssistant';
+import LanguageSelectionModal from './components/LanguageSelectionModal';
 
 // Keep critical initial path components statically loaded
 import Login from './pages/Login';
@@ -368,9 +371,18 @@ function MainApp() {
         </TabErrorBoundary>
       </main>
 
-      {/* Mobile Sticky Bottom Navigation */}
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
-    </div>
+        {/* Mobile Sticky Bottom Navigation */}
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+
+        {/* Global Floating SWAR AI & Voice Assistant (Available on every page) */}
+        <SwarAssistant />
+
+        {/* First Launch Language Selector Modal */}
+        <LanguageSelectionModal
+          isOpen={!localStorage.getItem('krishi_lang_selected_once')}
+          onClose={() => localStorage.setItem('krishi_lang_selected_once', 'true')}
+        />
+      </div>
   );
 }
 
@@ -379,7 +391,9 @@ export default function App() {
     <LanguageProvider>
       <AuthProvider>
         <AlertProvider>
-          <MainApp />
+          <SwarProvider>
+            <MainApp />
+          </SwarProvider>
         </AlertProvider>
       </AuthProvider>
     </LanguageProvider>

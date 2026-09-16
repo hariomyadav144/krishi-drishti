@@ -657,7 +657,7 @@ export default function AiAdvisor({ setActiveTab }) {
 
       </div>
 
-      {/* Real Conversational Krishi Drishti AI Advice Result */}
+      {/* Real Conversational SWAR AI Advice Result */}
       {advisoryResult && (
         <div className="agri-card p-5 bg-white border-emerald-400 shadow-xl space-y-4 animate-in fade-in slide-in-from-bottom-3">
           
@@ -668,7 +668,7 @@ export default function AiAdvisor({ setActiveTab }) {
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1.5 border border-emerald-200">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                   <span>
-                    KRISHI DRISHTI AI • {advisoryResult.cropName ? advisoryResult.cropName.toUpperCase() : (lang === 'hi' ? 'कृषि दृष्टि AI' : 'AGRICULTURAL INTELLIGENCE')}
+                    SWAR (स्वर) VOICE AI • {advisoryResult.cropName ? advisoryResult.cropName.toUpperCase() : (lang === 'hi' ? 'स्वर कृषि सलाहकार' : 'SWAR AI ADVISOR')}
                   </span>
                 </span>
               </div>
