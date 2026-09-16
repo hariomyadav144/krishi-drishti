@@ -91,6 +91,35 @@ export const PROBLEM_PATTERNS = [
     monitorHi: 'पानी निकलने के 2 दिन बाद तने और जड़ों की सड़न की जांच करें।'
   },
 
+  // 1.5 Brown Leaves / Foliage Necrosis
+  {
+    category: 'BROWN_LEAVES',
+    keywords: [
+      'brown', 'bhoora', 'bhura', 'bhoore', 'bhure', 'brown leaves', 'brown leaf', 'browning',
+      'भूरे', 'भूरा', 'पत्ते भूरे', 'पत्तियां भूरी', 'भूरापन', 'ब्राउन'
+    ],
+    titleEn: 'Leaf Browning Symptoms',
+    titleHi: 'पत्तियों का भूरापन (Brown Leaves)',
+    severity: 'HIGH',
+    priorityColor: '🟠',
+    immediateStepsEn: [
+      'Check whether browning is at leaf tips/margins (potassium/moisture stress) or circular spots (fungal early blight).',
+      'Avoid overhead wetting of foliage; ensure proper root zone aeration.',
+      'Remove severely affected lower leaves and spray copper oxychloride or bio-fungicide if fungal.'
+    ],
+    immediateStepsHi: [
+      'देखें कि भूरापन पत्ती के किनारों पर है (पोटाश/नमी तनाव) या गोल धब्बे हैं (अगेती झुलसा/फफूंद)।',
+      'पत्तियों पर ऊपर से पानी छिड़कने से बचें; खेत में उचित नमी बनाए रखें।',
+      'अधिक प्रभावित निचली पत्तियों को हटा दें और फफूंद के लक्षण दिखने पर सुरक्षात्मक फफूंदनाशक का छिड़काव करें।'
+    ],
+    whyEn: 'Leaf browning is typically caused by fungal foliar blight, potassium deficit, or extreme moisture fluctuations.',
+    whyHi: 'पत्तियों का भूरा होना आमतौर पर फफूंद संक्रमण (अगेती झुलसा), पोटाश की कमी या नमी के असंतुलन से होता है।',
+    whenEn: 'Within 24–48 hours.',
+    whenHi: 'अगले 24 से 48 घंटे में।',
+    monitorEn: 'Inspect upper new leaves to ensure browning does not spread upwards.',
+    monitorHi: 'ऊपरी नई पत्तियों की जांच करें कि भूरापन ऊपर तो नहीं फैल रहा।'
+  },
+
   // 2. Yellowing Leaves / Chlorosis
   {
     category: 'YELLOW_LEAVES',
@@ -259,6 +288,33 @@ export const PROBLEM_PATTERNS = [
     whyHi: 'नमी के झटके, तेज गर्मी या बोरॉन की कमी से फूलों की डंडी कमजोर होकर टूटने लगती है।',
     whenEn: 'Within 24–48 hours.',
     whenHi: 'अगले 24 से 48 घंटे में।'
+  },
+
+  // 8. Healthy Crop / Routine Maintenance Query
+  {
+    category: 'HEALTHY_MAINTENANCE',
+    keywords: [
+      'healthy', 'achhi hai', 'acchi hai', 'theek hai', 'swasth', 'looks healthy', 'good condition',
+      'स्वस्थ', 'अच्छी है', 'ठीक है'
+    ],
+    titleEn: 'Crop is Healthy - General Care',
+    titleHi: 'फसल स्वस्थ है - सामान्य रखरखाव',
+    severity: 'LOW',
+    priorityColor: '🟢',
+    immediateStepsEn: [
+      'No immediate corrective or chemical action required.',
+      'Maintain standard balanced irrigation according to crop stage.',
+      'Scout field weekly for early pest, disease, or weed emergence.'
+    ],
+    immediateStepsHi: [
+      'किसी तात्कालिक रासायनिक उपचार की आवश्यकता नहीं है।',
+      'फसल अवस्था के अनुसार सामान्य संतुलित सिंचाई जारी रखें।',
+      'सप्ताह में एक बार खेत का सामान्य निरीक्षण करते रहें।'
+    ],
+    whyEn: 'Crop foliage and vegetative vigor appear normal and healthy with no active symptoms detected.',
+    whyHi: 'फसल की पत्तियां और बढ़वार सामान्य व स्वस्थ दिख रही हैं, वर्तमान में कोई सक्रिय बीमारी या तनाव नहीं है।',
+    whenEn: 'Routine weekly check.',
+    whenHi: 'साप्ताहिक सामान्य निरीक्षण।'
   }
 ];
 

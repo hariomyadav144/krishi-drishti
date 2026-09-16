@@ -182,203 +182,136 @@ export default function FarmerActionDashboard({
     !detectedProblem.toLowerCase().includes('clean foliage')
   );
 
-  // 2. "WHAT IS THE PROBLEM?" SECTION (Max 3-5 scannable items sorted by urgency)
+  // 2. Dynamic "WHAT NEEDS ATTENTION?" items
+  // Strictly driven by the actual current problem or genuine telemetry signals.
   const detectedProblems = useMemo(() => {
     const list = [];
 
-    // If farmer's current query directly identified a problem, show it as #1 PRIORITY!
-    if (queryProblem) {
+    // 1. Current Query Problem (Highest Priority)
+    if (queryProblem && queryProblem.category !== 'HEALTHY_MAINTENANCE') {
+      let icon = '⚠️';
+      if (queryProblem.category === 'WATERLOGGING') icon = '💧';
+      else if (queryProblem.category === 'PEST_ATTACK') icon = '🐛';
+      else if (queryProblem.category === 'YELLOW_LEAVES' || queryProblem.category === 'BROWN_LEAVES') icon = '🍃';
+      else if (queryProblem.category === 'DROUGHT_MOISTURE') icon = '🏜️';
+      else if (queryProblem.category === 'POOR_GROWTH') icon = '🌱';
+      else if (queryProblem.category === 'FLOWER_FRUIT_DROP') icon = '🌸';
+      else if (queryProblem.category === 'DISEASE_SPOTS') icon = '🦠';
+
       list.push({
         id: 'user_reported_issue',
-        urgency: queryProblem.severity === 'URGENT' ? 0 : 1, // Topmost priority
-        icon: queryProblem.category === 'WATERLOGGING' ? '🌊' : (queryProblem.category === 'PEST_ATTACK' ? '🐛' : (queryProblem.category === 'DROUGHT_MOISTURE' ? '💧' : '⚠️')),
+        urgency: 0,
+        icon,
         titleEn: queryProblem.titleEn,
         titleHi: queryProblem.titleHi,
         statusEn: queryProblem.severity,
-        statusHi: queryProblem.severity === 'URGENT' ? 'तुरंत ध्यान दें' : 'मुख्य समस्या',
+        statusHi: queryProblem.severity === 'URGENT' ? (isHindi ? 'तुरंत ध्यान दें' : 'URGENT') : (isHindi ? 'मुख्य समस्या' : 'ATTENTION'),
         descEn: queryProblem.whyEn,
         descHi: queryProblem.whyHi,
-        badgeClass: queryProblem.severity === 'URGENT' ? 'bg-rose-100 text-rose-900 border-rose-300' : 'bg-amber-100 text-amber-900 border-amber-300'
+        badgeClass: queryProblem.severity === 'URGENT' 
+          ? 'bg-rose-100 text-rose-900 border-rose-300' 
+          : 'bg-amber-100 text-amber-900 border-amber-300'
       });
     }
 
-    // Problem: Soil Moisture (Only if query is not already about waterlogging/drought)
-    if (queryProblem?.category !== 'WATERLOGGING' && queryProblem?.category !== 'DROUGHT_MOISTURE') {
-      if (moistureScore < 50) {
-        list.push({
-          id: 'moisture',
-          urgency: 2,
-          icon: '💧',
-          titleEn: 'Soil Moisture',
-          titleHi: 'मिट्टी की नमी',
-          statusEn: 'LOW',
-          statusHi: 'कम',
-          descEn: 'Field is becoming dry.',
-          descHi: 'मिट्टी में नमी कम हो रही है, खेत सूख रहा है।',
-          badgeClass: 'bg-red-100 text-red-900 border-red-300'
-        });
-      } else if (moistureScore < 65) {
-        list.push({
-          id: 'moisture',
-          urgency: 3,
-          icon: '💧',
-          titleEn: 'Soil Moisture',
-          titleHi: 'मिट्टी की नमी',
-          statusEn: 'MODERATE',
-          statusHi: 'मध्यम',
-          descEn: 'Moisture level is dropping. Irrigation may be needed soon.',
-          descHi: 'नमी का स्तर गिर रहा है, जल्द सिंचाई की जरूरत होगी।',
-          badgeClass: 'bg-amber-100 text-amber-900 border-amber-300'
-        });
-      }
-    }
-
-    // Problem 2: Crop Stress
-    if (healthScore < 60) {
+    // 2. Real Telemetry: Severe Moisture Deficit (ONLY if not waterlogged and not healthy query)
+    if (moistureScore < 45 && queryProblem?.category !== 'WATERLOGGING' && queryProblem?.category !== 'HEALTHY_MAINTENANCE' && queryProblem?.category !== 'DROUGHT_MOISTURE') {
       list.push({
-        id: 'stress',
+        id: 'moisture_deficit',
         urgency: 1,
-        icon: '🌿',
-        titleEn: 'Crop Stress',
-        titleHi: 'फसल तनाव',
-        statusEn: 'HIGH',
-        statusHi: 'अधिक',
-        descEn: 'Crop is under significant growth stress.',
-        descHi: 'फसल पर तनाव के लक्षण दिख रहे हैं।',
+        icon: '💧',
+        titleEn: 'Soil Moisture Deficit',
+        titleHi: 'मिट्टी में नमी की कमी',
+        statusEn: 'LOW',
+        statusHi: 'कम नमी',
+        descEn: 'Field soil moisture has dropped below 45%. Root zone is drying out.',
+        descHi: 'मिट्टी में नमी 45% से नीचे आ गई है, खेत सूख रहा है।',
         badgeClass: 'bg-red-100 text-red-900 border-red-300'
       });
-    } else if (healthScore < 80) {
-      list.push({
-        id: 'stress',
-        urgency: 2,
-        icon: '🌿',
-        titleEn: 'Crop Stress',
-        titleHi: 'फसल तनाव',
-        statusEn: 'MODERATE',
-        statusHi: 'हल्का',
-        descEn: 'Signs of mild crop stress detected.',
-        descHi: 'फसल पर हल्का तनाव देखा गया है।',
-        badgeClass: 'bg-amber-100 text-amber-900 border-amber-300'
-      });
-    } else {
-      list.push({
-        id: 'stress',
-        urgency: 4,
-        icon: '🌿',
-        titleEn: 'Crop Stress',
-        titleHi: 'फसल तनाव',
-        statusEn: 'LOW',
-        statusHi: 'नहीं',
-        descEn: 'Crop is growing vigorously with minimal stress.',
-        descHi: 'फसल अच्छी और हरी-भरी है।',
-        badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300'
-      });
     }
 
-    // Problem 3: Disease Risk
-    if (hasDiseaseDetected) {
+    // 3. Real Telemetry: Genuine Disease Detected from Photo (ONLY if not healthy query and actually detected)
+    if (hasDiseaseDetected && queryProblem?.category !== 'DISEASE_SPOTS' && queryProblem?.category !== 'PEST_ATTACK' && queryProblem?.category !== 'BROWN_LEAVES' && queryProblem?.category !== 'HEALTHY_MAINTENANCE') {
       list.push({
-        id: 'disease',
+        id: 'disease_alert',
         urgency: 1,
         icon: '🦠',
-        titleEn: 'Disease Risk',
-        titleHi: 'रोग जोखिम',
+        titleEn: 'Possible Foliar Disease',
+        titleHi: 'संभावित पत्ती रोग लक्षण',
         statusEn: 'HIGH',
-        statusHi: 'उच्च',
-        descEn: `Possible disease symptoms identified: ${detectedProblem}.`,
-        descHi: `संभावित बीमारी के लक्षण मिले हैं: ${detectedProblem}`,
+        statusHi: 'उच्च जोखिम',
+        descEn: `Visible symptoms: ${detectedProblem}.`,
+        descHi: `लक्षण देखे गए हैं: ${detectedProblem}`,
         badgeClass: 'bg-red-100 text-red-900 border-red-300'
       });
-    } else {
-      list.push({
-        id: 'disease',
-        urgency: 4,
-        icon: '🦠',
-        titleEn: 'Disease Risk',
-        titleHi: 'रोग जोखिम',
-        statusEn: 'LOW',
-        statusHi: 'कम',
-        descEn: 'No major disease detected currently.',
-        descHi: 'वर्तमान में कोई बड़ा रोग नहीं दिखा।',
-        badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300'
-      });
     }
 
-    // Problem 4: Weather Risk
-    if (weatherRain24h > 5 || weatherRainProb > 65 || weatherTemp > 38 || weatherTemp < 10) {
+    // 4. Real Telemetry: Genuine Extreme Weather (Rain > 25mm or Heat > 42C)
+    if (weatherRain24h > 25 || weatherTemp > 42) {
       list.push({
-        id: 'weather',
+        id: 'weather_alert',
         urgency: 2,
         icon: '🌦',
-        titleEn: 'Weather Risk',
-        titleHi: 'मौसम जोखिम',
-        statusEn: 'MEDIUM',
-        statusHi: 'मध्यम',
-        descEn: 'Rain/temperature conditions may affect the crop.',
-        descHi: 'तापमान या बारिश के कारण फसल पर असर हो सकता है।',
+        titleEn: 'Adverse Weather Alert',
+        titleHi: 'मौसम जोखिम चेतावनी',
+        statusEn: 'HIGH',
+        statusHi: 'मौसम चेतावनी',
+        descEn: `Severe conditions forecast (Rain: ${weatherRain24h}mm, Temp: ${weatherTemp}°C).`,
+        descHi: `खराब मौसम की चेतावनी (बारिश: ${weatherRain24h}mm, तापमान: ${weatherTemp}°C)।`,
         badgeClass: 'bg-amber-100 text-amber-900 border-amber-300'
       });
-    } else {
+    }
+
+    // 5. Clean / Healthy Status: If NO problem detected and no telemetry alerts, show Clean Card!
+    if (list.length === 0) {
       list.push({
-        id: 'weather',
+        id: 'clean_healthy',
         urgency: 4,
-        icon: '🌦',
-        titleEn: 'Weather Risk',
-        titleHi: 'मौसम जोखिम',
-        statusEn: 'LOW',
-        statusHi: 'कम',
-        descEn: 'Weather conditions are favorable for crop development.',
-        descHi: 'मौसम फसल के लिए अनुकूल है।',
+        icon: '✅',
+        titleEn: 'No Major Issue Detected',
+        titleHi: 'कोई गंभीर समस्या नहीं',
+        statusEn: 'NORMAL',
+        statusHi: 'सामान्य',
+        descEn: 'Current available farm and crop data does not indicate a major problem.',
+        descHi: 'वर्तमान उपलब्ध आंकड़ों के अनुसार फसल पर कोई गंभीर समस्या नहीं है।',
         badgeClass: 'bg-emerald-100 text-emerald-900 border-emerald-300'
       });
     }
 
-    // Problem 5: Nutrient Status
-    if (nitrogenLevel < 180 || phosphorusLevel < 20 || potassiumLevel < 200) {
-      list.push({
-        id: 'nutrient',
-        urgency: 3,
-        icon: '🧪',
-        titleEn: 'Soil Nutrients',
-        titleHi: 'पोषक तत्व',
-        statusEn: 'ATTENTION',
-        statusHi: 'कम',
-        descEn: 'Soil test indicates nutrient deficiency in root zone.',
-        descHi: 'मिट्टी में पोषक तत्वों की कमी देखी गई है।',
-        badgeClass: 'bg-amber-100 text-amber-900 border-amber-300'
-      });
-    }
+    return list.slice(0, 3);
+  }, [queryProblem, moistureScore, hasDiseaseDetected, detectedProblem, weatherRain24h, weatherTemp, isHindi]);
 
-    // Sort by urgency (1 = Urgent first) and limit to 4
-    return list.sort((a, b) => a.urgency - b.urgency).slice(0, 4);
-  }, [moistureScore, healthScore, hasDiseaseDetected, detectedProblem, weatherRain24h, weatherRainProb, weatherTemp, nitrogenLevel, phosphorusLevel, potassiumLevel]);
-
-  // 3. "WHAT SHOULD I DO NOW?" SECTION (Action Cards with Priority: Urgent, High, Medium, Low)
+  // 3. "WHAT SHOULD I DO NOW?" SECTION (Dynamic Action Cards: 1 to 3 actions based purely on problem)
   const actionCards = useMemo(() => {
     const actions = [];
 
-    // Core Rule: If farmer asked a specific problem in current query, place its direct solution as #1 Action Card!
-    if (queryProblem) {
-      actions.push({
-        priority: queryProblem.severity,
-        priorityColor: queryProblem.severity === 'URGENT' ? '🔴' : (queryProblem.severity === 'HIGH' ? '🟠' : '🟡'),
-        badgeClass: queryProblem.severity === 'URGENT' ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-orange-100 text-orange-800 border-orange-300',
-        categoryEn: queryProblem.titleEn,
-        categoryHi: queryProblem.titleHi,
-        whatEn: queryProblem.immediateStepsEn[0],
-        whatHi: queryProblem.immediateStepsHi[0],
-        whyEn: queryProblem.whyEn,
-        whyHi: queryProblem.whyHi,
-        whenEn: queryProblem.whenEn,
-        whenHi: queryProblem.whenHi
-      });
-      if (queryProblem.immediateStepsEn.length > 1) {
+    // CASE 1: Farmer asked a specific problem in current query
+    if (queryProblem && queryProblem.category !== 'HEALTHY_MAINTENANCE') {
+      // Action 1: Immediate Primary Step
+      if (queryProblem.immediateStepsEn && queryProblem.immediateStepsEn.length > 0) {
+        actions.push({
+          priority: queryProblem.severity,
+          priorityColor: queryProblem.severity === 'URGENT' ? '🔴' : (queryProblem.severity === 'HIGH' ? '🟠' : '🟡'),
+          badgeClass: queryProblem.severity === 'URGENT' ? 'bg-rose-100 text-rose-800 border-rose-300' : 'bg-orange-100 text-orange-800 border-orange-300',
+          categoryEn: queryProblem.titleEn,
+          categoryHi: queryProblem.titleHi,
+          whatEn: queryProblem.immediateStepsEn[0],
+          whatHi: queryProblem.immediateStepsHi[0],
+          whyEn: queryProblem.whyEn,
+          whyHi: queryProblem.whyHi,
+          whenEn: queryProblem.whenEn,
+          whenHi: queryProblem.whenHi
+        });
+      }
+
+      // Action 2: Next Step / Follow-up (if available)
+      if (queryProblem.immediateStepsEn && queryProblem.immediateStepsEn.length > 1) {
         actions.push({
           priority: queryProblem.severity === 'URGENT' ? 'HIGH' : 'MEDIUM',
           priorityColor: queryProblem.severity === 'URGENT' ? '🟠' : '🟡',
           badgeClass: queryProblem.severity === 'URGENT' ? 'bg-orange-100 text-orange-800 border-orange-300' : 'bg-amber-100 text-amber-800 border-amber-300',
-          categoryEn: 'FOLLOW-UP STEP',
-          categoryHi: 'अगला कदम (Next Step)',
+          categoryEn: 'NEXT ACTION STEP',
+          categoryHi: 'अगला जरूरी कदम',
           whatEn: queryProblem.immediateStepsEn[1],
           whatHi: queryProblem.immediateStepsHi[1],
           whyEn: queryProblem.whyEn,
@@ -387,42 +320,28 @@ export default function FarmerActionDashboard({
           whenHi: queryProblem.whenHi
         });
       }
-    }
 
-    // Action A: Irrigation (if not already handled by queryProblem)
-    if (queryProblem?.category !== 'WATERLOGGING' && queryProblem?.category !== 'DROUGHT_MOISTURE') {
-      if (moistureScore < 50) {
+      // Action 3: Targeted monitoring for THIS specific problem
+      if (queryProblem.monitorEn) {
         actions.push({
-          priority: 'URGENT',
-          priorityColor: '🔴',
-          badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
-          categoryEn: 'IRRIGATION',
-          categoryHi: 'सिंचाई (Irrigation)',
-          whatEn: 'Give irrigation to the field.',
-          whatHi: 'खेत में हल्की सिंचाई करें।',
-          whyEn: 'Soil moisture is low (below 50%).',
-          whyHi: 'मिट्टी में नमी कम हो गई है।',
-          whenEn: 'Within the next 24 hours.',
-          whenHi: 'अगले 24 घंटे के भीतर।'
+          priority: 'LOW',
+          priorityColor: '🟢',
+          badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+          categoryEn: 'FIELD MONITORING',
+          categoryHi: 'खेत निगरानी',
+          whatEn: queryProblem.monitorEn,
+          whatHi: queryProblem.monitorHi,
+          whyEn: 'To observe crop recovery and verify that the problem is under control.',
+          whyHi: 'फसल में सुधार देखने और समस्या नियंत्रित होने की पुष्टि करने के लिए।',
+          whenEn: queryProblem.whenEn?.includes('12') ? 'After 24–48 hours.' : 'Recheck in 2–3 days.',
+          whenHi: queryProblem.whenHi?.includes('12') ? '24 से 48 घंटे बाद।' : '2 से 3 दिन बाद दोबारा जांचें।'
         });
       }
-    } else if (moistureScore < 65) {
-      actions.push({
-        priority: 'HIGH',
-        priorityColor: '🟠',
-        badgeClass: 'bg-orange-100 text-orange-800 border-orange-300',
-        categoryEn: 'IRRIGATION',
-        categoryHi: 'सिंचाई (Irrigation)',
-        whatEn: 'Plan field watering.',
-        whatHi: 'सिंचाई की तैयारी करें।',
-        whyEn: 'Moisture reserve is decreasing.',
-        whyHi: 'मिट्टी की नमी तेजी से कम हो रही है।',
-        whenEn: 'Within 24–48 hours.',
-        whenHi: 'अगले 24 से 48 घंटे में।'
-      });
+
+      return actions.slice(0, 3);
     }
 
-    // Action B: Disease / Protection
+    // CASE 2: Image diagnosis detected a genuine disease (and no query problem)
     if (hasDiseaseDetected) {
       actions.push({
         priority: 'URGENT',
@@ -430,69 +349,69 @@ export default function FarmerActionDashboard({
         badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
         categoryEn: 'CROP PROTECTION',
         categoryHi: 'फसल सुरक्षा (Protection)',
-        whatEn: 'Remove affected leaves and apply recommended spray.',
-        whatHi: 'प्रभावित पत्तियों को हटाएं और अनुशंसित जैविक/कीटनाशक छिड़काव करें।',
-        whyEn: `Possible disease symptoms detected: ${detectedProblem}.`,
-        whyHi: `संभावित बीमारी के लक्षण मिले हैं: ${detectedProblem}`,
+        whatEn: 'Remove affected leaves and apply recommended biological or copper fungicide.',
+        whatHi: 'प्रभावित पत्तियों को तोड़कर नष्ट करें और अनुशंसित सुरक्षात्मक छिड़काव करें।',
+        whyEn: `Visual symptoms indicate potential foliar infection: ${detectedProblem}.`,
+        whyHi: `पत्ती परीक्षण में संभावित संक्रमण के लक्षण मिले हैं: ${detectedProblem}`,
         whenEn: 'Do now / within 24 hours.',
         whenHi: 'आज ही या अगले 24 घंटे में करें।'
       });
-    }
 
-    // Action C: Fertilizer / Nutrient
-    if (nitrogenLevel < 180) {
       actions.push({
         priority: 'MEDIUM',
         priorityColor: '🟡',
         badgeClass: 'bg-amber-100 text-amber-800 border-amber-300',
-        categoryEn: 'FERTILIZER',
-        categoryHi: 'खाद व पोषण (Fertilizer)',
-        whatEn: 'Apply the recommended nitrogen treatment.',
-        whatHi: 'अनुशंसित यूरिया/नत्रजन की मात्रा डालें।',
-        whyEn: 'Soil test shows low nitrogen during current vegetative stage.',
-        whyHi: 'वर्तमान अवस्था में मिट्टी में नाइट्रोजन कम है।',
-        whenEn: 'Within 2–3 days (after light watering).',
-        whenHi: 'अगले 2–3 दिनों में (हल्की नमी के बाद)।'
+        categoryEn: 'MONITORING',
+        categoryHi: 'निगरानी (Monitoring)',
+        whatEn: 'Scout upper fresh leaves to verify infection has stopped spreading.',
+        whatHi: 'ऊपरी नई पत्तियों का निरीक्षण करें कि बीमारी आगे तो नहीं बढ़ रही।',
+        whenEn: 'Recheck after 3 days.',
+        whenHi: '3 दिन बाद दोबारा जांचें।'
       });
-    } else if (healthScore >= 80) {
-      actions.push({
-        priority: 'LOW',
-        priorityColor: '🟢',
-        badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
-        categoryEn: 'NUTRIENT MAINTENANCE',
-        categoryHi: 'संतुलित पोषण (Maintenance)',
-        whatEn: 'Maintain scheduled nutrient plan.',
-        whatHi: 'निर्धारित खाद चक्र बनाए रखें।',
-        whyEn: 'Crop health is currently good.',
-        whyHi: 'फसल का स्वास्थ्य उत्तम बना हुआ है।',
-        whenEn: 'Follow standard crop calendar.',
-        whenHi: 'फसल कैलेंडर के अनुसार।'
-      });
+
+      return actions;
     }
 
-    // Action D: Monitoring
+    // CASE 3: Severe Moisture Deficit Telemetry (and no query problem)
+    if (moistureScore < 45) {
+      actions.push({
+        priority: 'URGENT',
+        priorityColor: '🔴',
+        badgeClass: 'bg-rose-100 text-rose-800 border-rose-300',
+        categoryEn: 'IRRIGATION',
+        categoryHi: 'सिंचाई (Irrigation)',
+        whatEn: 'Apply light to moderate irrigation in morning or evening hours.',
+        whatHi: 'सुबह या शाम के समय खेत में हल्की से मध्यम सिंचाई करें।',
+        whyEn: 'Soil moisture is critically low (<45%), causing water stress in root zone.',
+        whyHi: 'मिट्टी में नमी 45% से कम है, जिससे फसल पर तनाव आ रहा है।',
+        whenEn: 'Within the next 24 hours.',
+        whenHi: 'अगले 24 घंटे के भीतर।'
+      });
+      return actions;
+    }
+
+    // CASE 4: Healthy Crop / No Problem Reported
+    // Rule: DO NOT FORCE multiple cards. Show ONLY 1 routine care action.
     actions.push({
-      priority: healthScore < 60 ? 'HIGH' : (healthScore < 80 ? 'MEDIUM' : 'LOW'),
-      priorityColor: healthScore < 60 ? '🟠' : (healthScore < 80 ? '🟡' : '🟢'),
-      badgeClass: healthScore < 60 
-        ? 'bg-orange-100 text-orange-800 border-orange-300' 
-        : (healthScore < 80 ? 'bg-amber-100 text-amber-800 border-amber-300' : 'bg-emerald-100 text-emerald-800 border-emerald-300'),
-      categoryEn: 'MONITORING',
-      categoryHi: 'खेत निरीक्षण (Monitoring)',
-      whatEn: 'Scout the crop canopy and recheck soil condition.',
-      whatHi: 'खेत में जाकर पत्तियों और नमी का दोबारा निरीक्षण करें।',
-      whyEn: 'To track improvement and prevent sudden pest spread.',
-      whyHi: 'सुधार देखने और कीटों के प्रसार को रोकने के लिए।',
-      whenEn: healthScore < 80 ? 'Recheck after 2–3 days.' : 'Next check in 5–7 days.',
-      whenHi: healthScore < 80 ? '2 से 3 दिन बाद दोबारा जांचें।' : 'अगले 5–7 दिनों में।'
+      priority: 'LOW',
+      priorityColor: '🟢',
+      badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-300',
+      categoryEn: 'ROUTINE CARE',
+      categoryHi: 'सामान्य देखभाल',
+      whatEn: 'Maintain standard balanced irrigation and crop stage schedule.',
+      whatHi: 'फसल अवस्था के अनुसार सामान्य संतुलित सिंचाई और देखरेख जारी रखें।',
+      whyEn: 'Crop is healthy with no active disease, pest, or moisture stress.',
+      whyHi: 'फसल स्वस्थ है और वर्तमान में कोई बीमारी या तनाव नहीं है।',
+      whenEn: 'Weekly routine inspection.',
+      whenHi: 'साप्ताहिक सामान्य निरीक्षण।'
     });
 
-    return actions.slice(0, 3);
-  }, [moistureScore, hasDiseaseDetected, detectedProblem, nitrogenLevel, healthScore]);
+    return actions;
+  }, [queryProblem, hasDiseaseDetected, detectedProblem, moistureScore]);
 
   // 6. SHORT "WHY IS THIS HAPPENING?" (1–2 short sentences only)
   const shortWhyExplanation = useMemo(() => {
-    if (queryProblem) {
+    if (queryProblem && queryProblem.category !== 'HEALTHY_MAINTENANCE') {
       return isHindi ? queryProblem.whyHi : queryProblem.whyEn;
     }
     if (hasDiseaseDetected && moistureScore < 60) {

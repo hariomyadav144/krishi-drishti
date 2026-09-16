@@ -7,6 +7,7 @@ const FieldMonitoringObservation = require('../models/FieldMonitoringObservation
 const CropHealthRecord = require('../models/CropHealthRecord');
 const Recommendation = require('../models/Recommendation');
 const { isDbConnected, getStatelessFields, getStatelessCropScans, getStatelessLatestObservation } = require('../utils/statelessStore');
+const { extractCropFromQuery, extractProblemFromQuery } = require('../utils/universalAgricultureEngine');
 
 /**
  * Loads the complete, unified Farm Intelligence Context across 8 dimensions
@@ -232,21 +233,69 @@ function crossValidateAgronomicSignals(context, queryText, imageAnalysis = null)
   const symptoms = (imageAnalysis?.visibleSymptoms || '').toLowerCase();
   const detectedProblem = (imageAnalysis?.detectedProblem || '').toLowerCase();
 
+  const queryProblem = extractProblemFromQuery(queryText);
+
   const signals = {
-    primaryIntent: 'General Inquiry',
+    primaryIntent: queryProblem ? queryProblem.titleEn : 'General Inquiry',
+    detectedProblemCategory: queryProblem?.category || null,
+    detectedProblemTitle: queryProblem ? queryProblem.titleEn : null,
     possibleRootCauses: [],
     conflictingSignals: [],
     eliminatedCauses: [],
-    urgency: 'Normal',
+    urgency: queryProblem ? queryProblem.severity : 'Normal',
     requiresImmediateSpray: false,
     requiresIrrigationAdjustment: false,
     nutrientDeficienciesDetected: []
   };
 
-  const isYellowingMentioned = q.includes('peeli') || q.includes('पीली') || q.includes('yellow') || symptoms.includes('yellow') || symptoms.includes('chlorosis');
-  const isFertilizerAsked = q.includes('fertilizer') || q.includes('खाद') || q.includes('urea') || q.includes('यूरिया') || q.includes('dap') || q.includes('npk');
-  const isDiseasePestMentioned = q.includes('keeda') || q.includes('कीड़ा') || q.includes('bimari') || q.includes('बीमारी') || q.includes('fungus') || q.includes('rust') || q.includes('blight');
-  const isIrrigationAsked = q.includes('paani') || q.includes('पानी') || q.includes('sinchai') || q.includes('सिंचाई') || q.includes('water') || q.includes('irrigation');
+  // If farmer's query directly identified a problem, build dedicated agronomic root cause and eliminations
+  if (queryProblem) {
+    signals.possibleRootCauses.push({
+      cause: queryProblem.titleEn,
+      confidence: 'High',
+      evidence: queryProblem.whyEn
+    });
+
+    if (queryProblem.category === 'WATERLOGGING') {
+      signals.requiresIrrigationAdjustment = true;
+      signals.conflictingSignals.push('Field has standing excess water. STRICTLY DO NOT RECOMMEND IRRIGATION OR GRANULAR UREA UNTIL WATER IS DRAINED.');
+      signals.eliminatedCauses.push({
+        cause: 'Drought / Moisture Deficit',
+        reason: 'Standing surface water present.'
+      });
+      signals.eliminatedCauses.push({
+        cause: 'True Soil Nitrogen Depletion requiring immediate top-dressing',
+        reason: 'Submerged root zones suffer from asphyxiation, not nitrogen absence; applying fertilizer will cause root burn.'
+      });
+    } else if (queryProblem.category === 'PEST_ATTACK') {
+      signals.requiresImmediateSpray = true;
+      signals.eliminatedCauses.push({
+        cause: 'Waterlogging or Irrigation Deficit',
+        reason: 'Farmer specifically reports active insect/pest damage.'
+      });
+    } else if (queryProblem.category === 'BROWN_LEAVES') {
+      signals.eliminatedCauses.push({
+        cause: 'Standard Nitrogen Deficiency',
+        reason: 'Nitrogen deficiency causes uniform pale yellowing, not necrotic brown spots or margins.'
+      });
+    } else if (queryProblem.category === 'DROUGHT_MOISTURE') {
+      signals.requiresIrrigationAdjustment = true;
+      signals.eliminatedCauses.push({
+        cause: 'Excess Water / Waterlogging',
+        reason: 'Farmer reports dry soil / moisture deficit.'
+      });
+    } else if (queryProblem.category === 'HEALTHY_MAINTENANCE') {
+      signals.eliminatedCauses.push({
+        cause: 'Invented Disease or Pest Outbreak',
+        reason: 'Farmer confirms crop is healthy; do not invent problems.'
+      });
+    }
+  }
+
+  const isYellowingMentioned = queryProblem?.category === 'YELLOW_LEAVES' || q.includes('peeli') || q.includes('पीली') || q.includes('yellow') || symptoms.includes('yellow') || symptoms.includes('chlorosis');
+  const isFertilizerAsked = queryProblem?.category === 'FERTILIZER_QUERY' || q.includes('fertilizer') || q.includes('खाद') || q.includes('urea') || q.includes('यूरिया') || q.includes('dap') || q.includes('npk');
+  const isDiseasePestMentioned = queryProblem?.category === 'PEST_ATTACK' || q.includes('keeda') || q.includes('कीड़ा') || q.includes('bimari') || q.includes('बीमारी') || q.includes('fungus') || q.includes('rust') || q.includes('blight');
+  const isIrrigationAsked = (queryProblem?.category === 'DROUGHT_MOISTURE' || q.includes('sinchai') || q.includes('सिंचाई')) && queryProblem?.category !== 'WATERLOGGING';
 
   // Intent classification
   if (isYellowingMentioned) signals.primaryIntent = 'Foliage Discoloration & Yellowing';
@@ -401,10 +450,16 @@ FARMER QUESTION / PROBLEM:
 CRITICAL INSTRUCTIONS FOR YOUR ADVISORY:
 1. CORE PRINCIPLE: ALWAYS ANSWER THE FARMER'S ACTUAL CURRENT QUESTION FIRST!
    - If the farmer mentions ANY crop in the question (e.g. Paddy, Tomato, Potato, Sugarcane, Mustard, Cotton, Maize, Chana, Onion, etc.), use THAT CROP. Never let saved or default farm data override the crop the farmer is asking about!
-   - If the farmer asks about a specific problem (e.g. "pani bhar gaya" / waterlogging, "keede lag gaye" / pest, "growth nahi ho rahi" / stunted growth, "phool gir rahe hain" / flower dropping), address THAT PROBLEM directly.
+   - If the farmer asks about a specific problem (e.g. "pani bhar gaya" / waterlogging, "keede lag gaye" / pest, "patte brown ho rahe hain" / leaf browning, "growth nahi ho rahi" / stunted growth, "phool gir rahe hain" / flower dropping), address THAT PROBLEM directly.
    - DO NOT INVENT unmentioned diseases or nutrient deficiencies if there is no evidence.
-2. ACTION FIRST:
+2. ACTION FIRST — NO GENERIC FILLER:
    - Provide clear, immediate action steps: WHAT to do, WHY to do it, and WHEN to do it.
+   - ABSOLUTELY NEVER output generic filler actions like "Maintain scheduled nutrient plan", "Inspect crop foliage", or "Follow standard crop calendar" when solving an active problem!
+   - If problem is waterlogging: Action MUST BE drainage trenches, root aeration, withhold urea.
+   - If problem is pests: Action MUST BE pest trap installation, biological/targeted spray.
+   - If problem is brown leaves: Action MUST BE blight diagnosis, removal of affected foliage, copper/bio spray.
+   - If problem is low moisture: Action MUST BE timely irrigation and mulching.
+   - If crop is healthy: Action is routine care and weekly inspection.
 3. NEVER suggest urea or fertilizer in isolation if problem is waterlogging, soil saturation, or pH lockup.
 4. If rain is expected in 24h, WARN the farmer NOT to spray chemicals immediately.
 5. Calculate exact fertilizer or remedy quantities for ${f.areaAcres || 4.5} ${context.farmInfo?.landUnit || 'Acres'}.
