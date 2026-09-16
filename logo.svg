@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="240" height="240">
+  <defs>
+    <linearGradient id="gradBg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#14532d"/>
+      <stop offset="50%" stop-color="#166534"/>
+      <stop offset="100%" stop-color="#0f291e"/>
+    </linearGradient>
+    <linearGradient id="gradLeaf" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10B981"/>
+      <stop offset="100%" stop-color="#34D399"/>
+    </linearGradient>
+    <linearGradient id="gradGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FBBF24"/>
+      <stop offset="100%" stop-color="#D97706"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded App Icon Background -->
+  <rect width="240" height="240" rx="54" fill="url(#gradBg)"/>
+
+  <!-- Satellite Orbit Arc -->
+  <path d="M 40,80 A 100,100 0 0,1 200,80" fill="none" stroke="#34D399" stroke-width="4" stroke-dasharray="8 6" opacity="0.4"/>
+  
+  <!-- Mini Satellite Symbol -->
+  <g transform="translate(180, 72) rotate(25)">
+    <rect x="-8" y="-6" width="16" height="12" rx="2" fill="#FBBF24"/>
+    <line x1="-16" y1="0" x2="-8" y2="0" stroke="#34D399" stroke-width="3"/>
+    <line x1="8" y1="0" x2="16" y2="0" stroke="#34D399" stroke-width="3"/>
+    <rect x="-24" y="-5" width="8" height="10" rx="1" fill="#38BDF8"/>
+    <rect x="16" y="-5" width="8" height="10" rx="1" fill="#38BDF8"/>
+  </g>
+
+  <!-- Fertile Furrow Base -->
+  <path d="M 50,185 C 90,170 150,170 190,185 C 170,195 70,195 50,185 Z" fill="#D97706" opacity="0.85"/>
+  <path d="M 65,172 C 100,162 140,162 175,172 C 160,180 80,180 65,172 Z" fill="#F59E0B" opacity="0.9"/>
+
+  <!-- Central Sprout / Crop Stem -->
+  <path d="M 120,175 C 120,130 120,95 120,70" fill="none" stroke="#10B981" stroke-width="8" stroke-linecap="round"/>
+
+  <!-- Left Leaf -->
+  <path d="M 120,130 C 95,125 70,95 85,75 C 105,70 115,100 120,130 Z" fill="url(#gradLeaf)"/>
+  
+  <!-- Right Leaf -->
+  <path d="M 120,110 C 145,105 170,75 155,55 C 135,50 125,80 120,110 Z" fill="url(#gradLeaf)"/>
+
+  <!-- Center Top Bud / Golden Grain Sparkle -->
+  <circle cx="120" cy="65" r="8" fill="url(#gradGold)"/>
+
+  <!-- Concentric Radar Sensor Rings -->
+  <circle cx="120" cy="120" r="70" fill="none" stroke="#10B981" stroke-width="2.5" opacity="0.2"/>
+  <circle cx="120" cy="120" r="92" fill="none" stroke="#10B981" stroke-width="1.5" opacity="0.12"/>
+</svg>
