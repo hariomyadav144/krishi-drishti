@@ -1,5 +1,5 @@
 {
-  "appName": "KRISHI DRISHTI",
+  "appName": "FASAL DRISHTI",
   "appTagline": "From Space to Soil",
   "subTagline": "Right Information. Better Decisions. Higher Yield.",
   "nav": {
@@ -109,7 +109,7 @@
   },
   "swar": {
     "name": "SWAR",
-    "tagline": "Krishi Drishti Voice & Farm AI",
+    "tagline": "Fasal Drishti Voice & Farm AI",
     "askSwar": "Ask SWAR",
     "talkToSwar": "Talk to SWAR",
     "listening": "Listening... Speak now",
@@ -170,7 +170,7 @@
     "ndviTrajectory": "40-Day Vegetative Trend"
   },
   "schemes": {
-    "title": "Government Schemes & Krishi Subsidies",
+    "title": "Government Schemes & Farm Subsidies",
     "subtitle": "Explore Central & State financial subsidies, eligibility rules, and required documents",
     "financialBenefit": "Financial Benefit",
     "eligibility": "Eligibility Criteria",

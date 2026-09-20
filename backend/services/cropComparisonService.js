@@ -1,7 +1,7 @@
 const { GoogleGenAI } = require('@google/genai');
 
 /**
- * Krishi Drishti - Crop Scan Comparison Engine
+ * Fasal Drishti - Crop Scan Comparison Engine
  * Computes comparative health trajectory across 10 distinct agronomic points.
  */
 
@@ -134,7 +134,7 @@ async function generateComparativeAnalysis({ oldScan, newScan, language = 'hi' }
   if (apiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are a Chief Agricultural Agronomist for Krishi Drishti (KD).
+      const prompt = `You are a Chief Agricultural Agronomist for Fasal Drishti (FD).
 Compare two historical crop health scans for a farmer and generate a precise, empathetic agronomic comparison.
 
 CROP: ${newScan.cropName} (${newScan.cropVariety || 'Standard Variety'})

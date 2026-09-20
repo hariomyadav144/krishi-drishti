@@ -11,7 +11,7 @@ const connectDB = async () => {
       return;
     } catch (error) {
       console.warn('External MongoDB connection failed:', error.message);
-      console.warn('Krishi Drishti API continuing in resilient stateless cloud mode.');
+      console.warn('Fasal Drishti API continuing in resilient stateless cloud mode.');
       // Disable command buffering so subsequent requests never hang for 10 seconds
       mongoose.set('bufferCommands', false);
     }

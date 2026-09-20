@@ -19,20 +19,42 @@ export default function FieldIntelligenceExtensions({
 }) {
   const { lang } = useLanguage();
 
-  if (!activeField) return null;
+  // If no active field or field has fewer than 3 points, display honest state without fake data
+  const hasValidBoundary = activeField && Array.isArray(activeField.points) && activeField.points.length >= 3;
+
+  if (!hasValidBoundary) {
+    return (
+      <div className="bg-slate-50 border border-dashed border-slate-300 rounded-3xl p-6 text-center text-slate-500 space-y-2">
+        <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-lg">
+          🛰️
+        </div>
+        <h4 className="font-bold text-slate-700 text-sm">
+          {lang === 'hi' ? 'स्थानिक एंकर अभी सक्रिय नहीं है' : 'Spatial Anchor Awaiting Survey'}
+        </h4>
+        <p className="text-xs max-w-md mx-auto text-slate-500">
+          {lang === 'hi'
+            ? 'वास्तविक खेत डेटा अभी उपलब्ध नहीं है। उपग्रह व स्थानिक विश्लेषण सक्रिय करने के लिए नक्शे पर कम से कम 3 बिंदु चिह्नित करें।'
+            : 'Real field data not available yet. Mark at least 3 corners on the interactive map above to establish this parcel as a spatial anchor.'}
+        </p>
+      </div>
+    );
+  }
 
   const {
-    crop = 'Maize',
-    formattedAcres = '8.95 acres',
-    formattedHectares = '3.62 hectares',
+    crop = 'Crop',
+    formattedAcres = '',
+    formattedHectares = '',
     areaAcres = 0,
     areaHectares = 0,
     cornersCount = 0,
-    gpsAccuracy = 18,
+    gpsAccuracy = null,
     updatedAt = new Date().toISOString(),
-    center = { lat: 20.00, lng: 73.78 },
+    center = null,
     points = []
   } = activeField;
+
+  const displayAcres = formattedAcres || (areaAcres > 0 ? `${areaAcres.toFixed(2)} acres` : '0.00 acres');
+  const displayHectares = formattedHectares || (areaHectares > 0 ? `${areaHectares.toFixed(2)} ha` : '0.00 ha');
 
   const formattedDate = new Date(updatedAt).toLocaleDateString(undefined, {
     month: 'short',
@@ -57,7 +79,7 @@ export default function FieldIntelligenceExtensions({
               </span>
               <h3 className="text-xl sm:text-2xl font-black text-white flex items-center gap-2">
                 <span>🌾</span>
-                <span>{crop} • {formattedAcres || `${areaAcres.toFixed(2)} acres`}</span>
+                <span>{crop} • {displayAcres}</span>
               </h3>
             </div>
 
@@ -69,8 +91,8 @@ export default function FieldIntelligenceExtensions({
 
           <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed font-medium">
             {lang === 'hi'
-              ? 'आपका सहेजा गया GPS खेत बहुभुज (Field Polygon) अब कृषि दृष्टि फसल बुद्धिमत्ता (Crop Intelligence) का स्थानिक केंद्र है।'
-              : 'Your saved GPS field polygon is now the spatial anchor for Krishi Drishti intelligence.'}
+              ? 'आपका सहेजा गया GPS खेत बहुभुज (Field Polygon) अब फ़सल दृष्टि फसल बुद्धिमत्ता (Crop Intelligence) का स्थानिक केंद्र है।'
+              : 'Your saved GPS field polygon is now the spatial anchor for Fasal Drishti intelligence.'}
           </p>
 
           {/* Grid of verified parameters */}
@@ -84,7 +106,7 @@ export default function FieldIntelligenceExtensions({
             <div className="bg-white/10 rounded-2xl p-3 border border-white/10">
               <span className="text-[10px] text-emerald-300 font-bold uppercase block">Hectares</span>
               <span className="font-black text-emerald-300 text-sm mt-0.5 block">
-                {formattedHectares || `${areaHectares.toFixed(2)} ha`}
+                {displayHectares}
               </span>
               <span className="text-[10px] text-slate-300">{activeField.areaSqMeters ? `${Math.round(activeField.areaSqMeters).toLocaleString()} m²` : ''}</span>
             </div>
@@ -92,13 +114,13 @@ export default function FieldIntelligenceExtensions({
             <div className="bg-white/10 rounded-2xl p-3 border border-white/10">
               <span className="text-[10px] text-emerald-300 font-bold uppercase block">Boundary Corners</span>
               <span className="font-black text-white text-sm mt-0.5 block">{cornersCount || points.length} Points</span>
-              <span className="text-[10px] text-emerald-300">GPS Accuracy: ±{gpsAccuracy}m</span>
+              <span className="text-[10px] text-emerald-300">{gpsAccuracy ? `GPS Accuracy: ±${gpsAccuracy}m` : 'Survey Verified'}</span>
             </div>
 
             <div className="bg-white/10 rounded-2xl p-3 border border-white/10">
               <span className="text-[10px] text-emerald-300 font-bold uppercase block">Field Centroid</span>
               <span className="font-mono text-[11px] font-bold text-white mt-0.5 block truncate">
-                {center.lat.toFixed(4)}°N, {center.lng.toFixed(4)}°E
+                {center && typeof center.lat === 'number' ? `${center.lat.toFixed(4)}°N, ${center.lng.toFixed(4)}°E` : 'Calculated Live'}
               </span>
               <span className="text-[10px] text-slate-300 flex items-center gap-1 mt-0.5">
                 <Clock className="w-2.5 h-2.5" />

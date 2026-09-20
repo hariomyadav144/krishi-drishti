@@ -51,7 +51,7 @@ export default function Login({ onNavigateRegister }) {
           <div className="w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 mx-auto flex items-center justify-center shadow-lg p-1.5 mb-3">
             <img
               src="/logo.svg"
-              alt="Krishi Drishti Logo"
+              alt="Fasal Drishti Logo"
               className="w-13 h-13 object-contain rounded-xl"
               onError={(e) => {
                 if (e.target.src.endsWith('/logo.svg')) {
@@ -61,7 +61,7 @@ export default function Login({ onNavigateRegister }) {
             />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-white">
-            KRISHI DRISHTI
+            FASAL DRISHTI
           </h1>
           <p className="text-xs text-agri-300 font-semibold uppercase tracking-widest mt-0.5">
             AI for Smarter Farming
@@ -125,7 +125,7 @@ export default function Login({ onNavigateRegister }) {
               disabled={loading}
               className="w-full agri-btn-primary py-3 text-sm font-bold shadow-md mt-2"
             >
-              <span>{loading ? 'Logging in...' : (lang === 'hi' ? 'लॉग इन करें' : 'Login to Krishi Drishti')}</span>
+              <span>{loading ? 'Logging in...' : (lang === 'hi' ? 'लॉग इन करें' : 'Login to Fasal Drishti')}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>

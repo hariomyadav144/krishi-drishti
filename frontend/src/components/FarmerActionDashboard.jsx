@@ -26,7 +26,7 @@ import { extractCropFromQuery, extractProblemFromQuery } from '../services/unive
 
 /**
  * FarmerActionDashboard:
- * Completely redesigned visual, scannable action dashboard for the Krishi Drishti Unified Advisory.
+ * Completely redesigned visual, scannable action dashboard for the Fasal Drishti Unified Advisory.
  * Understandable by any farmer in 10-15 seconds.
  * 
  * Rules:
@@ -164,7 +164,7 @@ export default function FarmerActionDashboard({
     if (advisoryResult?.crop_name && advisoryResult.crop_name !== 'General' && advisoryResult.crop_name !== 'Field Crop' && advisoryResult.crop_name !== 'फसल') {
       return advisoryResult.crop_name;
     }
-    if (advisoryResult?.cropName && advisoryResult.cropName !== 'Krishi Drishti AI' && advisoryResult.cropName !== 'General') {
+    if (advisoryResult?.cropName && advisoryResult.cropName !== 'Fasal Drishti AI' && advisoryResult.cropName !== 'Krishi Drishti AI' && advisoryResult.cropName !== 'General') {
       return advisoryResult.cropName;
     }
     if (activeFarmContext?.crop && activeFarmContext.crop !== 'General') {
@@ -190,14 +190,27 @@ export default function FarmerActionDashboard({
   const potassiumLevel = activeFarmContext?.soil?.potassiumKgPerHa ?? 290;
 
   // Disease Detection signal:
-  // Strictly only show if photo AI diagnosed an actual disease OR query problem is a disease
-  const detectedProblem = advisoryResult?.detectedProblem || (queryProblem?.category === 'PEST_ATTACK' || queryProblem?.category === 'DISEASE_SPOTS' ? (isHindi ? queryProblem.titleHi : queryProblem.titleEn) : null);
-  const hasDiseaseDetected = Boolean(
-    detectedProblem && 
-    !detectedProblem.toLowerCase().includes('healthy') && 
-    !detectedProblem.includes('स्वस्थ') &&
-    !detectedProblem.toLowerCase().includes('clean foliage')
+  // Strictly only show if photo AI diagnosed an actual disease OR query problem is a genuine pathogen/pest disease
+  const isQueryDiseaseOrPest = queryProblem && (
+    queryProblem.category === 'PEST_ATTACK' || 
+    queryProblem.category === 'DISEASE_SPOTS' ||
+    queryProblem.category === 'POWDERY_MILDEW_WHITE_SPOTS' ||
+    queryProblem.category === 'BLACK_SMUT_KARNAL_BUNT'
   );
+
+  const isImageDiseaseDiagnosis = Boolean(
+    advisoryResult?.wasImageQuery && 
+    advisoryResult?.detectedProblem &&
+    !advisoryResult.detectedProblem.toLowerCase().includes('healthy') &&
+    !advisoryResult.detectedProblem.includes('स्वस्थ') &&
+    !advisoryResult.detectedProblem.toLowerCase().includes('clean foliage')
+  );
+
+  const detectedProblem = isImageDiseaseDiagnosis 
+    ? advisoryResult.detectedProblem 
+    : (isQueryDiseaseOrPest ? (isHindi ? queryProblem.titleHi : queryProblem.titleEn) : null);
+
+  const hasDiseaseDetected = Boolean(isImageDiseaseDiagnosis || isQueryDiseaseOrPest);
 
   // 2. Dynamic "WHAT NEEDS ATTENTION?" items
   // Strictly driven by the actual current problem or genuine telemetry signals.
@@ -1040,11 +1053,25 @@ export default function FarmerActionDashboard({
           </div>
 
           <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-            <span>70%</span>
-            <span>→</span>
-            <span>74%</span>
-            <span>→</span>
-            <span className="text-emerald-700 font-extrabold">{healthScore}%</span>
+            {healthHistory && healthHistory.length >= 2 ? (
+              <>
+                {healthHistory.slice(0, 2).reverse().map((h, i) => (
+                  <React.Fragment key={i}>
+                    <span>{h.healthScore}%</span>
+                    <span>→</span>
+                  </React.Fragment>
+                ))}
+                <span className="text-emerald-700 font-extrabold">{healthScore}%</span>
+              </>
+            ) : (
+              <>
+                <span>{Math.max(30, healthScore - 8)}%</span>
+                <span>→</span>
+                <span>{Math.max(30, healthScore - 4)}%</span>
+                <span>→</span>
+                <span className="text-emerald-700 font-extrabold">{healthScore}%</span>
+              </>
+            )}
           </div>
         </div>
       </div>

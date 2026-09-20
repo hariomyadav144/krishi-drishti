@@ -1,5 +1,5 @@
 /**
- * AI Agriculture Advisory Service for Krishi Drishti
+ * AI Agriculture Advisory Service for Fasal Drishti
  * Context-aware advisory engine delivering 5-part structured agronomy recommendations.
  */
 

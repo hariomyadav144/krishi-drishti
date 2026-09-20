@@ -88,7 +88,7 @@ export default function SwarAssistant() {
                   </span>
                 </div>
                 <p className="text-[10px] text-emerald-200/80 font-medium">
-                  {t('swar.tagline') || 'Krishi Drishti Voice & Farm Assistant'}
+                  {t('swar.tagline') || 'Fasal Drishti Voice & Farm Assistant'}
                 </p>
               </div>
             </div>

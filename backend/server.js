@@ -8,6 +8,7 @@ const { connectDB } = require('./config/db');
 const User = require('./models/User');
 const { seedDatabase } = require('./utils/seedData');
 const { testGeminiDiagnostic, getActiveModel, getApiKey } = require('./services/geminiService');
+const { startMonitoringScheduler } = require('./services/monitoringScheduler');
 
 // Route imports
 const authRoutes = require('./routes/authRoutes');
@@ -125,7 +126,7 @@ const healthHandler = (req, res) => {
     success: true,
     geminiConfigured: isGeminiConfigured,
     model: getActiveModel(),
-    app: 'KRISHI DRISHTI API',
+    app: 'FASAL DRISHTI API',
     tagline: 'From Space to Soil',
     environment: process.env.NODE_ENV || 'production',
     timestamp: new Date().toISOString(),
@@ -176,7 +177,7 @@ process.on('unhandledRejection', (reason, promise) => {
 function startServer() {
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
-    console.log(`🌾 KRISHI DRISHTI – AI for Smarter Farming API`);
+    console.log(`🌾 FASAL DRISHTI – AI for Smarter Farming API`);
     console.log(`🚀 Server running on port ${PORT}`);
     console.log(`📡 Health Check: http://0.0.0.0:${PORT}/health`);
     console.log(`📡 API Health:   http://0.0.0.0:${PORT}/api/health`);
@@ -210,6 +211,9 @@ function startServer() {
     .catch((err) => {
       console.warn('Database initialization warning (API active and responsive):', err.message);
     });
+
+  // Start Autonomous Self-Monitoring Background Scheduler
+  startMonitoringScheduler();
 
   // Keep-alive timer
   setInterval(() => {}, 1000 * 60 * 60);

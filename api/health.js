@@ -14,7 +14,7 @@ module.exports = (req, res) => {
     success: true,
     geminiConfigured,
     model: process.env.GEMINI_MODEL || 'gemini-3.7-flash',
-    app: 'KRISHI DRISHTI API (Serverless)',
+    app: 'FASAL DRISHTI API (Serverless)',
     tagline: 'From Space to Soil',
     timestamp: new Date().toISOString()
   });

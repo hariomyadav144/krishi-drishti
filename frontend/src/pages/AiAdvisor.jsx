@@ -320,7 +320,7 @@ export default function AiAdvisor({ setActiveTab }) {
         const userQuery = cleanUserQuery(res.data.queryText || res.data.data?.queryText || query || (lang === 'hi' ? 'फसल सलाह' : 'Crop Advisory'));
 
         // Extracted crop name from AI response (strictly from image when image provided)
-        const detectedCrop = res.data.crop || res.data.cropName || res.data.data?.cropName || (imageFile ? (lang === 'hi' ? 'पहचानी गई फसल' : 'Identified Crop') : 'Krishi Drishti AI');
+        const detectedCrop = res.data.crop || res.data.cropName || res.data.data?.cropName || (imageFile ? (lang === 'hi' ? 'पहचानी गई फसल' : 'Identified Crop') : 'Fasal Drishti AI');
 
         const updatedResult = {
           ...(res.data.data || {}),
@@ -740,7 +740,7 @@ export default function AiAdvisor({ setActiveTab }) {
           )}
 
           {/* Multimodal AI Vision Image Diagnosis Results (Step 7) */}
-          {advisoryResult.isIdentifiable !== false && (advisoryResult.wasImageQuery || advisoryResult.plantPart || advisoryResult.detectedProblem) && (
+          {advisoryResult.isIdentifiable !== false && advisoryResult.wasImageQuery && (
             <div className="p-4 bg-gradient-to-b from-slate-50 to-emerald-50/30 rounded-2xl border border-emerald-300 shadow-sm space-y-3.5 animate-in fade-in">
               <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
                 <span className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">

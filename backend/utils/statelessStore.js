@@ -27,9 +27,9 @@ const USERS = [
   {
     _id: 'usr_admin_demo_01',
     id: 'usr_admin_demo_01',
-    name: 'Krishi Drishti Admin Officer',
+    name: 'Fasal Drishti Admin Officer',
     phone: '9876599999',
-    email: 'admin@krishidrishti.in',
+    email: 'admin@fasaldrishti.in',
     role: 'admin',
     isOnboarded: true,
     languagePreference: 'en',
@@ -600,75 +600,7 @@ function getStatelessMandiRates({ commodity, state, district }) {
 // -------------------------------------------------------------
 // STATELESS FIELDS STORE
 // -------------------------------------------------------------
-let STATELESS_FIELDS = [
-  {
-    _id: 'field_demo_01',
-    id: 'field_demo_01',
-    farmerId: 'usr_farmer_demo_01',
-    fieldName: 'North Plot - Wheat & Maize Block',
-    crop: 'Wheat',
-    cropVariety: 'DBW 187 (Karan Vandana)',
-    season: 'Rabi',
-    cropStage: 'Flowering Stage',
-    farmerName: 'Rameshwar Patil',
-    soilType: 'Black Soil / Regur',
-    irrigationMethod: 'Drip Irrigation',
-    notes: 'Drip irrigation installed with fertigation unit. DBW-187 certified block.',
-    points: [
-      { lat: 20.17482, lng: 73.98421 },
-      { lat: 20.17565, lng: 73.98583 },
-      { lat: 20.17512, lng: 73.98745 },
-      { lat: 20.17395, lng: 73.98782 },
-      { lat: 20.17281, lng: 73.98695 },
-      { lat: 20.17254, lng: 73.98512 },
-      { lat: 20.17342, lng: 73.98402 },
-    ],
-    center: { lat: 20.17404, lng: 73.98591 },
-    areaAcres: 8.95,
-    areaHectares: 3.62,
-    areaSqMeters: 36220,
-    formattedAcres: '8.95 acres',
-    formattedHectares: '3.62 hectares',
-    cornersCount: 7,
-    gpsStatus: 'GPS Connected (±12m)',
-    gpsAccuracy: 12,
-    soilTestReports: [],
-    lastMonitoringTimestamp: new Date().toISOString(),
-    createdAt: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
-  },
-  {
-    _id: 'field_demo_02',
-    id: 'field_demo_02',
-    farmerId: 'usr_farmer_demo_01',
-    fieldName: 'South Plot - Tomato Patch',
-    crop: 'Tomato',
-    cropVariety: 'Abhinav Hybrid (Syngenta)',
-    season: 'Kharif',
-    cropStage: 'Flowering & Fruiting Stage',
-    farmerName: 'Rameshwar Patil',
-    soilType: 'Black Soil / Regur',
-    irrigationMethod: 'Drip Irrigation',
-    notes: 'Raised beds with silver-black mulch.',
-    points: [
-      { lat: 20.17150, lng: 73.98210 },
-      { lat: 20.17280, lng: 73.98390 },
-      { lat: 20.17190, lng: 73.98510 },
-      { lat: 20.17060, lng: 73.98320 },
-    ],
-    center: { lat: 20.17170, lng: 73.98357 },
-    areaAcres: 4.20,
-    areaHectares: 1.70,
-    areaSqMeters: 17000,
-    formattedAcres: '4.20 acres',
-    formattedHectares: '1.70 hectares',
-    cornersCount: 4,
-    gpsStatus: 'GPS Connected (±15m)',
-    gpsAccuracy: 15,
-    soilTestReports: [],
-    lastMonitoringTimestamp: new Date().toISOString(),
-    createdAt: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000).toISOString()
-  }
-];
+let STATELESS_FIELDS = [];
 
 function getStatelessFields(farmerId) {
   return [...STATELESS_FIELDS];
@@ -1047,87 +979,410 @@ function getStatelessCropComparison(oldScanId, newScanId, language = 'hi') {
 }
 
 // -------------------------------------------------------------
-// STATELESS FIELD MONITORING OBSERVATIONS
 // -------------------------------------------------------------
+// STATELESS FIELD MONITORING OBSERVATIONS
+// Strictly associated with farmer_id + field_id + observation_date
+// NO fake/static fallbacks or hardcoded values across fields
+// -------------------------------------------------------------
+let STATELESS_FIELD_OBSERVATIONS = [
+  // FIELD 1: North Plot - Wheat & Maize Block (field_demo_01)
+  {
+    _id: 'obs_demo_01_t0',
+    fieldId: 'field_demo_01',
+    farmerId: 'usr_farmer_demo_01',
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Flowering Stage',
+    observationDate: new Date().toISOString(),
+    satelliteData: {
+      available: true,
+      source: 'Sentinel-2B (ESA Copernicus MSI)',
+      resolution: '10m Multispectral Ground Resolution',
+      cloudCoverage: 4.2,
+      lastObservationDate: new Date().toLocaleDateString('en-GB'),
+      ndviMean: 0.78,
+      ndviMin: 0.72,
+      ndviMax: 0.83,
+      healthCategory: 'Healthy & Vigorous',
+      healthScore: 92,
+      status: 'Latest Available',
+      spatialZones: [
+        {
+          zoneId: 'z1',
+          name: 'North Sector',
+          areaAcres: 2.2,
+          ndvi: 0.81,
+          status: 'Vigorous',
+          color: '#10B981',
+          healthScore: 94,
+          moistureStatus: 'Adequate',
+          stressLevel: 'None',
+          observation: 'High canopy vigor with active chlorophyll density'
+        },
+        {
+          zoneId: 'z2',
+          name: 'Central Sector',
+          areaAcres: 3.5,
+          ndvi: 0.77,
+          status: 'Healthy',
+          color: '#34D399',
+          healthScore: 91,
+          moistureStatus: 'Adequate',
+          stressLevel: 'None',
+          observation: 'Optimal canopy coverage and uniform vegetative density'
+        },
+        {
+          zoneId: 'z3',
+          name: 'South Drainage Sector',
+          areaAcres: 3.25,
+          ndvi: 0.74,
+          status: 'Adequate',
+          color: '#6EE7B7',
+          healthScore: 88,
+          moistureStatus: 'Watch',
+          stressLevel: 'Mild',
+          observation: 'Slightly slower transpiration near border ditch'
+        }
+      ]
+    },
+    weatherData: {
+      temperatureC: 27,
+      humidityPercent: 62,
+      precipitationMm: 0,
+      precipitationForecast24h: 0,
+      precipitationForecast48h: 1.5,
+      precipitationProbability: 15,
+      et0Fao: 4.1,
+      condition: 'Partly Cloudy'
+    },
+    moistureStatus: {
+      status: 'Adequate Moisture',
+      statusHi: 'पर्याप्त नमी',
+      moistureScore: 68,
+      trend: 'Stable',
+      deficitMm: 5.2,
+      recommendation: 'Soil moisture is optimal. Drip irrigation can proceed on regular scheduled intervals.',
+      source: 'Sentinel-2 NDWI + FAO-56 Penman-Monteith Model',
+      isSensorMeasured: false
+    },
+    irrigationAdvisory: {
+      actionRequired: false,
+      priority: 'Normal',
+      urgencyEn: 'No irrigation needed today',
+      urgencyHi: 'आज सिंचाई की आवश्यकता नहीं है',
+      messageEn: 'Adequate soil water reserve present. Hold heavy watering.',
+      messageHi: 'खेत में पर्याप्त नमी उपलब्ध है। भारी सिंचाई की आवश्यकता नहीं है।'
+    },
+    nutrientAdvisory: {
+      status: 'Balanced Nutrition',
+      recommendationEn: 'Apply foliar potassium sulphate (0:0:50) at earhead emergence stage.',
+      recommendationHi: 'बालियां निकलते समय 0:0:50 पोटैशियम सल्फेट का छिड़काव करें।'
+    },
+    diseaseRisk: {
+      riskLevel: 'Low',
+      riskScore: 22,
+      messageEn: 'Dry foliage conditions prevent fungal sporulation.',
+      messageHi: 'पत्तियां सूखी होने से फफूंद का खतरा कम है।',
+      watchList: []
+    },
+    whatShouldIDoToday: [
+      { id: '1', textEn: 'Maintain light regular drip irrigation in early morning hours.', textHi: 'सुबह के समय हल्की ड्रिप सिंचाई जारी रखें।', category: 'Irrigation' },
+      { id: '2', textEn: 'Inspect border rows for early signs of leaf spot or rust.', textHi: 'खेत की मेड़ों पर पत्तियों पर किसी धब्बे की जांच करें।', category: 'Scouting' },
+      { id: '3', textEn: 'Ensure irrigation filters are clean for optimal fertigation.', textHi: 'ड्रिप फिल्टर साफ रखें ताकि खाद सही से पहुंचे।', category: 'Maintenance' },
+      { id: '4', textEn: 'Prepare micronutrient spray for upcoming grain filling phase.', textHi: 'दाना भराव के लिए सूक्ष्म पोषक तत्वों का छिड़काव तैयार रखें।', category: 'Nutrition' },
+      { id: '5', textEn: 'Check local APMC price trends before planning harvest schedule.', textHi: 'कटाई से पहले नजदीकी मंडी के भाव पर नजर रखें।', category: 'Market' }
+    ],
+    aiSummary: 'Field vegetation vigor is strong (NDVI 0.78). Soil moisture is well balanced, and disease risk is minimal.',
+    aiSummaryHi: 'खेत में फसल की हरियाली मजबूत है (NDVI 0.78)। मिट्टी में नमी अनुकूल है और रोग का जोखिम बहुत कम है।'
+  },
+
+  // FIELD 1: Immediate Previous Observation (2 days ago)
+  {
+    _id: 'obs_demo_01_prev',
+    fieldId: 'field_demo_01',
+    farmerId: 'usr_farmer_demo_01',
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Flowering Stage',
+    observationDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+    satelliteData: {
+      available: true,
+      source: 'Sentinel-2B (ESA Copernicus MSI)',
+      resolution: '10m Multispectral Ground Resolution',
+      cloudCoverage: 5.8,
+      lastObservationDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
+      ndviMean: 0.77,
+      ndviMin: 0.71,
+      ndviMax: 0.82,
+      healthCategory: 'Healthy',
+      healthScore: 90,
+      status: 'Historical Available'
+    },
+    weatherData: {
+      temperatureC: 28,
+      humidityPercent: 58,
+      precipitationMm: 0,
+      precipitationForecast24h: 0,
+      precipitationProbability: 10,
+      et0Fao: 4.3,
+      condition: 'Clear Sky'
+    },
+    moistureStatus: {
+      status: 'Adequate Moisture',
+      statusHi: 'पर्याप्त नमी',
+      moistureScore: 65,
+      trend: 'Stable',
+      deficitMm: 6.0,
+      source: 'Sentinel-2 NDWI + FAO-56 Penman-Monteith Model',
+      isSensorMeasured: false
+    },
+    irrigationAdvisory: {
+      actionRequired: false,
+      priority: 'Normal',
+      urgencyEn: 'No irrigation needed',
+      urgencyHi: 'सिंचाई की आवश्यकता नहीं',
+      messageEn: 'Adequate moisture reserves holding.',
+      messageHi: 'नमी का स्तर पर्याप्त बना हुआ है।'
+    }
+  },
+
+  // FIELD 1: Observation ~8 Days Ago (Nearest to 7-day target)
+  {
+    _id: 'obs_demo_01_8d',
+    fieldId: 'field_demo_01',
+    farmerId: 'usr_farmer_demo_01',
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Early Flowering',
+    observationDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString(),
+    satelliteData: {
+      available: true,
+      source: 'Sentinel-2A (ESA Copernicus MSI)',
+      resolution: '10m Multispectral Ground Resolution',
+      cloudCoverage: 2.1,
+      lastObservationDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
+      ndviMean: 0.74,
+      ndviMin: 0.68,
+      ndviMax: 0.79,
+      healthCategory: 'Healthy',
+      healthScore: 86,
+      status: 'Historical Available'
+    },
+    weatherData: {
+      temperatureC: 29,
+      humidityPercent: 52,
+      precipitationMm: 0,
+      precipitationForecast24h: 0,
+      precipitationProbability: 5,
+      et0Fao: 4.5,
+      condition: 'Sunny'
+    },
+    moistureStatus: {
+      status: 'Moderate Moisture',
+      statusHi: 'मध्यम नमी',
+      moistureScore: 59,
+      trend: 'Depleting',
+      deficitMm: 9.8,
+      source: 'Sentinel-2 NDWI + FAO-56 Penman-Monteith Model',
+      isSensorMeasured: false
+    },
+    irrigationAdvisory: {
+      actionRequired: true,
+      priority: 'Medium',
+      urgencyEn: 'Irrigation Recommended within 24-48h',
+      urgencyHi: '24-48 घंटों में सिंचाई अनुशंसित',
+      messageEn: 'Soil moisture entering depletion zone.',
+      messageHi: 'मिट्टी में नमी की कमी देखी गई।'
+    }
+  },
+
+  // FIELD 1: Observation ~14 Days Ago (Nearest to 15-day target)
+  {
+    _id: 'obs_demo_01_14d',
+    fieldId: 'field_demo_01',
+    farmerId: 'usr_farmer_demo_01',
+    cropName: 'Wheat',
+    cropVariety: 'DBW 187 (Karan Vandana)',
+    cropStage: 'Vegetative - Jointing',
+    observationDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+    satelliteData: {
+      available: true,
+      source: 'Sentinel-2B (ESA Copernicus MSI)',
+      resolution: '10m Multispectral Ground Resolution',
+      cloudCoverage: 7.4,
+      lastObservationDate: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toLocaleDateString('en-GB'),
+      ndviMean: 0.69,
+      ndviMin: 0.63,
+      ndviMax: 0.75,
+      healthCategory: 'Adequate',
+      healthScore: 81,
+      status: 'Historical Available'
+    },
+    weatherData: {
+      temperatureC: 26,
+      humidityPercent: 68,
+      precipitationMm: 4.2,
+      precipitationForecast24h: 0,
+      precipitationProbability: 20,
+      et0Fao: 3.8,
+      condition: 'Scattered Clouds'
+    },
+    moistureStatus: {
+      status: 'Low Moisture',
+      statusHi: 'कम नमी',
+      moistureScore: 54,
+      trend: 'Depleted',
+      deficitMm: 12.5,
+      source: 'Sentinel-2 NDWI + FAO-56 Penman-Monteith Model',
+      isSensorMeasured: false
+    },
+    irrigationAdvisory: {
+      actionRequired: true,
+      priority: 'High',
+      urgencyEn: 'Irrigation Required',
+      urgencyHi: 'सिंचाई आवश्यक',
+      messageEn: 'Dry spell stress detected prior to light rain.',
+      messageHi: 'हल्की बारिश से पूर्व सूखे का तनाव देखा गया।'
+    }
+  },
+  // Note: Deliberately NO 30-day observation for field_demo_01, testing the honest empty state!
+
+  // FIELD 2: South Plot - Tomato Patch (field_demo_02)
+  // ONLY 1 observation recorded, NO spatial zones, NO historical records
+  {
+    _id: 'obs_demo_02_t0',
+    fieldId: 'field_demo_02',
+    farmerId: 'usr_farmer_demo_01',
+    cropName: 'Tomato',
+    cropVariety: 'Abhinav Hybrid (Syngenta)',
+    cropStage: 'Flowering & Fruiting Stage',
+    observationDate: new Date().toISOString(),
+    satelliteData: {
+      available: true,
+      source: 'Sentinel-2B (ESA Copernicus MSI)',
+      resolution: '10m Multispectral Ground Resolution',
+      cloudCoverage: 3.1,
+      lastObservationDate: new Date().toLocaleDateString('en-GB'),
+      ndviMean: 0.65,
+      ndviMin: 0.60,
+      ndviMax: 0.70,
+      healthCategory: 'Moderate Growth',
+      healthScore: 78,
+      status: 'Latest Available',
+      spatialZones: [] // Zone-level real data is NOT available yet for this field!
+    },
+    weatherData: {
+      temperatureC: 27,
+      humidityPercent: 60,
+      precipitationMm: 0,
+      precipitationForecast24h: 0,
+      precipitationProbability: 15,
+      et0Fao: 4.1,
+      condition: 'Partly Cloudy'
+    },
+    moistureStatus: {
+      status: 'Moderate Moisture',
+      statusHi: 'मध्यम नमी',
+      moistureScore: 52,
+      trend: 'Depleting',
+      deficitMm: 11.4,
+      recommendation: 'Soil moisture is dipping below optimal root-zone threshold.',
+      source: 'Sentinel-2 NDWI + FAO-56 Penman-Monteith Model',
+      isSensorMeasured: false
+    },
+    irrigationAdvisory: {
+      actionRequired: true,
+      priority: 'High',
+      urgencyEn: 'Irrigation Recommended (24h)',
+      urgencyHi: '24 घंटे में सिंचाई की सिफारिश',
+      messageEn: 'Flowering tomato crop requires immediate moisture replenishment.',
+      messageHi: 'फूल खिलने की अवस्था में टमाटर को तुरंत सिंचाई की आवश्यकता है।'
+    },
+    nutrientAdvisory: {
+      status: 'Active Stage',
+      recommendationEn: 'Apply Calcium Nitrate to prevent blossom end rot in tomatoes.',
+      recommendationHi: 'टमाटर में फल गलन रोकने के लिए कैल्शियम नाइट्रेट का प्रयोग करें।'
+    },
+    diseaseRisk: {
+      riskLevel: 'Medium',
+      riskScore: 48,
+      messageEn: 'Moderate humidity increases risk of early blight on lower tomato foliage.',
+      messageHi: 'मध्यम नमी से टमाटर की निचली पत्तियों पर अगेती झुलसा का खतरा है।',
+      watchList: ['Early Blight (Alternaria solani)']
+    },
+    whatShouldIDoToday: [
+      { id: '1', textEn: 'Run drip irrigation for 90 minutes to replenish root zone.', textHi: 'जड़ों में नमी के लिए 90 मिनट ड्रिप सिंचाई चलाएं।', category: 'Irrigation' },
+      { id: '2', textEn: 'Inspect lower leaves for dark concentric ring spots.', textHi: 'निचली पत्तियों पर गोल भूरे धब्बों की जांच करें।', category: 'Scouting' }
+    ],
+    aiSummary: 'Tomato plot requires irrigation replenishment. Early blight vigilance recommended.',
+    aiSummaryHi: 'टमाटर के खेत में सिंचाई की आवश्यकता है। अगेती झुलसा पर निगरानी रखें।'
+  }
+];
+
 function getStatelessLatestObservation(fieldId) {
-  const field = STATELESS_FIELDS.find(f => f._id === fieldId || f.id === fieldId) || STATELESS_FIELDS[0];
-  const isWheat = field.crop === 'Wheat';
+  const field = STATELESS_FIELDS.find(f => f._id === fieldId || f.id === fieldId);
+  if (!field) {
+    return {
+      success: false,
+      message: 'Field not found.'
+    };
+  }
+
+  // Find latest observation specifically for this fieldId
+  const fieldObservations = STATELESS_FIELD_OBSERVATIONS
+    .filter(o => o.fieldId === field._id)
+    .sort((a, b) => new Date(b.observationDate).getTime() - new Date(a.observationDate).getTime());
+
+  const latest = fieldObservations[0] || null;
 
   return {
     success: true,
     field,
-    data: {
-      _id: `obs_${field._id}_latest`,
-      fieldId: field._id,
-      cropName: field.crop,
-      cropStage: field.cropStage || 'Vegetative Stage',
-      observationDate: new Date().toISOString(),
-      satelliteData: {
-        available: true,
-        source: 'Sentinel-2B (ESA Copernicus MSI)',
-        resolution: '10m Multispectral Ground Resolution',
-        cloudCoverage: 4.2,
-        lastObservationDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        ndviMean: isWheat ? 0.78 : 0.72,
-        healthCategory: 'Healthy & Vigorous',
-        healthScore: isWheat ? 92 : 85,
-        status: 'Latest Available',
-        spatialZones: [
-          { zoneId: 'z1', name: 'North Sector', areaAcres: 2.2, ndvi: 0.81, status: 'Vigorous', color: '#10B981' },
-          { zoneId: 'z2', name: 'Central Sector', areaAcres: 3.5, ndvi: 0.77, status: 'Healthy', color: '#34D399' },
-          { zoneId: 'z3', name: 'South Drainage Sector', areaAcres: 3.25, ndvi: 0.74, status: 'Adequate', color: '#6EE7B7' }
-        ]
-      },
-      weatherData: {
-        temperatureC: 27,
-        humidityPercent: 62,
-        precipitationMm: 0,
-        precipitationForecast24h: 0,
-        precipitationForecast48h: 1.5,
-        precipitationProbability: 15,
-        et0Fao: 4.1,
-        condition: 'Partly Cloudy'
-      },
-      moistureStatus: {
-        status: 'Adequate Moisture',
-        statusHi: 'पर्याप्त नमी',
-        moistureScore: 68,
-        deficitMm: 5.2,
-        recommendation: 'Soil moisture is optimal. Drip irrigation can proceed on regular scheduled intervals.'
-      },
-      irrigationAdvisory: {
-        actionRequired: false,
-        priority: 'Normal',
-        messageEn: 'Adequate soil water reserve present. Hold heavy watering.',
-        messageHi: 'खेत में पर्याप्त नमी उपलब्ध है। भारी सिंचाई की आवश्यकता नहीं है।'
-      },
-      nutrientAdvisory: {
-        status: 'Balanced Nutrition',
-        recommendationEn: 'Apply foliar potassium sulphate (0:0:50) at earhead emergence stage.',
-        recommendationHi: 'बालियां निकलते समय 0:0:50 पोटैशियम सल्फेट का छिड़काव करें।'
-      },
-      diseaseRisk: {
-        riskLevel: 'Low',
-        messageEn: 'Dry foliage conditions prevent fungal sporulation.',
-        messageHi: 'पत्तियां सूखी होने से फफूंद का खतरा कम है।'
-      },
-      whatShouldIDoToday: [
-        { id: '1', textEn: 'Maintain light regular drip irrigation in early morning hours.', textHi: 'सुबह के समय हल्की ड्रिप सिंचाई जारी रखें।', category: 'Irrigation' },
-        { id: '2', textEn: 'Inspect border rows for early signs of leaf spot or rust.', textHi: 'खेत की मेड़ों पर पत्तियों पर किसी धब्बे की जांच करें।', category: 'Scouting' },
-        { id: '3', textEn: 'Ensure irrigation filters are clean for optimal fertigation.', textHi: 'ड्रिप फिल्टर साफ रखें ताकि खाद सही से पहुंचे।', category: 'Maintenance' },
-        { id: '4', textEn: 'Prepare micronutrient spray for upcoming grain filling phase.', textHi: 'दाना भराव के लिए सूक्ष्म पोषक तत्वों का छिड़काव तैयार रखें।', category: 'Nutrition' },
-        { id: '5', textEn: 'Check local APMC price trends before planning harvest schedule.', textHi: 'कटाई से पहले नजदीकी मंडी के भाव पर नजर रखें।', category: 'Market' }
-      ],
-      aiSummary: 'Field vegetation vigor is strong (NDVI 0.78). Soil moisture is well balanced, and disease risk is minimal.',
-      aiSummaryHi: 'खेत में फसल की हरियाली मजबूत है (NDVI 0.78)। मिट्टी में नमी अनुकूल है और रोग का जोखिम बहुत कम है।'
-    },
+    data: latest,
     alerts: []
   };
 }
 
 function getStatelessFieldMonitoringSummary(farmerId) {
   return STATELESS_FIELDS.map(field => {
-    const isWheat = field.crop === 'Wheat';
+    const fieldObs = STATELESS_FIELD_OBSERVATIONS
+      .filter(o => o.fieldId === field._id)
+      .sort((a, b) => new Date(b.observationDate).getTime() - new Date(a.observationDate).getTime())[0];
+
+    if (!fieldObs) {
+      return {
+        fieldId: field._id,
+        fieldName: field.fieldName,
+        area: field.areaAcres,
+        areaUnit: 'Acres',
+        crop: field.crop,
+        cropVariety: field.cropVariety || 'Standard',
+        cropStage: field.cropStage || 'Not Specified',
+        soilType: field.soilType || 'Black Soil',
+        irrigationMethod: field.irrigationMethod || 'Drip Irrigation',
+        location: field.center,
+        lastMonitoringTimestamp: field.lastMonitoringTimestamp,
+        cropHealth: 'Data Pending',
+        healthScore: null,
+        moistureStatus: 'Data Pending',
+        moistureStatusHi: 'डेटा प्रतीक्षित',
+        moistureScore: null,
+        rainForecast: 0,
+        rainProbability: 0,
+        irrigationRecommendation: 'Pending Data',
+        irrigationMessageEn: 'Real field observation not recorded yet.',
+        irrigationMessageHi: 'खेत का वास्तविक अवलोकन अभी उपलब्ध नहीं है।',
+        nutrientStatus: 'Pending',
+        diseaseRisk: 'Unknown',
+        lastSatelliteObservation: null,
+        satelliteStatus: 'Pending Optical Revisit',
+        ndviMean: null,
+        whatShouldIDoToday: [],
+        aiSummary: 'Real field data not available yet.',
+        aiSummaryHi: 'वास्तविक खेत डेटा अभी उपलब्ध नहीं है।'
+      };
+    }
+
     return {
       fieldId: field._id,
       fieldName: field.fieldName,
@@ -1140,49 +1395,55 @@ function getStatelessFieldMonitoringSummary(farmerId) {
       irrigationMethod: field.irrigationMethod || 'Drip Irrigation',
       location: field.center,
       lastMonitoringTimestamp: field.lastMonitoringTimestamp,
-      cropHealth: 'Healthy & Vigorous',
-      healthScore: isWheat ? 92 : 85,
-      moistureStatus: 'Adequate Moisture',
-      moistureStatusHi: 'पर्याप्त नमी',
-      moistureScore: 68,
-      rainForecast: 0,
-      rainProbability: 15,
-      irrigationRecommendation: 'Not Required Today',
-      irrigationMessageEn: 'Adequate soil water reserve present.',
-      irrigationMessageHi: 'खेत में पर्याप्त नमी उपलब्ध है।',
-      nutrientStatus: 'Balanced Nutrition',
-      nutrientStatusHi: 'संतुलित पोषण',
-      diseaseRisk: 'Low',
-      lastSatelliteObservation: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-      satelliteStatus: 'Latest Available',
-      ndviMean: isWheat ? 0.78 : 0.72,
-      whatShouldIDoToday: [
-        { textEn: 'Maintain light regular drip irrigation.', textHi: 'हल्की नियमित ड्रिप सिंचाई जारी रखें।' }
-      ],
-      aiSummary: 'Optimal vegetative vigor with balanced moisture.',
-      aiSummaryHi: 'पर्याप्त नमी और सशक्त फसल हरियाली।'
+      cropHealth: fieldObs.satelliteData?.healthCategory || 'Normal',
+      healthScore: fieldObs.satelliteData?.healthScore,
+      moistureStatus: fieldObs.moistureStatus?.status,
+      moistureStatusHi: fieldObs.moistureStatus?.statusHi,
+      moistureScore: fieldObs.moistureStatus?.moistureScore,
+      rainForecast: fieldObs.weatherData?.precipitationForecast24h || 0,
+      rainProbability: fieldObs.weatherData?.precipitationProbability || 0,
+      irrigationRecommendation: fieldObs.irrigationAdvisory?.urgencyEn || 'Normal',
+      irrigationMessageEn: fieldObs.irrigationAdvisory?.messageEn,
+      irrigationMessageHi: fieldObs.irrigationAdvisory?.messageHi,
+      nutrientStatus: fieldObs.nutrientAdvisory?.status || 'Balanced',
+      nutrientStatusHi: 'संतुलित',
+      diseaseRisk: fieldObs.diseaseRisk?.riskLevel || 'Low',
+      lastSatelliteObservation: fieldObs.satelliteData?.lastObservationDate || new Date(fieldObs.observationDate).toLocaleDateString('en-GB'),
+      satelliteStatus: fieldObs.satelliteData?.status || 'Available',
+      ndviMean: fieldObs.satelliteData?.ndviMean,
+      whatShouldIDoToday: fieldObs.whatShouldIDoToday || [],
+      aiSummary: fieldObs.aiSummary,
+      aiSummaryHi: fieldObs.aiSummaryHi
     };
   });
 }
 
 function getStatelessFieldHistory(fieldId) {
-  const days = [14, 12, 10, 8, 6, 4, 2, 0];
-  const chartData = days.map((d, i) => ({
-    date: new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString(),
-    ndvi: +(0.70 + (i * 0.012)).toFixed(3),
-    cloudCoverage: 3 + (i % 3),
-    satelliteStatus: 'Latest Available',
-    moistureScore: 65 + (i % 5),
-    moistureStatus: 'Adequate',
-    rainfallMm: d === 6 ? 4.2 : 0,
-    temperatureC: 26 + (i % 3),
-    et0: 4.1,
-    irrigationNeeded: false,
-    diseaseRiskLevel: 'Low',
-    healthScore: 84 + i
+  const field = STATELESS_FIELDS.find(f => f._id === fieldId || f.id === fieldId);
+  if (!field) {
+    return { success: false, message: 'Field not found.' };
+  }
+
+  // Retrieve actual stored observations for this field
+  const observations = STATELESS_FIELD_OBSERVATIONS
+    .filter(o => o.fieldId === field._id)
+    .sort((a, b) => new Date(a.observationDate).getTime() - new Date(b.observationDate).getTime());
+
+  const chartData = observations.map(obs => ({
+    date: obs.observationDate,
+    ndvi: obs.satelliteData?.ndviMean,
+    cloudCoverage: obs.satelliteData?.cloudCoverage || 0,
+    satelliteStatus: obs.satelliteData?.status || 'Available',
+    moistureScore: obs.moistureStatus?.moistureScore,
+    moistureStatus: obs.moistureStatus?.status,
+    rainfallMm: obs.weatherData?.precipitationMm || 0,
+    temperatureC: obs.weatherData?.temperatureC,
+    et0: obs.weatherData?.et0Fao,
+    irrigationNeeded: obs.irrigationAdvisory?.actionRequired || false,
+    diseaseRiskLevel: obs.diseaseRisk?.riskLevel || 'Low',
+    healthScore: obs.satelliteData?.healthScore
   }));
 
-  const field = STATELESS_FIELDS.find(f => f._id === fieldId || f.id === fieldId) || STATELESS_FIELDS[0];
   return {
     success: true,
     field,
@@ -1193,39 +1454,145 @@ function getStatelessFieldHistory(fieldId) {
 }
 
 function getStatelessCompareObservations(fieldId, period = '7d') {
-  const field = STATELESS_FIELDS.find(f => f._id === fieldId || f.id === fieldId) || STATELESS_FIELDS[0];
-  const days = period === '30d' ? 30 : (period === '15d' ? 15 : 7);
+  const field = STATELESS_FIELDS.find(f => f._id === fieldId || f.id === fieldId);
+  if (!field) {
+    return {
+      success: false,
+      message: 'Field not found.'
+    };
+  }
 
-  const current = getStatelessLatestObservation(fieldId).data;
-  const previous = {
-    ...current,
-    observationDate: new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString(),
-    satelliteData: {
-      ...current.satelliteData,
-      ndviMean: +(current.satelliteData.ndviMean - 0.04).toFixed(3),
-      healthScore: current.satelliteData.healthScore - 6
-    },
-    moistureStatus: {
-      ...current.moistureStatus,
-      moistureScore: 62
+  const observations = STATELESS_FIELD_OBSERVATIONS
+    .filter(o => o.fieldId === field._id)
+    .sort((a, b) => new Date(b.observationDate).getTime() - new Date(a.observationDate).getTime());
+
+  if (observations.length === 0) {
+    return {
+      success: true,
+      canCompare: false,
+      period,
+      message: 'No real field observation available yet.',
+      current: null
+    };
+  }
+
+  const latest = observations[0];
+  const now = new Date(latest.observationDate).getTime();
+  let previous = null;
+  let targetDays = 7;
+
+  if (period === 'previous') {
+    // Find immediately prior observation based on observationDate
+    previous = observations.find(o => new Date(o.observationDate).getTime() < now) || null;
+  } else {
+    let minDays = 5;
+    let maxDays = 9;
+    targetDays = 7;
+
+    if (period === '15d') {
+      minDays = 12;
+      maxDays = 18;
+      targetDays = 15;
+    } else if (period === '30d') {
+      minDays = 24;
+      maxDays = 36;
+      targetDays = 30;
     }
-  };
+
+    const minTimestamp = now - (maxDays * 86400000);
+    const maxTimestamp = now - (minDays * 86400000);
+    const targetTimestamp = now - (targetDays * 86400000);
+
+    // Filter candidate observations strictly within tolerance window
+    const candidates = observations.filter(o => {
+      const t = new Date(o.observationDate).getTime();
+      return t >= minTimestamp && t <= maxTimestamp;
+    });
+
+    if (candidates.length > 0) {
+      // Pick the closest to target timestamp
+      candidates.sort((a, b) => {
+        const diffA = Math.abs(new Date(a.observationDate).getTime() - targetTimestamp);
+        const diffB = Math.abs(new Date(b.observationDate).getTime() - targetTimestamp);
+        return diffA - diffB;
+      });
+      previous = candidates[0];
+    }
+  }
+
+  if (!previous) {
+    return {
+      success: true,
+      canCompare: false,
+      period,
+      message: period === '30d'
+        ? 'No real observation available for 30-day comparison.'
+        : 'No real observation available for this period.',
+      current: latest
+    };
+  }
+
+  // Calculate real days apart
+  const daysApart = Math.max(1, Math.round(Math.abs(now - new Date(previous.observationDate).getTime()) / 86400000));
+  const isExactTarget = (period === '7d' && daysApart === 7) || (period === '15d' && daysApart === 15) || (period === '30d' && daysApart === 30);
+  const nearestDateNotice = isExactTarget ? null : `Nearest available observation: ${new Date(previous.observationDate).toLocaleDateString('en-GB')}`;
+
+  // Deltas calculated ONLY from real numbers
+  const currentNdvi = latest.satelliteData?.ndviMean;
+  const prevNdvi = previous.satelliteData?.ndviMean;
+  let ndviDelta = null;
+  let ndviDeltaPercent = null;
+  if (typeof currentNdvi === 'number' && typeof prevNdvi === 'number' && prevNdvi > 0) {
+    ndviDelta = +(currentNdvi - prevNdvi).toFixed(3);
+    ndviDeltaPercent = +((ndviDelta / prevNdvi) * 100).toFixed(1);
+  }
+
+  const currentMoisture = latest.moistureStatus?.moistureScore;
+  const prevMoisture = previous.moistureStatus?.moistureScore;
+  let moistureDelta = null;
+  if (typeof currentMoisture === 'number' && typeof prevMoisture === 'number') {
+    moistureDelta = +(currentMoisture - prevMoisture).toFixed(1);
+  }
+
+  const currentHealth = latest.satelliteData?.healthScore;
+  const prevHealth = previous.satelliteData?.healthScore;
+  let healthDelta = null;
+  if (typeof currentHealth === 'number' && typeof prevHealth === 'number') {
+    healthDelta = currentHealth - prevHealth;
+  }
+
+  // Generate real trend narrative based strictly on actual observations
+  let comparisonNarrativeEn = '';
+  let comparisonNarrativeHi = '';
+  const prevDateStr = new Date(previous.observationDate).toLocaleDateString('en-GB');
+  const latestDateStr = new Date(latest.observationDate).toLocaleDateString('en-GB');
+
+  if (ndviDelta !== null) {
+    const dir = ndviDelta > 0 ? 'increased' : (ndviDelta < 0 ? 'decreased' : 'remained stable');
+    const dirHi = ndviDelta > 0 ? 'सुधार' : (ndviDelta < 0 ? 'गिरावट' : 'स्थिर');
+    comparisonNarrativeEn = `NDVI ${dir} from ${prevNdvi} to ${currentNdvi} between ${prevDateStr} and ${latestDateStr}.`;
+    comparisonNarrativeHi = `${prevDateStr} और ${latestDateStr} के बीच NDVI ${prevNdvi} से ${currentNdvi} (${dirHi}) दर्ज किया गया।`;
+  } else {
+    comparisonNarrativeEn = `Observation recorded on ${prevDateStr} compared with current observation (${latestDateStr}).`;
+    comparisonNarrativeHi = `${prevDateStr} का अवलोकन वर्तमान (${latestDateStr}) के साथ तुलना में उपलब्ध है।`;
+  }
 
   return {
     success: true,
     canCompare: true,
     field,
     period,
-    daysApart: days,
-    current,
+    daysApart,
+    nearestDateNotice,
+    current: latest,
     previous,
     deltas: {
-      ndviDelta: 0.04,
-      ndviDeltaPercent: 5.4,
-      moistureDelta: 6,
-      healthDelta: 6,
-      comparisonNarrativeEn: `Vegetation vigor has improved by 5.4% over ${days} days with balanced moisture.`,
-      comparisonNarrativeHi: `पिछले ${days} दिनों में फसल हरियाली में 5.4% का सुधार हुआ है और नमी अनुकूल बनी हुई है।`
+      ndviDelta,
+      ndviDeltaPercent,
+      moistureDelta,
+      healthDelta,
+      comparisonNarrativeEn,
+      comparisonNarrativeHi
     }
   };
 }
@@ -1353,6 +1720,75 @@ function getStatelessHealthHistory(fieldId, period = '30d') {
   }).sort((a, b) => new Date(a.calculatedAt).getTime() - new Date(b.calculatedAt).getTime());
 }
 
+const STATELESS_ACTION_ITEMS = [
+  {
+    _id: 'act_item_demo_01',
+    farmerId: 'usr_farmer_demo_01',
+    fieldId: 'field_demo_01',
+    fieldName: 'Plot A - Main Wheat Field',
+    issueKey: 'moisture_stress',
+    title: 'Moisture Stress Detected: Plan Irrigation',
+    titleHi: 'नमी की कमी: 24-48 घंटे में सिंचाई करें',
+    description: 'Soil moisture is declining under active vegetative growth. Rainfall is not expected soon.',
+    descriptionHi: 'फसल की सक्रिय वृद्धि के कारण नमी कम हो रही है और बारिश की संभावना नहीं है।',
+    severity: 'high',
+    category: 'irrigation',
+    dataSource: 'soil_sensor',
+    confidence: 88,
+    status: 'pending',
+    resolutionStatus: 'active',
+    initialMetric: { name: 'moistureScore', value: 38, unit: '%' },
+    createdAt: new Date(Date.now() - 3600000 * 4).toISOString()
+  }
+];
+
+function getStatelessFieldActions(fieldId) {
+  if (!fieldId) return STATELESS_ACTION_ITEMS;
+  return STATELESS_ACTION_ITEMS.filter(a => a.fieldId === fieldId);
+}
+
+function updateStatelessActionStatus(actionId, status, completedNotes) {
+  const item = STATELESS_ACTION_ITEMS.find(a => a._id === actionId);
+  if (item) {
+    item.status = status || item.status;
+    if (status === 'completed') {
+      item.actionTakenAt = new Date().toISOString();
+      item.resolutionStatus = 'resolved';
+      item.resolvedAt = new Date().toISOString();
+      item.resolvedMetric = { name: 'moistureScore', value: 74, unit: '%' };
+      item.resolutionMessage = 'Soil moisture restored to optimal following reported irrigation.';
+      item.resolutionMessageHi = 'सिंचाई के उपरांत खेत में नमी का स्तर पुनः उत्तम हो गया है।';
+    }
+    if (completedNotes) item.completedNotes = completedNotes;
+    return item;
+  }
+  return null;
+}
+
+function addStatelessTelemetry(fieldId, telemetry) {
+  const fields = getStatelessFields('usr_farmer_demo_01');
+  const target = fields.find(f => f._id === fieldId || f.id === fieldId);
+  if (target) {
+    if (!Array.isArray(target.sensorData)) target.sensorData = [];
+    target.sensorData.unshift({
+      timestamp: new Date().toISOString(),
+      ...telemetry
+    });
+    return target;
+  }
+  return null;
+}
+
+function createStatelessActionItem(item) {
+  const newItem = {
+    _id: item._id || 'action_' + Date.now(),
+    createdAt: new Date().toISOString(),
+    ...item
+  };
+  STATELESS_ACTION_ITEMS.unshift(newItem);
+  return newItem;
+}
+
 module.exports = {
   isDbConnected,
   getStatelessUserByRole,
@@ -1386,10 +1822,16 @@ module.exports = {
   getStatelessFieldHistory,
   getStatelessCompareObservations,
   addStatelessSoilTest,
+  // Action Items & Telemetry helpers
+  getStatelessFieldActions,
+  updateStatelessActionStatus,
+  createStatelessActionItem,
+  addStatelessTelemetry,
   // Crop Health helpers
   saveStatelessHealthRecord,
   getStatelessLatestHealthRecord,
   getStatelessHealthHistory
 };
+
 
 

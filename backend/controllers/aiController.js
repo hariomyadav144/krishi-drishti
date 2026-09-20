@@ -185,7 +185,7 @@ const getAiAdvice = async (req, res) => {
       cropName: finalCrop
     });
   } catch (error) {
-    console.error('[Krishi Drishti] AI Advice Catch:', error.message || error);
+    console.error('[Fasal Drishti] AI Advice Catch:', error.message || error);
     const qText = question || queryText || '';
     const fallbackStructured = generateStandardStructuredAdvice({
       query: qText,
@@ -351,7 +351,7 @@ const diagnoseCrop = async (req, res) => {
       }
     });
   } catch (error) {
-    console.error('[Krishi Drishti] AI Diagnose Error:', error.message || error);
+    console.error('[Fasal Drishti] AI Diagnose Error:', error.message || error);
     const friendlyMsg = getFriendlyBusyMessage(req.body?.language || 'hi');
     return res.status(200).json({
       success: true,

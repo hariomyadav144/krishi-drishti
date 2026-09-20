@@ -7,7 +7,14 @@ const ActionPlan = require('../models/ActionPlan');
 const CropAnalysis = require('../models/CropAnalysis');
 const Recommendation = require('../models/Recommendation');
 const Alert = require('../models/Alert');
-const { isDbConnected, getStatelessDashboard } = require('../utils/statelessStore');
+const { runFieldMonitoringPipeline } = require('../services/fieldMonitoringService');
+const { 
+  isDbConnected, 
+  getStatelessDashboard, 
+  getStatelessFields, 
+  saveStatelessField, 
+  deleteStatelessField 
+} = require('../utils/statelessStore');
 
 // @desc Complete farmer onboarding
 // @route POST /api/farmer/onboarding
@@ -296,38 +303,15 @@ const getFarmInsights = async (req, res) => {
   }
 };
 
-// Field Mapping Memory Store
-let memoryFields = [
-  {
-    id: 'field_demo_maize_01',
-    fieldName: 'North Plot - Maize Block',
-    crop: 'Maize',
-    season: 'Kharif',
-    farmerName: 'Rameshwar Patil',
-    soilType: 'Black Soil / Regur',
-    notes: 'Drip irrigation installed. High density hybrid planting with mulch.',
-    points: [
-      { lat: 20.17482, lng: 73.98421 },
-      { lat: 20.17565, lng: 73.98583 },
-      { lat: 20.17512, lng: 73.98745 },
-      { lat: 20.17395, lng: 73.98782 },
-      { lat: 20.17281, lng: 73.98695 },
-      { lat: 20.17254, lng: 73.98512 },
-      { lat: 20.17342, lng: 73.98402 },
-    ],
-    center: { lat: 20.17404, lng: 73.98591 },
-    areaAcres: 8.95,
-    areaHectares: 3.62,
-    areaSqMeters: 36220,
-    formattedAcres: '8.95 acres',
-    formattedHectares: '3.62 hectares',
-    cornersCount: 7,
-    gpsStatus: 'GPS Connected',
-    gpsAccuracy: 18,
-    createdAt: new Date(Date.now() - 86400000 * 3).toISOString(),
-    updatedAt: new Date().toISOString()
-  }
-];
+// Field Mapping In-Memory Synchronization
+const isLegacyMockField = (f) => {
+  if (!f) return true;
+  if (Array.isArray(f.points) && f.points.length === 7) return true;
+  if (f.fieldName && (f.fieldName.includes('North Plot') || f.fieldName.includes('field_demo'))) return true;
+  if (f.id === 'field_demo_01' || f._id === 'field_demo_01' || f.id === 'field_demo_maize_01') return true;
+  if (Array.isArray(f.points) && f.points.some(p => Math.abs(p.lat - 20.174) < 0.05 && Math.abs(p.lng - 73.985) < 0.05)) return true;
+  return false;
+};
 
 const getFields = async (req, res) => {
   try {
@@ -335,23 +319,42 @@ const getFields = async (req, res) => {
     if (isDbConnected() && farmerId) {
       const dbFields = await Field.find({ farmerId }).sort({ createdAt: -1 });
       if (dbFields && dbFields.length > 0) {
-        return res.json({ success: true, data: dbFields });
+        const cleanDbFields = dbFields.filter(f => !isLegacyMockField(f));
+        return res.json({ success: true, data: cleanDbFields });
       }
     }
   } catch (err) {
     console.warn('Field lookup from DB warning:', err.message);
   }
-  res.json({ success: true, data: memoryFields });
+  const fields = getStatelessFields(req.user?._id);
+  const cleanFields = fields.filter(f => !isLegacyMockField(f));
+  res.json({ success: true, data: cleanFields });
 };
 
 const saveField = async (req, res) => {
   const fieldData = req.body;
-  if (!fieldData || !fieldData.points || fieldData.points.length < 3) {
-    return res.status(400).json({ success: false, message: 'Invalid polygon boundary points.' });
+  if (!fieldData || !Array.isArray(fieldData.points) || fieldData.points.length < 3) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Please mark at least 3 valid boundary points on the map.' 
+    });
   }
 
-  const farmerId = req.user?._id;
-  if (isDbConnected() && farmerId) {
+  // Rigorous geospatial coordinate validation
+  for (let i = 0; i < fieldData.points.length; i++) {
+    const pt = fieldData.points[i];
+    const lat = Number(pt?.lat);
+    const lng = Number(pt?.lng);
+    if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+      return res.status(400).json({ 
+        success: false, 
+        message: `Invalid GPS coordinates at corner #${i + 1}.` 
+      });
+    }
+  }
+
+  const farmerId = req.user?._id || 'usr_farmer_demo_01';
+  if (isDbConnected() && req.user?._id) {
     try {
       let savedDbField = null;
       if (fieldData._id || (fieldData.id && fieldData.id.match(/^[0-9a-fA-F]{24}$/))) {
@@ -366,28 +369,31 @@ const saveField = async (req, res) => {
           farmerId
         });
       }
+
+      // Proactively trigger autonomous monitoring pipeline immediately upon field registration
+      try {
+        runFieldMonitoringPipeline(savedDbField._id, farmerId)
+          .catch(e => console.warn('[FieldSave] Initial monitoring auto-run note:', e.message));
+      } catch (_) {}
+
+      // Keep stateless copy aligned
+      saveStatelessField(savedDbField.toObject ? savedDbField.toObject() : savedDbField, farmerId);
+
       return res.json({ success: true, data: savedDbField });
     } catch (dbErr) {
       console.warn('Field save to DB warning:', dbErr.message);
     }
   }
 
-  const id = fieldData.id || `field_${Date.now()}`;
-  const saved = { ...fieldData, id, updatedAt: new Date().toISOString() };
-  const idx = memoryFields.findIndex(f => f.id === id);
-  if (idx >= 0) {
-    memoryFields[idx] = saved;
-  } else {
-    memoryFields.unshift(saved);
-  }
+  const saved = saveStatelessField(fieldData, farmerId);
   res.json({ success: true, data: saved });
 };
 
 const deleteField = async (req, res) => {
   const { id } = req.params;
-  const farmerId = req.user?._id;
+  const farmerId = req.user?._id || 'usr_farmer_demo_01';
 
-  if (isDbConnected() && farmerId) {
+  if (isDbConnected() && req.user?._id) {
     try {
       await Field.findOneAndDelete({ _id: id, farmerId });
     } catch (err) {
@@ -395,8 +401,8 @@ const deleteField = async (req, res) => {
     }
   }
 
-  memoryFields = memoryFields.filter(f => f.id !== id && f._id?.toString() !== id);
-  res.json({ success: true, message: 'Field deleted', data: memoryFields });
+  const remaining = deleteStatelessField(id, farmerId);
+  res.json({ success: true, message: 'Field deleted', data: remaining });
 };
 
 module.exports = {

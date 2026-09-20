@@ -1,6 +1,6 @@
 /**
  * Copernicus Data Space Ecosystem (CDSE) / Sentinel-2 Service
- * Free European Space Agency (ESA) Satellite Architecture for Krishi Drishti
+ * Free European Space Agency (ESA) Satellite Architecture for Fasal Drishti
  * 
  * Provides automated Sentinel-2 L2A satellite data fetching,
  * 10-meter resolution multispectral processing, and NDVI computation

@@ -79,8 +79,8 @@ const register = async (req, res) => {
       // Send Welcome Alert
       await Alert.create({
         userId: user._id,
-        title: 'Welcome to Krishi Drishti! 🌱',
-        titleHi: 'कृषि दृष्टि में आपका स्वागत है! 🌱',
+        title: 'Welcome to Fasal Drishti! 🌱',
+        titleHi: 'फ़सल दृष्टि में आपका स्वागत है! 🌱',
         message: 'Your smart farming companion is active. Scan your crop or ask AI advice anytime.',
         messageHi: 'आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।',
         priority: 'low',
@@ -279,9 +279,9 @@ const demoLogin = async (req, res) => {
         });
       } else if (role === 'admin') {
         user = await User.create({
-          name: 'Krishi Drishti Admin Officer',
+          name: 'Fasal Drishti Admin Officer',
           phone: '9876599999',
-          email: 'admin@krishidrishti.in',
+          email: 'admin@fasaldrishti.in',
           password: hashedPassword,
           role: 'admin',
           isOnboarded: true,

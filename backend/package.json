@@ -1,7 +1,7 @@
 {
   "name": "krishi-drishti-backend",
   "version": "1.0.0",
-  "description": "Krishi Drishti - AI for Smarter Farming Backend API",
+  "description": "Fasal Drishti - AI for Smarter Farming Backend API",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

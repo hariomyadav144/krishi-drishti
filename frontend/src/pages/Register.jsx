@@ -55,7 +55,7 @@ export default function Register({ onNavigateLogin, onRegistered }) {
             <Sprout className="w-8 h-8" />
           </div>
           <h1 className="text-2xl font-extrabold tracking-tight text-white">
-            {lang === 'hi' ? 'कृषि दृष्टि से जुड़ें' : 'Join Krishi Drishti'}
+            {lang === 'hi' ? 'फ़सल दृष्टि से जुड़ें' : 'Join Fasal Drishti'}
           </h1>
           <p className="text-xs text-agri-200 mt-1">
             {lang === 'hi' ? 'स्मार्ट खेती के लिए मुफ्त पंजीकरण करें' : 'Register for AI-Powered Smart Farming'}

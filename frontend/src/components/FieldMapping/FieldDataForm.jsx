@@ -50,23 +50,27 @@ export default function FieldDataForm({
   areaHectares = 0,
   onSave,
   isSaving = false,
-  onCropChange
+  onCropChange,
+  farmCount = 0,
+  createNew = true
 }) {
   const { lang } = useLanguage();
 
-  const [fieldName, setFieldName] = useState(initialField?.fieldName || 'North Field - Plot A');
-  const [crop, setCrop] = useState(initialField?.crop || 'Maize');
+  const [fieldName, setFieldName] = useState(
+    initialField?.fieldName || (createNew ? `Farm ${(farmCount || 0) + 1}` : '')
+  );
+  const [crop, setCrop] = useState(initialField?.crop || 'Wheat');
   const [season, setSeason] = useState(initialField?.season || 'Kharif (Monsoon)');
-  const [farmerName, setFarmerName] = useState(initialField?.farmerName || 'Rameshwar Patil');
+  const [farmerName, setFarmerName] = useState(initialField?.farmerName || '');
   const [soilType, setSoilType] = useState(initialField?.soilType || 'Black Soil / Regur');
   const [notes, setNotes] = useState(initialField?.notes || '');
   const [formError, setFormError] = useState('');
   const [saveSuccessMessage, setSaveSuccessMessage] = useState('');
 
-  // Update fields if initialField changes
+  // Update fields if initialField changes (or resets to null in New Field mode)
   useEffect(() => {
     if (initialField) {
-      if (initialField.fieldName) setFieldName(initialField.fieldName);
+      if (initialField.fieldName || initialField.name) setFieldName(initialField.fieldName || initialField.name);
       if (initialField.crop) {
         setCrop(initialField.crop);
         if (onCropChange) onCropChange(initialField.crop);
@@ -75,8 +79,41 @@ export default function FieldDataForm({
       if (initialField.farmerName) setFarmerName(initialField.farmerName);
       if (initialField.soilType) setSoilType(initialField.soilType);
       if (initialField.notes !== undefined) setNotes(initialField.notes);
+    } else {
+      setFieldName(`Farm ${(farmCount || 0) + 1}`);
+      setCrop('Wheat');
+      setSeason('Kharif (Monsoon)');
+      setNotes('');
+      setFormError('');
+      setSaveSuccessMessage('');
     }
-  }, [initialField]);
+  }, [initialField, farmCount, createNew]);
+
+  // Reset form fields to empty state when boundary corners are wiped (Clear All)
+  useEffect(() => {
+    if (!initialField && boundaryPoints.length === 0) {
+      setFieldName(`Farm ${(farmCount || 0) + 1}`);
+      setNotes('');
+      setFormError('');
+      setSaveSuccessMessage('');
+    }
+  }, [boundaryPoints.length, initialField, farmCount]);
+
+  // Auto-suggest field name from real land location if farmer has not typed one yet
+  useEffect(() => {
+    if (!initialField && !fieldName && boundaryPoints.length > 0) {
+      try {
+        const stored = localStorage.getItem('krishi_farm_coords');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed && parsed.name) {
+            const shortLoc = parsed.name.split(',')[0].trim();
+            setFieldName(`${shortLoc} ${crop} Plot`);
+          }
+        }
+      } catch (_) {}
+    }
+  }, [initialField, boundaryPoints.length, fieldName, crop]);
 
   const handleCropSelect = (selectedCrop) => {
     setCrop(selectedCrop);
@@ -93,8 +130,8 @@ export default function FieldDataForm({
     if (boundaryPoints.length < 3) {
       setFormError(
         lang === 'hi'
-          ? 'कृपया नक्शे पर कम से कम 3 सीमा बिंदु चिह्नित करें।'
-          : 'Please mark at least 3 boundary points on the map to create a valid field.'
+          ? 'खेत की सीमा बनाने के लिए कृपया नक्शे पर कम से कम 3 बिंदु चिह्नित करें।'
+          : 'Please mark at least 3 points to create a field boundary.'
       );
       return;
     }
@@ -193,7 +230,7 @@ export default function FieldDataForm({
               id="input-field-name"
               value={fieldName}
               onChange={(e) => setFieldName(e.target.value)}
-              placeholder="e.g. North Plot - Main Farm"
+              placeholder={lang === 'hi' ? 'उदा. मेरा खेत - मुख्य प्लाट' : 'e.g. My Farm - Main Plot'}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-slate-50/50 text-xs font-semibold text-slate-900"
               required
             />
@@ -293,20 +330,36 @@ export default function FieldDataForm({
           />
         </div>
 
-        {/* Save Field Button */}
+        {/* Section 13: Minimum Point Validation Notice */}
+        {boundaryPoints.length < 3 && (
+          <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs flex items-center gap-2">
+            <span className="text-base">📍</span>
+            <span>
+              {lang === 'hi'
+                ? 'खेत की सीमा बनाने के लिए कम से कम 3 बिंदु चिह्नित करें।'
+                : 'Mark at least 3 points to create your field boundary.'}
+            </span>
+          </div>
+        )}
+
+        {/* Save / Update Field Button */}
         <div className="pt-2">
           <button
             type="submit"
             id="btn-save-field"
-            disabled={isSaving}
+            disabled={isSaving || boundaryPoints.length < 3}
             className={`w-full py-3.5 px-6 rounded-2xl font-black text-sm flex items-center justify-center gap-2 text-white transition active:scale-98 shadow-md ${
-              isSaving
-                ? 'bg-emerald-400 cursor-not-allowed'
+              isSaving || boundaryPoints.length < 3
+                ? 'bg-slate-300 text-slate-500 cursor-not-allowed shadow-none'
                 : 'bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800'
             }`}
           >
             <Save className="w-4 h-4" />
-            <span>{isSaving ? 'Saving Field...' : (lang === 'hi' ? 'खेत सहेजें (Save Field)' : 'Save Field')}</span>
+            <span>
+              {isSaving 
+                ? (createNew ? 'Saving Field...' : 'Updating Field...') 
+                : (createNew ? 'Save Field' : 'Update Field Boundary')}
+            </span>
           </button>
         </div>
       </form>

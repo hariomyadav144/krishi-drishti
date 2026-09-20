@@ -1,5 +1,5 @@
 /**
- * Krishi Drishti - Field Boundary & Geodesic Area Calculation Utilities
+ * Fasal Drishti - Field Boundary & Geodesic Area Calculation Utilities
  * Accurately calculates agricultural parcel surface area from GPS / map coordinates.
  */
 
@@ -70,7 +70,7 @@ export function calculatePolygonArea(points) {
  */
 export function calculatePolygonCenter(points) {
   if (!points || points.length === 0) {
-    return { lat: 20.1740, lng: 73.9856 }; // Pimpalgaon Farm cluster default
+    return { lat: 20.5937, lng: 78.9629 }; // Neutral India center
   }
 
   let sumLat = 0;
@@ -84,6 +84,33 @@ export function calculatePolygonCenter(points) {
   return {
     lat: sumLat / points.length,
     lng: sumLng / points.length
+  };
+}
+
+/**
+ * Calculates perimeter length in meters / km of a polygon or path
+ */
+export function calculatePolygonPerimeter(points) {
+  if (!points || points.length < 2) {
+    return { meters: 0, km: 0, formattedPerimeter: '0 m' };
+  }
+  let totalMeters = 0;
+  const R = 6371000; // Earth radius in meters
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length;
+    const lat1 = (Number(points[i].lat) * Math.PI) / 180;
+    const lat2 = (Number(points[j].lat) * Math.PI) / 180;
+    const dLat = ((Number(points[j].lat) - Number(points[i].lat)) * Math.PI) / 180;
+    const dLng = ((Number(points[j].lng) - Number(points[i].lng)) * Math.PI) / 180;
+    const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+              Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    totalMeters += R * c;
+  }
+  return {
+    meters: Math.round(totalMeters),
+    km: +(totalMeters / 1000).toFixed(2),
+    formattedPerimeter: totalMeters >= 1000 ? `${(totalMeters / 1000).toFixed(2)} km` : `${Math.round(totalMeters)} m`
   };
 }
 

@@ -71,7 +71,7 @@ export default function Onboarding({ onOnboardingComplete }) {
         <div className="w-14 h-14 rounded-2xl bg-white shadow-md border border-slate-200/80 mx-auto flex items-center justify-center p-1.5 mb-2">
           <img
             src="/logo.svg"
-            alt="Krishi Drishti Logo"
+            alt="Fasal Drishti Logo"
             className="w-11 h-11 object-contain rounded-xl"
             onError={(e) => {
               if (e.target.src.endsWith('/logo.svg')) {
@@ -86,7 +86,7 @@ export default function Onboarding({ onOnboardingComplete }) {
         <p className="text-xs text-slate-600 mt-1">
           {lang === 'hi'
             ? 'सटीक AI सिफारिशों के लिए अपने खेत और फसल की जानकारी दें'
-            : 'Help Krishi Drishti tailor AI agronomy recommendations for your land'}
+            : 'Help Fasal Drishti tailor AI agronomy recommendations for your land'}
         </p>
 
         {/* Step Indicator */}

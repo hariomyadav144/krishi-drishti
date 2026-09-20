@@ -5,12 +5,12 @@ const { GoogleGenAI } = require('@google/genai');
 const { generateStandardStructuredAdvice } = require('../utils/universalAgricultureEngine');
 
 /**
- * Krishi Drishti Agricultural AI System Instruction
+ * Fasal Drishti Agricultural AI System Instruction
  * Expert, practical, and farmer-friendly assistant for Indian agriculture.
  */
 const SYSTEM_INSTRUCTION_HI = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English sentences or English explanations. Every heading, explanation, fertilizer name, and instruction must be written in Hindi. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C से 29°C'.
 
-You are Krishi Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
+You are Fasal Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
 Your mission is to provide accurate, timely, and actionable agricultural guidance to help farmers maximize crop yield, manage diseases and pests, optimize irrigation and fertilizers, and protect their livelihood.
 
 MANDATORY LANGUAGE, SCRIPT & FORMATTING INSTRUCTIONS (STRICT):
@@ -54,7 +54,7 @@ CRITICAL DIAGNOSTIC & BEHAVIORAL RULES:
 
 const SYSTEM_INSTRUCTION_EN = `IMPORTANT: You are an agricultural expert advising an Indian farmer. You must answer ONLY in clear, natural English. Do not output Hindi or Devanagari sentences or mixed Hindi paragraphs. Every heading, explanation, fertilizer name, and instruction must be written in English. Do not use LaTeX symbols like $\\circ$ or \\text{}; write temperatures simply as '24°C to 29°C'.
 
-You are Krishi Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
+You are Fasal Drishti AI, an expert, practical, and farmer-friendly agricultural advisor designed specifically for Indian farmers.
 Your mission is to provide accurate, timely, and actionable agricultural guidance to help farmers maximize crop yield, manage diseases and pests, optimize irrigation and fertilizers, and protect their livelihood.
 
 MANDATORY LANGUAGE, SCRIPT & FORMATTING INSTRUCTIONS (STRICT):
@@ -277,7 +277,7 @@ function sanitizeAiResponse(text) {
   return cleaned.trim();
 }
 
-const SENIOR_SCIENTIST_SYSTEM_INSTRUCTION = `You are a Senior Agricultural Scientist (Senior Krishi Vigyan Kendra - KVK Expert) and Chief Agronomist at Krishi Drishti & SWAR.
+const SENIOR_SCIENTIST_SYSTEM_INSTRUCTION = `You are a Senior Agricultural Scientist (Senior Krishi Vigyan Kendra - KVK Expert) and Chief Agronomist at Fasal Drishti & SWAR.
 Your mission is to accurately diagnose real farmer problems and provide precise, practical, and dynamic agricultural solutions tailored specifically to the farmer's raw voice/text query and farm context.
 
 CRITICAL EXPERT INSTRUCTIONS:
@@ -462,7 +462,7 @@ async function askGeminiAdvisor({
         }
       }
     } catch (err) {
-      console.warn(`[Krishi Drishti] Gemini model ${modelName} json advice error:`, err.message || err);
+      console.warn(`[Fasal Drishti] Gemini model ${modelName} json advice error:`, err.message || err);
       lastError = err;
     }
   }
@@ -483,7 +483,7 @@ async function askGeminiAdvisor({
   }
 
   // Graceful, dynamic expert fallback rule generation (NEVER static dummy data)
-  console.log('[Krishi Drishti] Generating dynamic Senior KVK Scientist advice via Agronomy Rule Engine...');
+  console.log('[Fasal Drishti] Generating dynamic Senior KVK Scientist advice via Agronomy Rule Engine...');
   const fallbackAdvice = generateStandardStructuredAdvice({
     query: q,
     crop,
@@ -532,7 +532,7 @@ async function diagnoseCropWithGemini({
   const cleanMimeType = normalizeMimeType(mimeType);
   const langPromptName = getLanguagePromptName(language);
 
-  const userPrompt = `You are Krishi Drishti Agricultural AI Multimodal Vision Expert.
+  const userPrompt = `You are Fasal Drishti Agricultural AI Multimodal Vision Expert.
 You are examining a photograph uploaded by an Indian farmer.
 Selected language: ${langPromptName}.
 
@@ -636,7 +636,7 @@ You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ..
         break;
       }
     } catch (err) {
-      console.warn(`[Krishi Drishti] Gemini Vision model ${modelName} error:`, err.message || err);
+      console.warn(`[Fasal Drishti] Gemini Vision model ${modelName} error:`, err.message || err);
       lastError = err;
     }
   }
@@ -653,7 +653,7 @@ You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ..
       parsedJson = JSON.parse(jsonMatch[1] || jsonMatch[0]);
     }
   } catch (parseErr) {
-    console.warn('[Krishi Drishti] Gemini JSON parse notice:', parseErr.message);
+    console.warn('[Fasal Drishti] Gemini JSON parse notice:', parseErr.message);
   }
 
   // If Gemini flagged image as not a plant or unclear / unidentifiable
@@ -878,7 +878,7 @@ async function testGeminiDiagnostic() {
       }
     } catch (err) {
       lastError = err;
-      console.warn(`[Krishi Drishti] Diagnostic test with model ${modelName} failed:`, err.message || err);
+      console.warn(`[Fasal Drishti] Diagnostic test with model ${modelName} failed:`, err.message || err);
     }
   }
 

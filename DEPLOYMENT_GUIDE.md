@@ -1,7 +1,7 @@
-# 🚀 KRISHI DRISHTI – Public Cloud Deployment Guide
-# कृषि दृष्टि – पब्लिक क्लाउड डिप्लॉयमेंट गाइड
+# 🚀 FASAL DRISHTI – Public Cloud Deployment Guide
+# फ़सल दृष्टि – पब्लिक क्लाउड डिप्लॉयमेंट गाइड
 
-Follow these simple steps to make your **Krishi Drishti Farming App** accessible through a permanent public URL 24/7 on any mobile phone or computer, even when your laptop is turned off!
+Follow these simple steps to make your **Fasal Drishti Farming App** accessible through a permanent public URL 24/7 on any mobile phone or computer, even when your laptop is turned off!
 
 ---
 

@@ -246,7 +246,7 @@ export default function FarmProfile() {
 
             <div className="flex items-center gap-2 text-slate-700">
               <Mail className="w-3.5 h-3.5 text-slate-400" />
-              <span>{user?.email || 'farmer@krishidrishti.in'}</span>
+              <span>{user?.email || 'farmer@fasaldrishti.in'}</span>
             </div>
 
             <div className="flex items-center gap-2 text-slate-700">

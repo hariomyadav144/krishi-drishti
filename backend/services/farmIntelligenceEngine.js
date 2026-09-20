@@ -390,7 +390,7 @@ function constructUnifiedFarmPrompt(context, queryText, signals, language = 'hi'
   const h = context.cropHealth || {};
   const a = context.actionHistory || {};
 
-  return `You are SWAR (स्वर), Krishi Drishti's Voice-First Farm Intelligence & Agricultural Advisory Assistant.
+  return `You are SWAR (स्वर), Fasal Drishti's Voice-First Farm Intelligence & Agricultural Advisory Assistant.
 MANDATORY: You must NOT give isolated or generic advice. You MUST explicitly evaluate and reference the farmer's complete farm context below.
 Language: Generate your complete output strictly in ${langPrompt}. Do not mix languages.
 

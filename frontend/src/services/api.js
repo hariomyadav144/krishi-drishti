@@ -20,8 +20,8 @@ import {
   MOCK_PREDEFINED_QUERIES,
   calculateMockFertilizer,
   generateMockScanResult,
-} from './mockFallback';
-import { fetchOpenMeteoWeather } from './weatherService';
+} from './mockFallback.js';
+import { fetchOpenMeteoWeather } from './weatherService.js';
 
 export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
 
@@ -57,7 +57,7 @@ export function normalizeBackendApiUrl(url) {
 }
 
 const resolveApiBaseUrl = () => {
-  if (import.meta.env.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
     return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
   }
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
@@ -391,48 +391,27 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 
   // Fields (Field Mapping)
   if (cleanUrl.startsWith('/farmer/fields')) {
-    const demoFields = [
-      {
-        id: 'field_demo_01',
-        _id: 'field_demo_01',
-        fieldName: 'North Plot - Wheat & Maize Block',
-        crop: 'Wheat',
-        cropVariety: 'DBW 187',
-        season: 'Rabi',
-        areaAcres: 8.95,
-        soilType: 'Black Soil / Regur',
-        points: [
-          { lat: 20.17482, lng: 73.98421 },
-          { lat: 20.17565, lng: 73.98583 },
-          { lat: 20.17512, lng: 73.98745 },
-          { lat: 20.17395, lng: 73.98782 },
-          { lat: 20.17281, lng: 73.98695 },
-          { lat: 20.17254, lng: 73.98512 },
-          { lat: 20.17342, lng: 73.98402 },
-        ],
-        center: { lat: 20.17404, lng: 73.98591 }
-      },
-      {
-        id: 'field_demo_02',
-        _id: 'field_demo_02',
-        fieldName: 'South Plot - Tomato Patch',
-        crop: 'Tomato',
-        cropVariety: 'Abhinav Hybrid',
-        season: 'Kharif',
-        areaAcres: 4.20,
-        soilType: 'Black Soil / Regur',
-        points: [
-          { lat: 20.17150, lng: 73.98210 },
-          { lat: 20.17280, lng: 73.98390 },
-          { lat: 20.17190, lng: 73.98510 },
-          { lat: 20.17060, lng: 73.98320 },
-        ],
-        center: { lat: 20.17170, lng: 73.98357 }
+    let storedFields = [];
+    try {
+      const raw = localStorage.getItem('krishi_saved_fields');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          storedFields = parsed.filter(f => {
+            if (!f) return false;
+            if (f.id === 'field_demo_maize_01' || f.id === 'field_demo_01') return false;
+            if (f._id === 'field_demo_maize_01' || f._id === 'field_demo_01') return false;
+            if (f.fieldName && (f.fieldName.includes('North Plot') || f.fieldName.includes('field_demo'))) return false;
+            if (Array.isArray(f.points) && f.points.length === 7) return false;
+            if (Array.isArray(f.points) && f.points.some(p => Math.abs(p.lat - 20.174) < 0.05 && Math.abs(p.lng - 73.985) < 0.05)) return false;
+            return true;
+          });
+        }
       }
-    ];
+    } catch (_) {}
     return {
       success: true,
-      data: demoFields
+      data: storedFields
     };
   }
 
@@ -1038,7 +1017,7 @@ api.interceptors.response.use(
       return Promise.reject(customErr);
     }
 
-    console.warn(`[Krishi Drishti] Backend unavailable at ${url}. Seamlessly activating resilient agricultural fallback.`);
+    console.warn(`[Fasal Drishti] Backend unavailable at ${url}. Seamlessly activating resilient agricultural fallback.`);
 
     // Live Open-Meteo Weather Integration
     if (url.includes('/weather')) {

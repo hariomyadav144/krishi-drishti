@@ -100,7 +100,7 @@ function MainApp() {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
         <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-        <p className="font-bold text-xs tracking-wider uppercase text-emerald-400">Loading KRISHI DRISHTI...</p>
+        <p className="font-bold text-xs tracking-wider uppercase text-emerald-400">Loading FASAL DRISHTI...</p>
       </div>
     );
   }

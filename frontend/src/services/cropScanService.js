@@ -1,7 +1,7 @@
 import api from './api';
 
 /**
- * Krishi Drishti - Crop Scan & Permanent History Service
+ * Fasal Drishti - Crop Scan & Permanent History Service
  * Connects directly to backend MongoDB Atlas endpoints.
  */
 

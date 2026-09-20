@@ -84,7 +84,7 @@ export default function AdminDashboard() {
         <div>
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xs font-bold uppercase tracking-wider bg-purple-500/20 text-purple-200 border border-purple-400/30 px-2.5 py-0.5 rounded-full">
-              ⚙️ Krishi Drishti Central Command
+              ⚙️ Fasal Drishti Central Command
             </span>
           </div>
           <h2 className="text-2xl font-black">System Administration</h2>

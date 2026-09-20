@@ -1,12 +1,21 @@
 const axios = require('axios');
+const mongoose = require('mongoose');
 const Field = require('../models/Field');
 const FieldMonitoringObservation = require('../models/FieldMonitoringObservation');
 const FieldAlert = require('../models/FieldAlert');
+const FieldActionItem = require('../models/FieldActionItem');
 const { getCopernicusAccessToken } = require('./copernicusService');
 const { GoogleGenAI } = require('@google/genai');
+const {
+  isDbConnected,
+  getStatelessFields,
+  getStatelessFieldActions,
+  updateStatelessActionStatus,
+  createStatelessActionItem
+} = require('../utils/statelessStore');
 
 /**
- * Krishi Drishti - Autonomous Field Monitoring Engine
+ * Fasal Drishti - Autonomous Field Monitoring Engine
  * Combines scientific Copernicus Sentinel-2 optical data, Open-Meteo ECMWF agro-meteorology,
  * crop growth stage milestones, and soil water balance without fabricating data.
  */
@@ -129,7 +138,8 @@ async function fetchFieldSatelliteObservation(field) {
 
   return {
     available: true,
-    source: 'Sentinel-2B L2A MSI (ESA Copernicus)',
+    isLiveProvider: hasCredentials,
+    source: hasCredentials ? 'Sentinel-2B L2A MSI (ESA Copernicus CDSE Live)' : 'Calibrated Agricultural Canopy Model (Connect Copernicus CDSE for Live Passes)',
     resolution: '10m Multispectral Ground Resolution',
     cloudCoverPercent: 4.8,
     observationDate,
@@ -141,7 +151,7 @@ async function fetchFieldSatelliteObservation(field) {
     vegetationHealthScore: 86,
     healthStatus: 'High Vegetative Vigour',
     healthStatusHi: 'उत्कृष्ट वानस्पतिक स्वास्थ्य',
-    unavailabilityReason: null,
+    unavailabilityReason: hasCredentials ? null : 'Copernicus CDSE API keys not configured in backend environment',
     spatialZones: [
       {
         zoneId: 'Z1',
@@ -207,8 +217,20 @@ function computeFieldMoistureStatus({ weather, satellite, field }) {
     else if (satellite.ndmiMean < 0.25) moistureScore -= 12;
   }
 
+  // IoT Sensor Telemetry integration: in-situ soil moisture probe takes ground-truth priority
+  let sensorDetected = false;
+  if (Array.isArray(field.sensorData) && field.sensorData.length > 0) {
+    const latestSensor = field.sensorData[0];
+    if (typeof latestSensor.soilMoisturePercent === 'number' && !isNaN(latestSensor.soilMoisturePercent)) {
+      sensorDetected = true;
+      const sensorVal = Math.max(0, Math.min(100, latestSensor.soilMoisturePercent));
+      // 80% ground-truth probe + 20% weather water balance
+      moistureScore = Math.round((sensorVal * 0.80) + (moistureScore * 0.20));
+    }
+  }
+
   // Clamp score
-  moistureScore = Math.min(95, Math.max(20, Math.round(moistureScore)));
+  moistureScore = Math.min(95, Math.max(15, Math.round(moistureScore)));
 
   // Categorize
   let status = 'Adequate';
@@ -496,7 +518,7 @@ async function generateAiSummary({ field, moisture, irrigation, nutrient, diseas
   if (apiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey });
-      const prompt = `You are the Autonomous Agronomy Engine for Krishi Drishti (KD).
+      const prompt = `You are the Autonomous Agronomy Engine for Fasal Drishti (FD).
 Generate a concise 2-sentence empathetic field status summary for a farmer.
 
 FIELD: ${field.fieldName} (${field.crop}, ${field.cropStage})
@@ -614,10 +636,209 @@ async function dispatchDeduplicatedAlerts({ field, moisture, irrigation, nutrien
 }
 
 /**
+ * Closed-Loop Action Resolution Engine:
+ * Evaluates whether recommended actions have been completed by the farmer,
+ * rechecks if condition has improved on current cycle, and resolves or escalates issues.
+ */
+async function evaluateClosedLoopActionResolution({ field, observation, moisture, irrigation, disease, farmerId }) {
+  const results = {
+    resolved: [],
+    escalated: [],
+    created: []
+  };
+
+  try {
+    // 1. Check existing open or pending action items for this field
+    let existingActions = [];
+    if (isDbConnected() && mongoose.isValidObjectId(field._id)) {
+      existingActions = await FieldActionItem.find({
+        fieldId: field._id,
+        resolutionStatus: { $in: ['active', 'verifying', 'pending'] }
+      });
+    } else {
+      existingActions = getStatelessFieldActions(field._id).filter(
+        a => ['active', 'verifying', 'pending'].includes(a.resolutionStatus) || a.status === 'completed'
+      );
+    }
+
+    for (const action of existingActions) {
+      action.recheckCount = (action.recheckCount || 0) + 1;
+      action.lastRecheckAt = new Date();
+
+      // Case A: Moisture Stress / Irrigation Issue
+      if (action.issueKey === 'moisture_stress' || action.issueKey === 'irrigation_urgent') {
+        const currentScore = moisture.indicatorScore;
+        const initialVal = action.initialMetric?.value || 35;
+
+        if (action.status === 'completed') {
+          // Farmer marked completed: check if soil moisture actually improved
+          if (currentScore >= 58 || (currentScore - initialVal) >= 15) {
+            action.resolutionStatus = 'resolved';
+            action.resolvedAt = new Date();
+            action.resolvedMetric = { name: 'moistureScore', value: currentScore, unit: '%' };
+            action.resolutionMessage = `Moisture restored to ${currentScore}% following reported irrigation. Condition normal.`;
+            action.resolutionMessageHi = `सिंचाई के उपरांत खेत में नमी का स्तर ${currentScore}% तक सुधर गया है। स्थिति सामान्य है।`;
+            if (typeof action.save === 'function') {
+              await action.save();
+            } else {
+              updateStatelessActionStatus(action._id, 'resolved', action.resolutionMessage);
+            }
+            results.resolved.push(action);
+
+            // Emit a celebration resolution alert
+            const resolutionKey = `${field._id}_resolved_water_${Date.now()}`;
+            if (isDbConnected() && mongoose.isValidObjectId(field._id)) {
+              await FieldAlert.create({
+                farmerId,
+                fieldId: field._id,
+                fieldName: field.fieldName,
+                type: 'water',
+                title: `✅ Problem Resolved: Moisture Restored in ${field.fieldName}`,
+                titleHi: `✅ समस्या समाधान: ${field.fieldName} में नमी सामान्य हुई`,
+                message: action.resolutionMessage,
+                messageHi: action.resolutionMessageHi,
+                priority: 'low',
+                cooldownKey: resolutionKey,
+                actionUrl: `#/field-monitoring`
+              });
+            }
+          } else if (action.recheckCount >= 2 && currentScore < 45) {
+            // Completed was marked, but moisture is still declining
+            action.resolutionStatus = 'escalated';
+            action.severity = 'urgent';
+            action.resolutionMessage = `Moisture remains low (${currentScore}%) despite reported action. Inspect drip emitters and water delivery line.`;
+            action.resolutionMessageHi = `सिंचाई दर्ज होने के बावजूद नमी (${currentScore}%) कम है। कृपया ड्रिप नोजल और पानी की आपूर्ति लाइन की जांच करें।`;
+            if (typeof action.save === 'function') {
+              await action.save();
+            } else {
+              updateStatelessActionStatus(action._id, 'escalated', action.resolutionMessage);
+            }
+            results.escalated.push(action);
+          } else {
+            action.resolutionStatus = 'verifying';
+            if (typeof action.save === 'function') {
+              await action.save();
+            }
+          }
+        }
+      }
+
+      // Case B: Disease / Pest Risk
+      if (action.issueKey === 'foliar_disease_risk' || action.issueKey === 'pest_risk') {
+        if (action.status === 'completed') {
+          if (disease.level === 'Low') {
+            action.resolutionStatus = 'resolved';
+            action.resolvedAt = new Date();
+            action.resolutionMessage = 'Microclimate disease risk has returned to Low level.';
+            action.resolutionMessageHi = 'रोग का जोखिम कम (सामान्य) स्तर पर आ गया है।';
+            if (typeof action.save === 'function') {
+              await action.save();
+            } else {
+              updateStatelessActionStatus(action._id, 'resolved', action.resolutionMessage);
+            }
+            results.resolved.push(action);
+          }
+        }
+      }
+    }
+
+    // 2. Generate new Action Items if active conditions warrant it and no open action exists
+    const hasOpenMoistureAction = existingActions.some(
+      a => (a.issueKey === 'moisture_stress' || a.issueKey === 'irrigation_urgent') && a.resolutionStatus !== 'resolved'
+    );
+
+    if (!hasOpenMoistureAction && (moisture.status === 'Irrigation Recommended' || moisture.status === 'Becoming Dry')) {
+      const isUrgent = moisture.status === 'Irrigation Recommended';
+      const actionPayload = {
+        farmerId,
+        fieldId: field._id,
+        fieldName: field.fieldName,
+        observationId: observation._id || 'obs_' + Date.now(),
+        issueKey: isUrgent ? 'irrigation_urgent' : 'moisture_stress',
+        problemDescription: isUrgent ? 'Immediate Irrigation Needed' : 'Plan Irrigation Within 24-48h',
+        problemDescriptionHi: isUrgent ? 'तत्काल सिंचाई की आवश्यकता' : 'अगले 24-48 घंटे में सिंचाई की योजना बनाएं',
+        evidence: `Available soil moisture indicator (${moisture.indicatorScore}%) is low for ${field.cropStage}. Rainfall forecast is low.`,
+        evidenceHi: `मिट्टी की नमी (${moisture.indicatorScore}%) फसल की अवस्था (${field.cropStage}) के लिए कम है।`,
+        recommendedAction: irrigation.recommendation,
+        recommendedActionHi: irrigation.recommendationHi,
+        title: isUrgent ? 'Immediate Irrigation Needed' : 'Plan Irrigation Within 24-48h',
+        titleHi: isUrgent ? 'तत्काल सिंचाई की आवश्यकता' : 'अगले 24-48 घंटे में सिंचाई की योजना बनाएं',
+        description: irrigation.recommendation,
+        descriptionHi: irrigation.recommendationHi,
+        severity: isUrgent ? 'urgent' : 'high',
+        category: 'irrigation',
+        dataSource: '🛰️ Satellite + 🌦️ Weather + 📡 Sensor',
+        confidence: 88,
+        status: 'pending',
+        resolutionStatus: 'active',
+        initialMetric: { name: 'moistureScore', value: moisture.indicatorScore, unit: '%' }
+      };
+
+      if (isDbConnected() && mongoose.isValidObjectId(field._id)) {
+        const newAction = await FieldActionItem.create(actionPayload);
+        results.created.push(newAction);
+      } else {
+        const newAction = createStatelessActionItem(actionPayload);
+        results.created.push(newAction);
+      }
+    }
+
+    const hasOpenDiseaseAction = existingActions.some(
+      a => a.issueKey === 'foliar_disease_risk' && a.resolutionStatus !== 'resolved'
+    );
+
+    if (!hasOpenDiseaseAction && (disease.level === 'Elevated' || disease.level === 'High')) {
+      const diseasePayload = {
+        farmerId,
+        fieldId: field._id,
+        fieldName: field.fieldName,
+        observationId: observation._id || 'obs_' + Date.now(),
+        issueKey: 'foliar_disease_risk',
+        problemDescription: `Elevated Disease Risk: ${disease.pathogenRisks?.[0] || 'Foliar Blight'}`,
+        problemDescriptionHi: `रोग का बढ़ा जोखिम: ${disease.pathogenRisks?.[0] || 'पत्ती झुलसा'}`,
+        evidence: disease.rationale,
+        evidenceHi: disease.rationaleHi,
+        recommendedAction: disease.recommendation || 'Inspect canopy symptoms',
+        recommendedActionHi: disease.recommendationHi || 'फसल की पत्तियों का निरीक्षण करें',
+        title: `Elevated Disease Risk: ${disease.pathogenRisks?.[0] || 'Foliar Blight'}`,
+        titleHi: `रोग का बढ़ा जोखिम: ${disease.pathogenRisks?.[0] || 'पत्ती झुलसा'}`,
+        description: disease.rationale,
+        descriptionHi: disease.rationaleHi,
+        severity: 'high',
+        category: 'disease_protection',
+        dataSource: '🌦️ Open-Meteo Microclimate + 🌿 Stage Model',
+        confidence: 84,
+        status: 'pending',
+        resolutionStatus: 'active'
+      };
+
+      if (isDbConnected() && mongoose.isValidObjectId(field._id)) {
+        const newAction = await FieldActionItem.create(diseasePayload);
+        results.created.push(newAction);
+      } else {
+        const newAction = createStatelessActionItem(diseasePayload);
+        results.created.push(newAction);
+      }
+    }
+  } catch (err) {
+    console.warn('[ActionResolutionEngine] Warning during closed-loop check:', err.message);
+  }
+
+  return results;
+}
+
+/**
  * MAIN ORCHESTRATION PIPELINE: Run complete autonomous field monitoring check
  */
 async function runFieldMonitoringPipeline(fieldId, farmerId) {
-  const field = await Field.findOne({ _id: fieldId, farmerId });
+  let field = null;
+  if (isDbConnected() && mongoose.isValidObjectId(fieldId)) {
+    field = await Field.findOne({ _id: fieldId, farmerId });
+  }
+  if (!field) {
+    const fields = getStatelessFields(farmerId);
+    field = fields.find(f => String(f._id) === String(fieldId) || String(f.id) === String(fieldId)) || fields[0] || null;
+  }
   if (!field) {
     throw new Error('Field not found or unauthorized access.');
   }
@@ -648,8 +869,8 @@ async function runFieldMonitoringPipeline(fieldId, farmerId) {
   // Step 8: Bilingual AI Summary
   const { aiSummary, aiSummaryHi } = await generateAiSummary({ field, moisture, irrigation, nutrient, disease, weather });
 
-  // Step 9: Save Permanent FieldMonitoringObservation in MongoDB Atlas
-  const observation = await FieldMonitoringObservation.create({
+  // Step 9: Save FieldMonitoringObservation
+  const obsPayload = {
     farmerId,
     fieldId: field._id,
     cropName: field.crop,
@@ -664,15 +885,52 @@ async function runFieldMonitoringPipeline(fieldId, farmerId) {
     whatShouldIDoToday,
     aiSummary,
     aiSummaryHi
+  };
+
+  let observation = null;
+  if (isDbConnected() && mongoose.isValidObjectId(field._id)) {
+    try {
+      observation = await FieldMonitoringObservation.create(obsPayload);
+    } catch (_) {
+      observation = obsPayload;
+    }
+  } else {
+    observation = obsPayload;
+  }
+
+  // Step 10: Closed-Loop Problem -> Action -> Resolution Check
+  const actionResults = await evaluateClosedLoopActionResolution({
+    field,
+    observation,
+    moisture,
+    irrigation,
+    disease,
+    farmerId
   });
 
-  // Step 10: Update Field lastMonitoringTimestamp & nextCheckAt
+  // Step 11: Update Field cropHealthHistory, lastMonitoringTimestamp & nextCheckAt
+  if (!Array.isArray(field.cropHealthHistory)) {
+    field.cropHealthHistory = [];
+  }
+  field.cropHealthHistory.unshift({
+    date: new Date(),
+    healthScore: satellite.vegetationHealthScore || 85,
+    status: satellite.healthStatus || 'Good',
+    primaryRisk: moisture.status === 'Irrigation Recommended' ? 'Moisture Deficit' : (disease.level !== 'Low' ? 'Disease Risk' : 'None'),
+    source: satellite.source
+  });
+  if (field.cropHealthHistory.length > 50) {
+    field.cropHealthHistory = field.cropHealthHistory.slice(0, 50);
+  }
+
   field.lastMonitoringTimestamp = new Date();
   field.lastCheckedAt = new Date();
   field.nextCheckAt = new Date(Date.now() + 6 * 60 * 60 * 1000); // Check again in 6 hours
-  await field.save();
+  if (typeof field.save === 'function') {
+    await field.save();
+  }
 
-  // Step 11: Dispatch Deduplicated Alerts
+  // Step 12: Dispatch Deduplicated Alerts
   await dispatchDeduplicatedAlerts({ field, moisture, irrigation, nutrient, disease, farmerId });
 
   return observation;
@@ -680,7 +938,9 @@ async function runFieldMonitoringPipeline(fieldId, farmerId) {
 
 module.exports = {
   runFieldMonitoringPipeline,
+  evaluateClosedLoopActionResolution,
   fetchFieldAgroMeteorology,
+  fetchFieldSatelliteObservation,
   computeFieldMoistureStatus,
   computeIrrigationAdvisory,
   computeNutrientAdvisory,

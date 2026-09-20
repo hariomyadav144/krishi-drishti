@@ -1,5 +1,5 @@
 /**
- * Krishi Drishti - Resilient Agricultural Client-Side Fallback Service
+ * Fasal Drishti - Resilient Agricultural Client-Side Fallback Service
  * Ensures 100% uninterrupted farmer demonstrations on mobile devices
  * even when the cloud backend is cold-starting or offline.
  */
@@ -9,7 +9,7 @@ export const MOCK_FARMER_USER = {
   id: 'usr_farmer_demo_01',
   name: 'Rameshwar Patil (रामेश्वर पाटिल)',
   phone: '9876543210',
-  email: 'rameshwar.patil@krishidrishti.in',
+  email: 'rameshwar.patil@fasaldrishti.in',
   role: 'farmer',
   isOnboarded: true,
   languagePreference: 'en',
@@ -27,9 +27,9 @@ export const MOCK_EXPERT_USER = {
 
 export const MOCK_ADMIN_USER = {
   id: 'usr_admin_demo_01',
-  name: 'Krishi Drishti Admin Officer',
+  name: 'Fasal Drishti Admin Officer',
   phone: '9876599999',
-  email: 'admin@krishidrishti.in',
+  email: 'admin@fasaldrishti.in',
   role: 'admin',
   isOnboarded: true,
   languagePreference: 'en',
@@ -45,7 +45,7 @@ export const MOCK_PROFILE = {
 };
 
 export const MOCK_FARM = {
-  farmName: 'Shri Ganesha Krishi Farm',
+  farmName: 'Shri Ganesha Fasal Farm',
   farmSize: 5.0,
   landUnit: 'Acres',
   soilType: 'Black Soil / Regur',

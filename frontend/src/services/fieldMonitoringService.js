@@ -1,7 +1,7 @@
 import api from './api';
 
 /**
- * Krishi Drishti - Autonomous Field Monitoring Service
+ * Fasal Drishti - Autonomous Field Monitoring Service
  * Communicates with backend endpoints for continuous Sentinel optical checks,
  * weather/soil water balance, proactive advisories, and historical comparison.
  */
@@ -42,6 +42,24 @@ export async function fetchMonitoringDashboardSummary() {
   return res.data?.data || [];
 }
 
+// Get closed-loop action items for a field
+export async function fetchFieldActions(fieldId) {
+  const res = await api.get(`/field-monitoring/actions/${fieldId}`);
+  return res.data?.data || [];
+}
+
+// Update action item status (e.g. 'completed', 'verifying', 'resolved')
+export async function updateActionStatus(actionId, status, notes = '') {
+  const res = await api.post(`/field-monitoring/action/${actionId}/status`, { status, notes });
+  return res.data;
+}
+
+// Ingest real-time IoT soil sensor or manual observation telemetry
+export async function ingestFieldTelemetry(fieldId, telemetry) {
+  const res = await api.post(`/field-monitoring/telemetry/${fieldId}`, telemetry);
+  return res.data;
+}
+
 // Mark an alert as acknowledged / read
 export async function markAlertRead(alertId) {
   const res = await api.put(`/field-monitoring/alert/${alertId}/read`);
@@ -55,5 +73,8 @@ export default {
   compareFieldObservations,
   uploadSoilTest,
   fetchMonitoringDashboardSummary,
+  fetchFieldActions,
+  updateActionStatus,
+  ingestFieldTelemetry,
   markAlertRead
 };

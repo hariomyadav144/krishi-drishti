@@ -31,7 +31,7 @@ const submitFeedback = async (req, res) => {
 
     res.status(201).json({
       success: true,
-      message: 'Thank you! Your feedback helps Krishi Drishti provide smarter advice for all farmers.',
+      message: 'Thank you! Your feedback helps Fasal Drishti provide smarter advice for all farmers.',
       data: feedback,
     });
   } catch (error) {

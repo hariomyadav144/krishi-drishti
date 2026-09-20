@@ -1,5 +1,5 @@
 async function testBackendApis() {
-  console.log('--- Testing Krishi Drishti API Suite ---');
+  console.log('--- Testing Fasal Drishti API Suite ---');
   const baseURL = 'http://localhost:5000/api';
 
   try {

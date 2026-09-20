@@ -1,7 +1,7 @@
 {
   "name": "krishi-drishti",
   "version": "1.0.0",
-  "description": "Krishi Drishti - AI for Smarter Farming (Full Stack Production)",
+  "description": "Fasal Drishti - AI for Smarter Farming (Full Stack Production)",
   "main": "backend/server.js",
   "scripts": {
     "start": "node backend/server.js",

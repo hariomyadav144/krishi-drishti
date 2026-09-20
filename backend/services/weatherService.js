@@ -1,5 +1,5 @@
 /**
- * Weather Service for Krishi Drishti
+ * Weather Service for Fasal Drishti
  * Provides live agro-meteorological data, 5-day agricultural forecasts,
  * and rule-based smart farming weather advisories.
  */

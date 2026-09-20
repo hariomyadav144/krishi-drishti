@@ -1,5 +1,5 @@
 /**
- * Smart Agricultural Tools Controller for Krishi Drishti
+ * Smart Agricultural Tools Controller for Fasal Drishti
  * Includes:
  * 1. Fertilizer & NPK Dosage Calculator
  * 2. Satellite NDVI vegetative stress monitoring

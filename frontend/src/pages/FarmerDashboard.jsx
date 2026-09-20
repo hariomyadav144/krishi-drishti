@@ -35,11 +35,18 @@ import {
   Building2,
   DollarSign,
   Radio,
-  Map,
-  History
+  History,
+  Clock,
+  Activity,
+  Check
 } from 'lucide-react';
 import { fetchCropHistoryStats } from '../services/cropScanService';
-import { fetchMonitoringDashboardSummary } from '../services/fieldMonitoringService';
+import { 
+  fetchMonitoringDashboardSummary,
+  fetchFieldActions,
+  updateActionStatus,
+  triggerMonitoringRun
+} from '../services/fieldMonitoringService';
 import CropHealthCircle from '../components/CropHealthCircle';
 import CropHealthModal from '../components/CropHealthModal';
 import { 
@@ -66,8 +73,9 @@ const safeSet = (key, val) => {
 
 const getInitialDashboardData = () => {
   const cached = safeParse('krishi_dash_cache');
-  if (cached) return cached;
-  return {
+  const activeFarm = safeParse('krishi_active_field') || safeParse('farm_data');
+
+  const base = cached || {
     farmer: { name: 'Rameshwar Patil (रामेश्वर पाटिल)' },
     profile: MOCK_PROFILE,
     farm: MOCK_FARM,
@@ -86,6 +94,25 @@ const getInitialDashboardData = () => {
     ],
     unreadAlerts: MOCK_ALERTS,
   };
+
+  if (activeFarm) {
+    base.farm = {
+      ...base.farm,
+      name: activeFarm.name || activeFarm.fieldName || base.farm.name,
+      totalArea: parseFloat(activeFarm.farmArea || activeFarm.areaAcres || base.farm.totalArea),
+      location: activeFarm.location || base.farm.location,
+      latitude: activeFarm.latitude || activeFarm.center?.lat || base.farm.latitude,
+      longitude: activeFarm.longitude || activeFarm.center?.lng || base.farm.longitude
+    };
+    if (activeFarm.crop) {
+      base.currentCrop = {
+        ...base.currentCrop,
+        name: activeFarm.crop
+      };
+    }
+  }
+
+  return base;
 };
 
 export default function FarmerDashboard({ setActiveTab }) {
@@ -97,6 +124,9 @@ export default function FarmerDashboard({ setActiveTab }) {
   const [outbreakAlerts, setOutbreakAlerts] = useState(() => safeParse('krishi_outbreak_cache') || MOCK_OUTBREAKS);
   const [historyStats, setHistoryStats] = useState(null);
   const [monitoringSummaries, setMonitoringSummaries] = useState([]);
+  const [fieldActions, setFieldActions] = useState([]);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+  const [isManualRunning, setIsManualRunning] = useState(false);
   const [loading, setLoading] = useState(false);
 
   // Real-Time Crop Health States: calculate synchronously on initial load so it renders immediately!
@@ -127,7 +157,8 @@ export default function FarmerDashboard({ setActiveTab }) {
         historyRes, 
         monitoringRes,
         healthSummaryRes,
-        latestHealthRes
+        latestHealthRes,
+        actionsRes
       ] = await Promise.all([
         api.get('/farmer/dashboard'),
         api.get('/weather'),
@@ -141,7 +172,8 @@ export default function FarmerDashboard({ setActiveTab }) {
           currentCrop: dashboardData?.currentCrop,
           recentAnalyses: dashboardData?.recentAnalyses,
           weatherData
-        }).catch(() => null)
+        }).catch(() => null),
+        fetchFieldActions('all').catch(() => [])
       ]);
 
       if (dashRes?.data?.success) {
@@ -165,6 +197,9 @@ export default function FarmerDashboard({ setActiveTab }) {
       }
       if (Array.isArray(monitoringRes)) {
         setMonitoringSummaries(monitoringRes);
+      }
+      if (Array.isArray(actionsRes)) {
+        setFieldActions(actionsRes);
       }
       if (Array.isArray(healthSummaryRes) && healthSummaryRes.length > 0) {
         setHealthFieldsSummary(healthSummaryRes);
@@ -240,6 +275,37 @@ export default function FarmerDashboard({ setActiveTab }) {
     }
   };
 
+  const handleCompleteAction = async (actionId) => {
+    try {
+      setActionLoadingId(actionId);
+      await updateActionStatus(actionId, 'completed', 'Action completed by farmer from dashboard');
+      const updated = await fetchFieldActions('all').catch(() => []);
+      setFieldActions(updated);
+      await fetchDashboard();
+    } catch (err) {
+      console.error('Action completion error:', err);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleRunAllMonitoring = async () => {
+    if (isManualRunning) return;
+    try {
+      setIsManualRunning(true);
+      if (monitoringSummaries.length > 0) {
+        await Promise.all(
+          monitoringSummaries.map(f => triggerMonitoringRun(f.fieldId).catch(() => null))
+        );
+      }
+      await fetchDashboard();
+    } catch (err) {
+      console.warn('Manual monitoring run error:', err);
+    } finally {
+      setIsManualRunning(false);
+    }
+  };
+
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return t('dashboard.greetingMorning');
@@ -268,7 +334,7 @@ export default function FarmerDashboard({ setActiveTab }) {
           <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/25 flex items-center justify-center p-1 shrink-0 shadow-inner">
             <img
               src="/logo.svg"
-              alt="Krishi Drishti Logo"
+              alt="Fasal Drishti Logo"
               className="w-10 h-10 object-contain rounded-xl"
               onError={(e) => {
                 if (e.target.src.endsWith('/logo.svg')) {
@@ -280,7 +346,7 @@ export default function FarmerDashboard({ setActiveTab }) {
           <div>
             <div className="flex items-center gap-2 mb-1">
               <span className="font-black text-xs tracking-wider text-emerald-300 uppercase">
-                KRISHI DRISHTI
+                FASAL DRISHTI
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
                 📍 {typeof profile?.village === 'string' ? `${profile.village}, ${profile.district || ''}` : 'Pimpalgaon, Nashik'}
@@ -304,7 +370,7 @@ export default function FarmerDashboard({ setActiveTab }) {
         </button>
       </div>
 
-      {/* 2. NEW HOMEPAGE HERO — LARGE CROP HEALTH CIRCLE */}
+      {/* 2. HOMEPAGE HERO — LARGE CROP HEALTH CIRCLE */}
       <CropHealthCircle
         healthData={cropHealthData}
         fieldsSummary={healthFieldsSummary}
@@ -316,11 +382,243 @@ export default function FarmerDashboard({ setActiveTab }) {
         isRefreshing={isRecalculatingHealth}
       />
 
-      {/* 3. 8 Quick Action Power Buttons Grid (Moved up for instant farmer access) */}
+      {/* 3. AUTONOMOUS CONTINUOUS MONITORING STATUS BANNER */}
+      <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center text-emerald-400 font-bold shrink-0">
+            <Activity className="w-5 h-5 animate-pulse" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <h4 className="font-extrabold text-xs sm:text-sm text-white uppercase tracking-wider">
+                {lang === 'hi' ? '🛰️ निरंतर स्वचालित निगरानी सक्रिय' : '🛰️ AUTONOMOUS MONITORING ACTIVE'}
+              </h4>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">
+                {monitoringSummaries.length > 0
+                  ? `${monitoringSummaries.length} ${lang === 'hi' ? 'खेत पंजीकृत' : 'Plots Active'}`
+                  : (lang === 'hi' ? '1 खेत सक्रिय' : '1 Plot Active')}
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-0.5 flex flex-wrap items-center gap-2">
+              <span>{lang === 'hi' ? 'अंतिम जांच: आज' : 'Last Checked: Today'}</span>
+              <span>•</span>
+              <span>{lang === 'hi' ? 'अगली जांच: 6 घंटे में (स्वतः)' : 'Next Check: Scheduled in 6h'}</span>
+              <span>•</span>
+              <span className="text-emerald-300 font-semibold">{lang === 'hi' ? 'डेटा: उपग्रह + मौसम + मिट्टी मॉडल' : 'Data: Satellite + ECMWF + Soil'}</span>
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            onClick={handleRunAllMonitoring}
+            disabled={isManualRunning}
+            className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-60"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isManualRunning ? 'animate-spin' : ''}`} />
+            <span>{isManualRunning ? (lang === 'hi' ? 'जांच जारी...' : 'Checking...') : (lang === 'hi' ? 'अभी जांचें' : 'Run Check Now')}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 4. ⚠️ WHAT NEEDS ACTION? (CLOSED-LOOP PROBLEM -> ACTION -> RESULT LOOP) */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <span className="text-base">⚠️</span>
+            <div>
+              <h3 className="font-extrabold text-sm sm:text-base text-slate-900 uppercase tracking-wide">
+                {lang === 'hi' ? 'खेत में क्या कार्रवाई चाहिए?' : 'WHAT NEEDS ACTION?'}
+              </h3>
+              <p className="text-[11px] text-slate-500">
+                {lang === 'hi'
+                  ? 'स्वतः पहचानी गई समस्याएं एवं समाधान (कार्रवाई के बाद स्वचालित सत्यापन)'
+                  : 'Proactively detected issues with closed-loop verification'}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setActiveTab('field-monitoring')}
+            className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
+          >
+            <span>{lang === 'hi' ? 'सभी खेत देखें' : 'View All Fields'}</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        </div>
+
+        {/* Dynamic Action Items Feed */}
+        {fieldActions && fieldActions.length > 0 ? (
+          <div className="space-y-3">
+            {fieldActions.map((item) => {
+              const isResolved = item.resolutionStatus === 'resolved' || item.status === 'resolved';
+              const isVerifying = item.resolutionStatus === 'verifying';
+              const isUrgent = item.severity === 'critical' || item.severity === 'high';
+
+              return (
+                <div
+                  key={item._id}
+                  className={`rounded-2xl p-4 sm:p-5 border transition shadow-xs ${
+                    isResolved
+                      ? 'bg-emerald-50/70 border-emerald-200'
+                      : isUrgent
+                      ? 'bg-red-50/60 border-red-200'
+                      : 'bg-amber-50/60 border-amber-200'
+                  }`}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                    <div className="space-y-1.5 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                          isResolved
+                            ? 'bg-emerald-600 text-white'
+                            : isUrgent
+                            ? 'bg-red-600 text-white'
+                            : 'bg-amber-600 text-white'
+                        }`}>
+                          {isResolved
+                            ? (lang === 'hi' ? '✅ समस्या हल हुई' : '✅ PROBLEM RESOLVED')
+                            : isUrgent
+                            ? (lang === 'hi' ? '🔴 तत्काल ध्यान दें' : '🔴 URGENT ACTION')
+                            : (lang === 'hi' ? '🟠 ध्यान दें' : '🟠 ATTENTION')}
+                        </span>
+                        <span className="font-bold text-xs text-slate-800">
+                          {item.fieldName || 'Registered Field'} • {item.crop || 'Crop'}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-medium">
+                          {item.dataSource || '🛰️ Satellite + 🌦️ Weather'}
+                        </span>
+                      </div>
+
+                      {/* Problem Statement (WHAT) */}
+                      <h4 className="font-extrabold text-sm sm:text-base text-slate-900 leading-snug">
+                        {lang === 'hi' ? item.problemDescriptionHi || item.problemDescription : item.problemDescription}
+                      </h4>
+
+                      {/* Evidence / Reason (WHY) */}
+                      {(item.evidenceHi || item.evidence) && (
+                        <p className="text-xs text-slate-600 leading-relaxed">
+                          <strong>{lang === 'hi' ? 'कारण: ' : 'Why: '}</strong>
+                          {lang === 'hi' ? item.evidenceHi || item.evidence : item.evidence}
+                        </p>
+                      )}
+
+                      {/* Recommended Action (ACTION) */}
+                      <div className="p-3 rounded-xl bg-white/90 border border-slate-200/80 text-xs text-slate-800 space-y-1 mt-2">
+                        <div className="font-bold text-emerald-900 flex items-center gap-1.5">
+                          <span>👉</span>
+                          <span>{lang === 'hi' ? 'सुझाई गई कार्रवाई:' : 'Action Required:'}</span>
+                        </div>
+                        <p className="font-medium leading-relaxed">
+                          {lang === 'hi' ? item.recommendedActionHi || item.recommendedAction : item.recommendedAction}
+                        </p>
+                      </div>
+
+                      {/* Verification / Resolution Feedback Note */}
+                      {isVerifying && (
+                        <div className="p-2.5 rounded-xl bg-sky-50 border border-sky-200 text-sky-900 text-xs font-semibold flex items-center gap-2">
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin text-sky-600" />
+                          <span>
+                            {lang === 'hi'
+                              ? 'कार्रवाई दर्ज की गई। अगले निगरानी चक्र में स्थिति सुधरने का सत्यापन होगा।'
+                              : 'Action completed. Autonomous engine is monitoring for soil/crop recovery.'}
+                          </span>
+                        </div>
+                      )}
+
+                      {isResolved && (
+                        <div className="p-2.5 rounded-xl bg-emerald-100/80 border border-emerald-300 text-emerald-900 text-xs font-semibold flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-700" />
+                          <span>
+                            {lang === 'hi'
+                              ? 'सत्यापित: मिट्टी में नमी सामान्य स्तर पर वापस आ गई है।'
+                              : 'Verified: Soil moisture and vegetative indicators restored to optimal range.'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Action Execution Button (Closed-Loop) */}
+                    <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0 pt-2 sm:pt-0">
+                      {!isResolved && !isVerifying && (
+                        <button
+                          onClick={() => handleCompleteAction(item._id)}
+                          disabled={actionLoadingId === item._id}
+                          className="px-4 py-2 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs transition shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+                        >
+                          {actionLoadingId === item._id ? (
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          ) : (
+                            <Check className="w-3.5 h-3.5" />
+                          )}
+                          <span>
+                            {item.actionType === 'irrigation'
+                              ? (lang === 'hi' ? 'सिंचाई पूर्ण हुई ✓' : 'Mark Irrigation Done ✓')
+                              : (lang === 'hi' ? 'कार्य पूर्ण हुआ ✓' : 'Mark Done ✓')}
+                          </span>
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => {
+                          if (typeof window !== 'undefined' && item.fieldId) {
+                            window.location.hash = `#/field-monitoring?fieldId=${item.fieldId}`;
+                          }
+                          setActiveTab('field-monitoring');
+                        }}
+                        className="px-3 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition flex items-center gap-1"
+                      >
+                        <span>{lang === 'hi' ? 'खेत देखें' : 'View Field'}</span>
+                        <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          /* Default Healthy State when no issues detected */
+          <div className="rounded-2xl p-4 sm:p-5 bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 border border-emerald-200 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xl shrink-0">
+                <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 text-[10px] font-extrabold uppercase">
+                    {lang === 'hi' ? '🟢 सभी खेत स्वस्थ' : '🟢 ALL FIELDS HEALTHY'}
+                  </span>
+                </div>
+                <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5">
+                  {lang === 'hi'
+                    ? 'वर्तमान में किसी आपातकालीन कार्रवाई की आवश्यकता नहीं है।'
+                    : 'No critical field actions required today.'}
+                </h4>
+                <p className="text-[11px] text-slate-600">
+                  {lang === 'hi'
+                    ? 'मिट्टी की नमी और फसल वृद्धि सामान्य सीमा में है। उपग्रह व मौसम निगरानी स्वतः जारी है।'
+                    : 'Moisture reserves, canopy vigor, and weather parameters are within optimal ranges.'}
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => setActiveTab('field-monitoring')}
+              className="hidden sm:flex px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 text-xs font-bold items-center gap-1.5 transition shadow-2xs"
+            >
+              <span>{lang === 'hi' ? 'विवरण' : 'Telemetry'}</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 5. 8 Quick Action Power Buttons Grid (Moved up for instant farmer access) */}
       <div>
         <div className="flex items-center justify-between mb-2.5 px-1">
           <h3 className="font-extrabold text-sm text-slate-900">
-            {t('dashboard.quickActions')} (Krishi Drishti 2.0 Tools)
+            {t('dashboard.quickActions')} (Fasal Drishti 2.0 Tools)
           </h3>
           <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
             One-Tap Farming AI
@@ -709,7 +1007,7 @@ export default function FarmerDashboard({ setActiveTab }) {
             </h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               {lang === 'hi'
-                ? 'नक्शे पर अपने खेत की सीमा बनाएं। कृषि दृष्टि उपग्रह और मौसम डेटा के साथ स्वतः निगरानी शुरू करेगा।'
+                ? 'नक्शे पर अपने खेत की सीमा बनाएं। फ़सल दृष्टि उपग्रह और मौसम डेटा के साथ स्वतः निगरानी शुरू करेगा।'
                 : 'Mark your field polygon on the map to unlock automated 24/7 satellite & environmental monitoring.'}
             </p>
             <button

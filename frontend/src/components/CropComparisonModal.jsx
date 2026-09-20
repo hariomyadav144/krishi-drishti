@@ -39,13 +39,13 @@ export default function CropComparisonModal({ comparisonData, onClose }) {
 
   const handleShare = async () => {
     const shareText = isHi
-      ? `🌾 कृषि दृष्टि फसल स्वास्थ्य तुलना (${oldScan.cropName}): ${comparison.statusHi}! स्वास्थ्य: ${comparison.healthChange}.`
-      : `🌾 Krishi Drishti Crop Comparison (${oldScan.cropName}): ${comparison.status}! Health: ${comparison.healthChange}.`;
+      ? `🌾 फ़सल दृष्टि फसल स्वास्थ्य तुलना (${oldScan.cropName}): ${comparison.statusHi}! स्वास्थ्य: ${comparison.healthChange}.`
+      : `🌾 Fasal Drishti Crop Comparison (${oldScan.cropName}): ${comparison.status}! Health: ${comparison.healthChange}.`;
 
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Krishi Drishti Crop Health Comparison',
+          title: 'Fasal Drishti Crop Health Comparison',
           text: shareText,
           url: window.location.href,
         });
@@ -242,7 +242,7 @@ export default function CropComparisonModal({ comparisonData, onClose }) {
             <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
               <Sparkles className="w-5 h-5 text-amber-400" />
               <h4 className="text-sm font-extrabold text-emerald-400 tracking-wide uppercase">
-                {isHi ? 'कृषि दृष्टि AI तुलना विश्लेषण' : 'Krishi Drishti AI Comparative Diagnosis'}
+                {isHi ? 'फ़सल दृष्टि AI तुलना विश्लेषण' : 'Fasal Drishti AI Comparative Diagnosis'}
               </h4>
             </div>
 
@@ -342,7 +342,7 @@ export default function CropComparisonModal({ comparisonData, onClose }) {
         {/* Footer Actions */}
         <div className="sticky bottom-0 bg-slate-50 px-5 py-3 border-t border-slate-200 flex items-center justify-between">
           <p className="text-2xs text-slate-500 font-medium">
-            🌾 Krishi Drishti Cloud Storage • Verified against official APMC & Agronomy Standards
+            🌾 Fasal Drishti Cloud Storage • Verified against official APMC & Agronomy Standards
           </p>
           <button
             onClick={onClose}

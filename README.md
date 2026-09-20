@@ -1,8 +1,8 @@
-# 🌾 KRISHI DRISHTI 2.0 – Next-Gen AI for Smarter Farming
+# 🌾 FASAL DRISHTI 2.0 – Next-Gen AI for Smarter Farming
 > **“From Space to Soil”**  
 > *Right Information. Better Decisions. Higher Yield.*
 
-Krishi Drishti 2.0 is a production-grade, full-stack, mobile-first agricultural intelligence ecosystem designed to empower Indian farmers with real-time AI disease diagnosis from crop images, live webcam scanner, contextual agronomic advisories, speech-to-text mic input, live APMC mandi market rates, precision NPK fertilizer dosage calculators, Sentinel-2 satellite NDVI field radars, government subsidies portal, and pest outbreak early warnings.
+Fasal Drishti 2.0 is a production-grade, full-stack, mobile-first agricultural intelligence ecosystem designed to empower Indian farmers with real-time AI disease diagnosis from crop images, live webcam scanner, contextual agronomic advisories, speech-to-text mic input, live APMC mandi market rates, precision NPK fertilizer dosage calculators, Sentinel-2 satellite NDVI field radars, government subsidies portal, and pest outbreak early warnings.
 
 ---
 
@@ -12,7 +12,7 @@ Krishi Drishti 2.0 is a production-grade, full-stack, mobile-first agricultural 
    - Real-time webcam / smartphone camera stream with scanning laser grid, snapshot capture, zoom control, and flash effect.
    - Outputs: **Detected Problem**, **Confidence %**, **Severity (Low/Med/High/Critical)**, **Possible Cause**, **Recommended Action**, **Organic/Bio Treatment**, **Chemical Treatment**, **Prevention Tips**, and **Next Action Timeline**.
    - Pathology bounding box indicator highlighting diseased zones on the leaf.
-   - **1-Click WhatsApp Share** and **Printable Krishi Prescription Card**.
+   - **1-Click WhatsApp Share** and **Printable Fasal Prescription Card**.
 
 2. **Smart AI Agriculture Advisor with Voice Mic**:
    - Context-aware agronomy Q&A engine considering crop, soil, stage, and live weather.
@@ -97,4 +97,4 @@ Open [http://localhost:5173](http://localhost:5173) in your browser.
 | :--- | :--- | :--- | :--- |
 | **Farmer** | `9876543210` | `password123` | Rameshwar Patil (Tomato & Onion Farmer, Nashik) |
 | **Expert** | `9876500001` | `password123` | Dr. Ananya Sharma (KVK Agricultural Scientist) |
-| **Admin** | `9876599999` | `password123` | Krishi Drishti Central Command Admin |
+| **Admin** | `9876599999` | `password123` | Fasal Drishti Central Command Admin |

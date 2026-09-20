@@ -1,5 +1,5 @@
 /**
- * Geocoding & Reverse Geocoding Service for Krishi Drishti
+ * Geocoding & Reverse Geocoding Service for Fasal Drishti
  * Provides accurate resolution of village, town, district, and state
  * directly from browser GPS coordinates.
  */

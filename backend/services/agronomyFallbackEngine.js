@@ -1,5 +1,5 @@
 /**
- * Krishi Drishti Agricultural Knowledge & Fallback Advisory Engine
+ * Fasal Drishti Agricultural Knowledge & Fallback Advisory Engine
  * 
  * Provides verified, highly practical, and structured agricultural guidance
  * for Indian farmers across major crops, diseases, pests, fertilizers, irrigation,
@@ -237,7 +237,7 @@ const GENERAL_AGRONOMY_TOPICS = [
 ];
 
 /**
- * Clean & Format output in standard Krishi Drishti 5-Part Agricultural Advice
+ * Clean & Format output in standard Fasal Drishti 5-Part Agricultural Advice
  */
 function buildStructuredAdvice({ title, cause, immediateAction, organic, chemical, prevention, cropName, language = 'hi' }) {
   const isEn = language === 'en';
@@ -347,8 +347,8 @@ function getAgronomyFallbackAdvice({ question, crop = 'General', cropStage = '',
         ? 'Foliar spray of water-soluble NPK 19:19:19 @ 5 g/L. If fungal spotting is visible, apply Mancozeb 75% WP @ 2.5 g/L.'
         : 'संतुलित पोषण हेतु घुलनशील 19:19:19 (NPK) 5 ग्राम प्रति लीटर पानी का छिड़काव करें। फफूंद से बचाव हेतु मैंकोजेब 2.5 ग्राम प्रति लीटर का प्रयोग करें।',
       prevention: isEn
-        ? 'Ensure good field drainage, follow balanced fertilizer dosage, and take a clear photo of the plant to scan on Krishi Drishti.'
-        : 'खेत में उचित जल निकासी रखें और संतुलित खाद का प्रयोग करें। किसी भी समस्या के निदान हेतु पौधे की साफ फोटो लेकर Krishi Drishti में दोबारा स्कैन कर सकते हैं।',
+        ? 'Ensure good field drainage, follow balanced fertilizer dosage, and take a clear photo of the plant to scan on Fasal Drishti.'
+        : 'खेत में उचित जल निकासी रखें और संतुलित खाद का प्रयोग करें। किसी भी समस्या के निदान हेतु पौधे की साफ फोटो लेकर Fasal Drishti में दोबारा स्कैन कर सकते हैं।',
       cropName: cropDisplay,
       language
     }),

@@ -1,5 +1,5 @@
 /**
- * AI Vision Diagnostic Service for Krishi Drishti
+ * AI Vision Diagnostic Service for Fasal Drishti
  * Handles plant pathology classification, disease identification, symptom matching,
  * and structured advisory generation. Pluggable with Gemini Vision API / external models.
  */

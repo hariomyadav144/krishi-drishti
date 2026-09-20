@@ -22,6 +22,60 @@ const soilTestReportSchema = new mongoose.Schema({
   reportUrl: { type: String, default: '' }
 }, { timestamps: true });
 
+const irrigationHistoryItemSchema = new mongoose.Schema({
+  date: { type: Date, default: Date.now },
+  method: { type: String, default: 'Drip Irrigation' },
+  durationHours: { type: Number, default: 2.0 },
+  waterVolumeLiters: { type: Number, default: 0 },
+  notes: { type: String, default: '' },
+  triggeredByRecommendation: { type: Boolean, default: false }
+}, { _id: false });
+
+const fertilizerHistoryItemSchema = new mongoose.Schema({
+  date: { type: Date, default: Date.now },
+  fertilizerName: { type: String, required: true },
+  dosageKgPerAcre: { type: Number, required: true },
+  applicationMethod: { type: String, default: 'Top Dressing' },
+  cropStage: { type: String, default: 'Vegetative Stage' },
+  notes: { type: String, default: '' }
+}, { _id: false });
+
+const pesticideHistoryItemSchema = new mongoose.Schema({
+  date: { type: Date, default: Date.now },
+  chemicalOrBioName: { type: String, required: true },
+  targetPestOrDisease: { type: String, default: 'General Preventive' },
+  dosageMlOrGPerL: { type: Number, default: 2.0 },
+  sprayMethod: { type: String, default: 'Foliar Spray' },
+  cropStage: { type: String, default: 'Vegetative Stage' },
+  notes: { type: String, default: '' }
+}, { _id: false });
+
+const cropHealthHistoryItemSchema = new mongoose.Schema({
+  date: { type: Date, default: Date.now },
+  healthScore: { type: Number, required: true },
+  status: { type: String, default: 'Good' },
+  primaryRisk: { type: String, default: 'None' },
+  source: { type: String, default: 'Autonomous Monitoring' }
+}, { _id: false });
+
+const fieldImageSchema = new mongoose.Schema({
+  url: { type: String, required: true },
+  date: { type: Date, default: Date.now },
+  diagnosis: { type: String, default: 'Clean Foliage' },
+  confidence: { type: Number, default: 90 },
+  plantPart: { type: String, default: 'Leaf' }
+}, { _id: false });
+
+const sensorDataPointSchema = new mongoose.Schema({
+  timestamp: { type: Date, default: Date.now },
+  soilMoisturePercent: { type: Number },
+  soilTemperatureC: { type: Number },
+  ambientHumidityPercent: { type: Number },
+  ambientTemperatureC: { type: Number },
+  batteryLevelPercent: { type: Number },
+  sensorId: { type: String }
+}, { _id: false });
+
 const fieldSchema = new mongoose.Schema({
   farmerId: {
     type: mongoose.Schema.Types.Mixed,
@@ -140,6 +194,20 @@ const fieldSchema = new mongoose.Schema({
     default: 20,
   },
   soilTestReports: [soilTestReportSchema],
+  irrigationHistory: [irrigationHistoryItemSchema],
+  fertilizerHistory: [fertilizerHistoryItemSchema],
+  pesticideHistory: [pesticideHistoryItemSchema],
+  cropHealthHistory: [cropHealthHistoryItemSchema],
+  uploadedImages: [fieldImageSchema],
+  sensorData: [sensorDataPointSchema],
+  monitoringActive: {
+    type: Boolean,
+    default: true,
+  },
+  monitoringIntervalHours: {
+    type: Number,
+    default: 6,
+  },
   lastMonitoringTimestamp: {
     type: Date,
     default: Date.now,

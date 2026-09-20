@@ -77,7 +77,7 @@ async function callCloudFallbackProvider({ question, crop, cropStage, language, 
 
   if (!fallbackKey) return null;
 
-  const systemInstruction = `You are Krishi Drishti Agricultural AI, an expert, practical agronomist advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English explanations. Structure your answer with:
+  const systemInstruction = `You are Fasal Drishti Agricultural AI, an expert, practical agronomist advising an Indian farmer. You must answer ONLY in pure Hindi (हिंदी / Devanagari script). Do not output English explanations. Structure your answer with:
 1. संभावित समस्या या स्थिति
 2. होने का मुख्य कारण
 3. तुरंत क्या करें

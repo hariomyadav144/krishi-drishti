@@ -1,6 +1,7 @@
 const Field = require('../models/Field');
 const FieldMonitoringObservation = require('../models/FieldMonitoringObservation');
 const FieldAlert = require('../models/FieldAlert');
+const FieldActionItem = require('../models/FieldActionItem');
 const { runFieldMonitoringPipeline } = require('../services/fieldMonitoringService');
 const {
   isDbConnected,
@@ -9,11 +10,14 @@ const {
   getStatelessFieldMonitoringSummary,
   getStatelessFieldHistory,
   getStatelessCompareObservations,
-  addStatelessSoilTest
+  addStatelessSoilTest,
+  getStatelessFieldActions,
+  updateStatelessActionStatus,
+  addStatelessTelemetry
 } = require('../utils/statelessStore');
 
 /**
- * Krishi Drishti - Field Monitoring Controller
+ * Fasal Drishti - Field Monitoring Controller
  * Handles continuous autonomous monitoring, historical comparison, soil test linkage,
  * and proactive multi-indicator summaries.
  */
@@ -22,7 +26,7 @@ const {
 async function getFarmerField(fieldId, userId) {
   if (!isDbConnected()) {
     const fields = getStatelessFields(userId);
-    return fields.find(f => f._id === fieldId || f.id === fieldId) || fields[0] || null;
+    return fields.find(f => f._id === fieldId || f.id === fieldId) || null;
   }
   const field = await Field.findOne({
     _id: fieldId,
@@ -235,32 +239,49 @@ exports.compareFieldObservations = async (req, res) => {
 
     let previous = null;
     const now = new Date(latest.observationDate).getTime();
+    let targetDays = 7;
 
     if (period === 'previous') {
       previous = await FieldMonitoringObservation.findOne({
         fieldId,
-        _id: { $ne: latest._id }
+        observationDate: { $lt: latest.observationDate }
       }).sort({ observationDate: -1 });
     } else {
-      let days = 7;
-      if (period === '15d') days = 15;
-      if (period === '30d') days = 30;
+      let minDays = 5;
+      let maxDays = 9;
+      targetDays = 7;
 
-      const targetTimestamp = now - (days * 24 * 60 * 60 * 1000);
-      const targetDate = new Date(targetTimestamp);
+      if (period === '15d') {
+        minDays = 12;
+        maxDays = 18;
+        targetDays = 15;
+      } else if (period === '30d') {
+        minDays = 24;
+        maxDays = 36;
+        targetDays = 30;
+      }
 
-      // Find the closest observation to targetDate
-      previous = await FieldMonitoringObservation.findOne({
+      const minTimestamp = now - (maxDays * 86400000);
+      const maxTimestamp = now - (minDays * 86400000);
+      const targetTimestamp = now - (targetDays * 86400000);
+
+      // Find all observations within tolerance window
+      const candidates = await FieldMonitoringObservation.find({
         fieldId,
-        observationDate: { $lte: targetDate }
-      }).sort({ observationDate: -1 });
+        observationDate: {
+          $gte: new Date(minTimestamp),
+          $lte: new Date(maxTimestamp)
+        }
+      });
 
-      // If nothing older, pick the earliest available record
-      if (!previous) {
-        previous = await FieldMonitoringObservation.findOne({
-          fieldId,
-          _id: { $ne: latest._id }
-        }).sort({ observationDate: 1 });
+      if (candidates && candidates.length > 0) {
+        // Pick candidate closest to target timestamp
+        candidates.sort((a, b) => {
+          const diffA = Math.abs(new Date(a.observationDate).getTime() - targetTimestamp);
+          const diffB = Math.abs(new Date(b.observationDate).getTime() - targetTimestamp);
+          return diffA - diffB;
+        });
+        previous = candidates[0];
       }
     }
 
@@ -268,14 +289,20 @@ exports.compareFieldObservations = async (req, res) => {
       return res.status(200).json({
         success: true,
         canCompare: false,
-        message: 'Insufficient historical observations for comparison. At least two observations are required.',
+        period,
+        message: period === '30d'
+          ? 'No real observation available for 30-day comparison.'
+          : 'No real observation available for this period.',
         current: latest
       });
     }
 
-    // Calculate comparative deltas scientifically
-    const daysApart = Math.max(1, Math.round(Math.abs(new Date(latest.observationDate) - new Date(previous.observationDate)) / (1000 * 60 * 60 * 24)));
+    // Calculate real days apart and nearest date notice
+    const daysApart = Math.max(1, Math.round(Math.abs(now - new Date(previous.observationDate).getTime()) / 86400000));
+    const isExactTarget = (period === '7d' && daysApart === 7) || (period === '15d' && daysApart === 15) || (period === '30d' && daysApart === 30);
+    const nearestDateNotice = isExactTarget ? null : `Nearest available observation: ${new Date(previous.observationDate).toLocaleDateString('en-GB')}`;
 
+    // Calculate comparative deltas scientifically from real stored values
     const currentNdvi = latest.satelliteData?.ndviMean;
     const prevNdvi = previous.satelliteData?.ndviMean;
     let ndviDelta = null;
@@ -292,31 +319,27 @@ exports.compareFieldObservations = async (req, res) => {
       moistureDelta = +(currentMoisture - prevMoisture).toFixed(1);
     }
 
-    const currentHealth = latest.satelliteData?.healthScore || 75;
-    const prevHealth = previous.satelliteData?.healthScore || 75;
-    const healthDelta = currentHealth - prevHealth;
-
-    // Generate bilingual delta summary
-    let comparisonNarrativeEn = '';
-    let comparisonNarrativeHi = '';
-
-    if (ndviDelta !== null && ndviDelta > 0.05) {
-      comparisonNarrativeEn += `Vegetation vigor has improved by ${Math.abs(ndviDeltaPercent)}% over ${daysApart} days. `;
-      comparisonNarrativeHi += `पिछले ${daysApart} दिनों में फसल हरियाली और स्वास्थ्य में ${Math.abs(ndviDeltaPercent)}% सुधार हुआ है। `;
-    } else if (ndviDelta !== null && ndviDelta < -0.05) {
-      comparisonNarrativeEn += `Vegetation vigor shows a decline of ${Math.abs(ndviDeltaPercent)}% over ${daysApart} days. `;
-      comparisonNarrativeHi += `पिछले ${daysApart} दिनों में फसल हरियाली में ${Math.abs(ndviDeltaPercent)}% की गिरावट देखी गई है। `;
-    } else {
-      comparisonNarrativeEn += `Vegetation vigor has remained relatively stable over ${daysApart} days. `;
-      comparisonNarrativeHi += `पिछले ${daysApart} दिनों में फसल की हरियाली सामान्य और स्थिर रही है। `;
+    const currentHealth = latest.satelliteData?.healthScore;
+    const prevHealth = previous.satelliteData?.healthScore;
+    let healthDelta = null;
+    if (typeof currentHealth === 'number' && typeof prevHealth === 'number') {
+      healthDelta = currentHealth - prevHealth;
     }
 
-    if (moistureDelta !== null && moistureDelta < -10) {
-      comparisonNarrativeEn += `Soil moisture reserves have dropped notably. `;
-      comparisonNarrativeHi += `खेत की मिट्टी में नमी का स्तर काफी कम हुआ है। `;
-    } else if (moistureDelta !== null && moistureDelta > 10) {
-      comparisonNarrativeEn += `Soil moisture has replenished following irrigation or rainfall. `;
-      comparisonNarrativeHi += `हालिया बारिश या सिंचाई के बाद मिट्टी की नमी बढ़ गई है। `;
+    // Generate bilingual narrative based strictly on actual observations
+    let comparisonNarrativeEn = '';
+    let comparisonNarrativeHi = '';
+    const prevDateStr = new Date(previous.observationDate).toLocaleDateString('en-GB');
+    const latestDateStr = new Date(latest.observationDate).toLocaleDateString('en-GB');
+
+    if (ndviDelta !== null) {
+      const dir = ndviDelta > 0 ? 'increased' : (ndviDelta < 0 ? 'decreased' : 'remained stable');
+      const dirHi = ndviDelta > 0 ? 'सुधार' : (ndviDelta < 0 ? 'गिरावट' : 'स्थिर');
+      comparisonNarrativeEn = `NDVI ${dir} from ${prevNdvi} to ${currentNdvi} between ${prevDateStr} and ${latestDateStr}.`;
+      comparisonNarrativeHi = `${prevDateStr} और ${latestDateStr} के बीच NDVI ${prevNdvi} से ${currentNdvi} (${dirHi}) दर्ज किया गया।`;
+    } else {
+      comparisonNarrativeEn = `Observation recorded on ${prevDateStr} compared with current observation (${latestDateStr}).`;
+      comparisonNarrativeHi = `${prevDateStr} का अवलोकन वर्तमान (${latestDateStr}) के साथ तुलना में उपलब्ध है।`;
     }
 
     return res.status(200).json({
@@ -325,6 +348,7 @@ exports.compareFieldObservations = async (req, res) => {
       field,
       period,
       daysApart,
+      nearestDateNotice,
       current: latest,
       previous,
       deltas: {
@@ -516,6 +540,7 @@ exports.getMonitoringDashboardSummary = async (req, res) => {
 };
 
 // @desc    Acknowledge or mark field alert as read
+// @desc    Acknowledge or mark field alert as read
 // @route   PUT /api/field-monitoring/alert/:alertId/read
 // @access  Private (Farmer)
 exports.markAlertRead = async (req, res) => {
@@ -541,3 +566,146 @@ exports.markAlertRead = async (req, res) => {
     return res.status(500).json({ success: false, error: err.message });
   }
 };
+
+// @desc    Get action items for a field (pending, in_progress, resolved) or all fields
+// @route   GET /api/field-monitoring/actions/:fieldId?
+// @access  Private (Farmer)
+exports.getFieldActions = async (req, res) => {
+  try {
+    const { fieldId } = req.params;
+    if (!isDbConnected()) {
+      const actions = getStatelessFieldActions(fieldId || 'all');
+      return res.status(200).json({
+        success: true,
+        data: actions
+      });
+    }
+
+    const query = { farmerId: req.user._id };
+    if (fieldId && fieldId !== 'all') {
+      query.fieldId = fieldId;
+    }
+
+    const actions = await FieldActionItem.find(query)
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return res.status(200).json({
+      success: true,
+      data: actions
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @desc    Update action item status (e.g. mark done, in progress) and trigger verification
+// @route   POST /api/field-monitoring/action/:actionId/status
+// @access  Private (Farmer)
+exports.updateActionStatus = async (req, res) => {
+  try {
+    const { actionId } = req.params;
+    const { status, completedNotes } = req.body;
+
+    if (!isDbConnected()) {
+      const updated = updateStatelessActionStatus(actionId, status);
+      return res.status(200).json({
+        success: true,
+        message: 'Action status updated (stateless mode).',
+        data: updated
+      });
+    }
+
+    const action = await FieldActionItem.findOne({
+      _id: actionId,
+      farmerId: req.user._id
+    });
+
+    if (!action) {
+      return res.status(404).json({ success: false, message: 'Action item not found.' });
+    }
+
+    action.status = status || action.status;
+    if (status === 'completed') {
+      action.actionTakenAt = new Date();
+      action.resolutionStatus = 'verifying';
+    }
+    if (completedNotes) {
+      action.completedNotes = completedNotes;
+    }
+    await action.save();
+
+    // Trigger an immediate monitoring run to evaluate if condition has improved
+    let runResult = null;
+    try {
+      runResult = await runFieldMonitoringPipeline(action.fieldId, req.user._id);
+    } catch (recheckErr) {
+      console.warn('[FieldMonitoring] Post-action recheck warning:', recheckErr.message);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Action status updated and verification cycle completed.',
+      data: action,
+      recheckResult: runResult
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+
+// @desc    Ingest IoT / sensor telemetry for a field
+// @route   POST /api/field-monitoring/telemetry/:fieldId
+// @access  Private (Farmer or Sensor Device)
+exports.ingestFieldTelemetry = async (req, res) => {
+  try {
+    const { fieldId } = req.params;
+    const {
+      soilMoisturePercent,
+      soilTemperatureC,
+      ambientHumidityPercent,
+      ambientTemperatureC,
+      batteryLevelPercent,
+      sensorId
+    } = req.body;
+
+    if (!isDbConnected()) {
+      addStatelessTelemetry(fieldId, req.body);
+      return res.status(200).json({ success: true, message: 'Telemetry received (stateless mode).' });
+    }
+
+    const field = await Field.findById(fieldId);
+    if (!field) {
+      return res.status(404).json({ success: false, message: 'Field not found.' });
+    }
+
+    if (!Array.isArray(field.sensorData)) {
+      field.sensorData = [];
+    }
+
+    const reading = {
+      timestamp: new Date(),
+      soilMoisturePercent: Number(soilMoisturePercent),
+      soilTemperatureC: Number(soilTemperatureC),
+      ambientHumidityPercent: Number(ambientHumidityPercent),
+      ambientTemperatureC: Number(ambientTemperatureC),
+      batteryLevelPercent: Number(batteryLevelPercent),
+      sensorId: sensorId || 'sensor_default'
+    };
+
+    field.sensorData.unshift(reading);
+    if (field.sensorData.length > 200) {
+      field.sensorData = field.sensorData.slice(0, 200);
+    }
+    await field.save();
+
+    return res.status(200).json({
+      success: true,
+      message: 'Sensor telemetry ingested successfully.',
+      reading
+    });
+  } catch (err) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+};
+

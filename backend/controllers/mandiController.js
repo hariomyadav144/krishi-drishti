@@ -1,5 +1,5 @@
 /**
- * Mandi Rates Controller for Krishi Drishti
+ * Mandi Rates Controller for Fasal Drishti
  * Powered exclusively by official Government of India AGMARKNET data via Data.gov.in.
  * Strictly free of mock/fake/invented prices.
  */

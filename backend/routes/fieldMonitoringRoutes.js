@@ -7,7 +7,10 @@ const {
   compareFieldObservations,
   uploadSoilTest,
   getMonitoringDashboardSummary,
-  markAlertRead
+  markAlertRead,
+  getFieldActions,
+  updateActionStatus,
+  ingestFieldTelemetry
 } = require('../controllers/fieldMonitoringController');
 const { protect } = require('../middleware/auth');
 
@@ -34,5 +37,12 @@ router.post('/soil-test/:fieldId', protect, uploadSoilTest);
 
 // Alert acknowledge
 router.put('/alert/:alertId/read', protect, markAlertRead);
+
+// Field action loop: list actions and update status (completed/in_progress)
+router.get('/actions/:fieldId?', protect, getFieldActions);
+router.post('/action/:actionId/status', protect, updateActionStatus);
+
+// Ingest IoT soil sensor & ambient telemetry
+router.post('/telemetry/:fieldId', ingestFieldTelemetry);
 
 module.exports = router;

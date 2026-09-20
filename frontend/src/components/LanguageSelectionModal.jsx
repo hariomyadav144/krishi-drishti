@@ -28,7 +28,7 @@ export default function LanguageSelectionModal({ isOpen, onClose }) {
                 अपनी भाषा चुनें / Select Your Language
               </h3>
               <p className="text-[11px] text-slate-500 font-semibold">
-                Krishi Drishti will operate completely in your chosen language
+                Fasal Drishti will operate completely in your chosen language
               </p>
             </div>
           </div>

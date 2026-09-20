@@ -340,7 +340,7 @@ export default function ScanCrop({ setActiveTab }) {
     const problem = lang === 'hi' && analysisResult.detectedProblemHi ? analysisResult.detectedProblemHi : analysisResult.detectedProblem;
     const recAction = lang === 'hi' && analysisResult.recommendedActionHi ? analysisResult.recommendedActionHi : analysisResult.recommendedAction;
     
-    const text = `🌾 *KRISHI DRISHTI AI DIAGNOSIS & PRESCRIPTION*\n` +
+    const text = `🌾 *FASAL DRISHTI AI DIAGNOSIS & PRESCRIPTION*\n` +
       `🌿 *Crop:* ${analysisResult.cropName}\n` +
       `🔍 *Detected Problem:* ${problem}\n` +
       `⚠️ *Severity:* ${analysisResult.severity} (${analysisResult.confidence}% AI Confidence)\n` +
@@ -348,7 +348,7 @@ export default function ScanCrop({ setActiveTab }) {
       `🌿 *Organic Option:* ${analysisResult.organicTreatment || 'N/A'}\n` +
       `🧪 *Chemical Option:* ${analysisResult.chemicalTreatment || 'N/A'}\n` +
       `⏱️ *Next Action Timeline:* ${analysisResult.nextActionTimeline || 'Inspect in 48h'}\n\n` +
-      `_Generated via Krishi Drishti - From Space to Soil_`;
+      `_Generated via Fasal Drishti - From Space to Soil_`;
 
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
   };

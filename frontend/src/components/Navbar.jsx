@@ -29,7 +29,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
               {!logoFailed && (
                 <img
                   src="/logo.svg"
-                  alt="Krishi Drishti Brand Logo"
+                  alt="Fasal Drishti Brand Logo"
                   className={`h-10 w-10 object-contain rounded-xl transition-all duration-300 ${logoLoaded ? 'block' : 'hidden'}`}
                   onLoad={() => setLogoLoaded(true)}
                   onError={(e) => {
@@ -50,7 +50,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-black text-lg tracking-tight text-white flex items-center gap-1.5">
-                  KRISHI DRISHTI
+                  FASAL DRISHTI
                   <span className="text-[10px] bg-emerald-500/30 text-emerald-300 px-1.5 py-0.5 rounded-full border border-emerald-400/40 font-extrabold tracking-wider">
                     2.0 AI
                   </span>

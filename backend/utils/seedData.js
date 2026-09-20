@@ -13,7 +13,7 @@ const Alert = require('../models/Alert');
 const Feedback = require('../models/Feedback');
 
 async function seedDatabase() {
-  console.log('Seeding Krishi Drishti database with realistic agricultural datasets...');
+  console.log('Seeding Fasal Drishti database with realistic agricultural datasets...');
 
   // Clear existing collections
   await Promise.all([
@@ -76,9 +76,9 @@ async function seedDatabase() {
   });
 
   const adminUser = await User.create({
-    name: 'Krishi Drishti Admin Officer',
+    name: 'Fasal Drishti Admin Officer',
     phone: '9876599999',
-    email: 'admin@krishidrishti.in',
+    email: 'admin@fasaldrishti.in',
     password: defaultPassword,
     role: 'admin',
     isOnboarded: true,
@@ -215,10 +215,7 @@ async function seedDatabase() {
     points: [
       { lat: 20.17482, lng: 73.98421 },
       { lat: 20.17565, lng: 73.98583 },
-      { lat: 20.17512, lng: 73.98745 },
       { lat: 20.17395, lng: 73.98782 },
-      { lat: 20.17281, lng: 73.98695 },
-      { lat: 20.17254, lng: 73.98512 },
       { lat: 20.17342, lng: 73.98402 },
     ],
     center: { lat: 20.17404, lng: 73.98591 },
@@ -227,7 +224,7 @@ async function seedDatabase() {
     areaSqMeters: 36220,
     formattedAcres: '8.95 acres',
     formattedHectares: '3.62 hectares',
-    cornersCount: 7,
+    cornersCount: 4,
     gpsStatus: 'GPS Connected (±12m)',
     gpsAccuracy: 12,
   });

@@ -11,7 +11,7 @@ export default class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('Krishi Drishti ErrorBoundary caught an error:', error, errorInfo);
+    console.error('Fasal Drishti ErrorBoundary caught an error:', error, errorInfo);
   }
 
   handleReset = () => {
@@ -28,10 +28,10 @@ export default class ErrorBoundary extends React.Component {
             🌾
           </div>
           <h2 className="text-xl font-bold text-emerald-400 mb-2">
-            Krishi Drishti – Automatic Recovery
+            Fasal Drishti – Automatic Recovery
           </h2>
           <p className="text-xs text-slate-300 max-w-sm mb-6 leading-relaxed">
-            कृषि दृष्टि ऐप को रीफ्रेश किया जा रहा है। कृपया नीचे दिए गए बटन पर क्लिक करें।
+            फ़सल दृष्टि ऐप को रीफ्रेश किया जा रहा है। कृपया नीचे दिए गए बटन पर क्लिक करें।
           </p>
           <button
             onClick={this.handleReset}

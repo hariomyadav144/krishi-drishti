@@ -1,5 +1,5 @@
 /**
- * Open-Meteo Free Weather Service for Krishi Drishti
+ * Open-Meteo Free Weather Service for Fasal Drishti
  * Direct client-side integration with no API key required.
  * Endpoint: https://api.open-meteo.com/v1/forecast
  */

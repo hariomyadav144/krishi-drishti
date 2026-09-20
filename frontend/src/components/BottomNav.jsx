@@ -85,7 +85,7 @@ export default function BottomNav({ activeTab, setActiveTab }) {
             <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="text-lg">🌾</span>
-                <h3 className="font-black text-sm text-slate-900">Krishi Drishti Power Tools</h3>
+                <h3 className="font-black text-sm text-slate-900">Fasal Drishti Power Tools</h3>
               </div>
               <button
                 onClick={() => setShowMoreMenu(false)}
