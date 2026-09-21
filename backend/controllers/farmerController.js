@@ -13,6 +13,7 @@ const {
   getStatelessDashboard,
   getStatelessDashboardForUser,
   getStatelessUserById,
+  updateStatelessUser,
   saveStatelessProfile,
   saveStatelessFarm,
   addStatelessCrop,
@@ -41,11 +42,7 @@ const completeOnboarding = async (req, res) => {
     const userId = req.user._id;
 
     if (!isDbConnected()) {
-      const u = getStatelessUserById(userId);
-      if (u) {
-        if (name) u.name = name;
-        u.isOnboarded = true;
-      }
+      const updatedUser = updateStatelessUser(userId, { ...(name ? { name } : {}), isOnboarded: true });
 
       const locationStr = location || ((village && district) 
         ? `${village}, ${district}, ${state || ''}`.replace(/, $/, '') 
@@ -77,6 +74,7 @@ const completeOnboarding = async (req, res) => {
       return res.json({
         success: true,
         message: 'Onboarding completed successfully!',
+        user: updatedUser,
         profile,
         farm,
       });

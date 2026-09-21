@@ -503,6 +503,16 @@ function getStatelessUserById(id) {
   return null;
 }
 
+function updateStatelessUser(id, updates = {}) {
+  if (!id) return null;
+  const user = USERS.find(u => u._id === id || u.id === id);
+  if (user) {
+    Object.assign(user, updates);
+    return { ...user };
+  }
+  return null;
+}
+
 function registerStatelessUser(userData) {
   const existingPhone = USERS.find(u => u.phone === userData.phone);
   if (existingPhone) {
@@ -2035,6 +2045,7 @@ module.exports = {
   getStatelessUserByEmail,
   getStatelessUserById,
   registerStatelessUser,
+  updateStatelessUser,
   getStatelessDashboard,
   getStatelessDashboardForUser,
   getStatelessProfile,

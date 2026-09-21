@@ -5,7 +5,7 @@ import api from '../services/api';
 import { Sprout, MapPin, Layers, Droplets, CheckCircle, ArrowRight } from 'lucide-react';
 
 export default function Onboarding({ onOnboardingComplete, onComplete }) {
-  const { user, refreshUser } = useAuth();
+  const { user, refreshUser, setUser } = useAuth();
   const { lang, t } = useLanguage();
 
   const [step, setStep] = useState(1);
@@ -24,9 +24,11 @@ export default function Onboarding({ onOnboardingComplete, onComplete }) {
   const [loading, setLoading] = useState(false);
 
   const indianStates = [
-    'Maharashtra', 'Punjab', 'Uttar Pradesh', 'Gujarat', 'Karnataka',
-    'Madhya Pradesh', 'Haryana', 'Rajasthan', 'Andhra Pradesh', 'Tamil Nadu',
-    'Telangana', 'Bihar', 'West Bengal', 'Odisha'
+    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
+    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
+    'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
+    'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
+    'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
   ];
 
   const cropList = [
@@ -50,17 +52,30 @@ export default function Onboarding({ onOnboardingComplete, onComplete }) {
   };
 
   const handleFinish = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setLoading(true);
     try {
       const res = await api.post('/farmer/onboarding', formData);
-      if (res.data.success) {
+      if (res.data?.success) {
+        if (setUser) {
+          if (res.data.user) {
+            setUser(res.data.user);
+          } else {
+            setUser((prev) => ({ ...prev, isOnboarded: true }));
+          }
+        }
         await refreshUser();
         const callback = onComplete || onOnboardingComplete;
         if (callback) callback();
       }
     } catch (e) {
       console.error('Onboarding failed:', e);
+      // Even if network glitches, unblock the user to the dashboard
+      if (setUser) {
+        setUser((prev) => ({ ...prev, isOnboarded: true }));
+      }
+      const callback = onComplete || onOnboardingComplete;
+      if (callback) callback();
     } finally {
       setLoading(false);
     }
