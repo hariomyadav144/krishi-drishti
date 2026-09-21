@@ -100,7 +100,7 @@ export function cleanVisibleAdvice(rawText) {
 }
 
 export default function AiAdvisor({ setActiveTab }) {
-  const { lang, t } = useLanguage();
+  const { lang, t, tCrop, tStage, tSoil, tMoisture, tWeather, speechLocale } = useLanguage();
   const { currentCrop, farm } = useAuth();
 
   const [queryText, setQueryText] = useState('');
@@ -197,7 +197,7 @@ export default function AiAdvisor({ setActiveTab }) {
       const recognition = new SpeechRecognition();
       recognition.continuous = false;
       recognition.interimResults = false;
-      recognition.lang = lang === 'hi' ? 'hi-IN' : (lang === 'mr' ? 'mr-IN' : (lang === 'pa' ? 'pa-IN' : 'en-IN'));
+      recognition.lang = speechLocale || (lang === 'hi' ? 'hi-IN' : 'en-IN');
 
       recognition.onstart = () => {
         setIsListening(true);
@@ -222,11 +222,11 @@ export default function AiAdvisor({ setActiveTab }) {
 
       recognitionRef.current = recognition;
     }
-  }, [lang]);
+  }, [lang, speechLocale]);
 
   const toggleSpeechRecognition = () => {
     if (!recognitionRef.current) {
-      alert(lang === 'hi' ? 'इस ब्राउज़र में स्पीच रिकग्निशन उपलब्ध नहीं है। कृपया टाइप करें।' : 'Speech Recognition is not supported in this browser. Please type your question.');
+      alert(t('swar.notUnderstood', 'Speech recognition not supported in this browser. Please type your question.'));
       return;
     }
 
@@ -235,7 +235,7 @@ export default function AiAdvisor({ setActiveTab }) {
       setIsListening(false);
     } else {
       try {
-        recognitionRef.current.lang = lang === 'hi' ? 'hi-IN' : (lang === 'mr' ? 'mr-IN' : (lang === 'pa' ? 'pa-IN' : 'en-IN'));
+        recognitionRef.current.lang = speechLocale || (lang === 'hi' ? 'hi-IN' : 'en-IN');
         recognitionRef.current.start();
       } catch (e) {
         console.warn('Mic start error:', e);
@@ -465,7 +465,7 @@ export default function AiAdvisor({ setActiveTab }) {
             <div className="flex items-center gap-2 text-emerald-950 font-black">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
               <span>
-                {lang === 'hi' ? 'सक्रिय कृषि संदर्भ (Active Farm Intelligence Context)' : 'Active Farm Intelligence Context'}
+                {t('farm.activeContext')}
               </span>
             </div>
 
@@ -478,13 +478,13 @@ export default function AiAdvisor({ setActiveTab }) {
               >
                 {userFields.map(f => (
                   <option key={f.id || f._id} value={f.id || f._id}>
-                    📍 {f.fieldName} ({f.crop || 'Fasl'})
+                    📍 {f.fieldName} ({tCrop(f.crop)})
                   </option>
                 ))}
               </select>
             ) : (
               <span className="text-[11px] font-bold text-emerald-800 bg-white/90 px-2.5 py-1 rounded-lg border border-emerald-200 shadow-2xs">
-                📍 {activeFarmContext?.fieldName || 'Main Plot'}
+                📍 {activeFarmContext?.fieldName || t('farm.mainField')}
               </span>
             )}
           </div>
@@ -493,46 +493,46 @@ export default function AiAdvisor({ setActiveTab }) {
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-[11px]">
             <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 shadow-2xs">
               <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wider">
-                🌱 {lang === 'hi' ? 'फसल' : 'Crop'}
+                🌱 {t('farm.crop')}
               </span>
               <span className="font-extrabold text-slate-900 truncate block">
-                {activeFarmContext?.crop || 'Wheat'}
+                {tCrop(activeFarmContext?.crop || 'Wheat')}
               </span>
             </div>
 
             <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 shadow-2xs">
               <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wider">
-                ⏳ {lang === 'hi' ? 'अवस्था' : 'Stage'}
+                ⏳ {t('farm.stage')}
               </span>
               <span className="font-extrabold text-slate-900 truncate block">
-                {activeFarmContext?.cropStage || 'Vegetative'}
+                {tStage(activeFarmContext?.cropStage || 'Vegetative')}
               </span>
             </div>
 
             <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 shadow-2xs">
               <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wider">
-                🪵 {lang === 'hi' ? 'मिट्टी / pH' : 'Soil / pH'}
+                🪵 {t('farm.soil')}
               </span>
               <span className="font-extrabold text-slate-900 truncate block">
-                pH {activeFarmContext?.soil?.pH || 7.2} • {activeFarmContext?.soil?.soilType?.split('/')[0] || 'Black Soil'}
+                pH {activeFarmContext?.soil?.pH || 7.2} • {tSoil(activeFarmContext?.soil?.soilType?.split('/')[0] || 'Black Soil')}
               </span>
             </div>
 
             <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 shadow-2xs">
               <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wider">
-                💧 {lang === 'hi' ? 'नमी / सिंचाई' : 'Moisture'}
+                💧 {t('farm.moisture')}
               </span>
               <span className="font-extrabold text-slate-900 truncate block">
-                {activeFarmContext?.moisture?.score || 78}% ({activeFarmContext?.moisture?.status || 'Adequate'})
+                {activeFarmContext?.moisture?.score || 78}% ({tMoisture(activeFarmContext?.moisture?.status || 'Adequate')})
               </span>
             </div>
 
             <div className="bg-white/80 p-2 rounded-xl border border-emerald-100 shadow-2xs col-span-2 sm:col-span-1">
               <span className="text-slate-500 block text-[10px] font-bold uppercase tracking-wider">
-                ⛅ {lang === 'hi' ? 'मौसम' : 'Weather'}
+                ⛅ {t('farm.weather')}
               </span>
               <span className="font-extrabold text-slate-900 truncate block">
-                {activeFarmContext?.weather?.temp || 27}°C • {activeFarmContext?.weather?.rain24h > 0 ? `🌧️ ${activeFarmContext.weather.rain24h}mm` : 'No Rain'}
+                {activeFarmContext?.weather?.temp || 27}°C • {activeFarmContext?.weather?.rain24h > 0 ? `🌧️ ${activeFarmContext.weather.rain24h}mm` : tWeather('No Rain')}
               </span>
             </div>
           </div>
@@ -545,9 +545,7 @@ export default function AiAdvisor({ setActiveTab }) {
               rows={3}
               value={queryText}
               onChange={(e) => setQueryText(e.target.value)}
-              placeholder={lang === 'hi' 
-                ? 'पौधे की फोटो अपलोड करें या बीमारी, खाद, सिंचाई के बारे में पूछें...' 
-                : 'Upload a crop photo or ask about disease symptoms, fertilizers, irrigation, pests...'}
+              placeholder={t('advisor.askPlaceholder')}
               className="w-full p-3.5 pr-20 bg-slate-50 border border-slate-200 rounded-2xl text-sm focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:outline-none"
             ></textarea>
 
@@ -571,7 +569,7 @@ export default function AiAdvisor({ setActiveTab }) {
                     ? 'bg-emerald-600 text-white ring-2 ring-emerald-300'
                     : 'bg-slate-200 hover:bg-slate-300 text-slate-700'
                 }`}
-                title={lang === 'hi' ? 'पौधे की फोटो अपलोड करें' : 'Attach crop photo'}
+                title={t('common.uploadPhoto')}
               >
                 <Camera className="w-4 h-4" />
               </button>
@@ -602,19 +600,17 @@ export default function AiAdvisor({ setActiveTab }) {
               />
               <div className="flex-1 min-w-0">
                 <span className="text-xs font-bold text-emerald-950 block truncate">
-                  📷 {imageFile?.name || (lang === 'hi' ? 'पौधे की फोटो' : 'Crop Photo Attached')}
+                  📷 {imageFile?.name || t('advisor.cropPhotoAttached')}
                 </span>
                 <span className="text-[11px] text-emerald-700 block">
-                  {lang === 'hi' 
-                    ? '✓ AI फसल की पहचान और रोग निदान करेगा' 
-                    : '✓ AI will auto-detect the crop and diagnose visible diseases'}
+                  {t('advisor.aiAutoDetectNotice')}
                 </span>
               </div>
               <button
                 type="button"
                 onClick={removeImage}
                 className="p-1.5 rounded-full text-slate-500 hover:text-red-600 hover:bg-white transition"
-                title={lang === 'hi' ? 'फोटो हटाएं' : 'Remove photo'}
+                title={t('advisor.removePhoto')}
               >
                 <X className="w-4 h-4" />
               </button>
@@ -636,7 +632,7 @@ export default function AiAdvisor({ setActiveTab }) {
               className="py-3 px-3.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition border bg-slate-100 hover:bg-emerald-50 text-slate-700 border-slate-200"
             >
               <Camera className="w-4 h-4 text-emerald-600" />
-              <span>{imageFile ? (lang === 'hi' ? 'फोटो चुनी गई' : 'Photo Attached') : (lang === 'hi' ? 'फोटो जोड़ें' : 'Upload Photo')}</span>
+              <span>{imageFile ? t('advisor.photoAttached') : t('common.uploadPhoto')}</span>
             </button>
 
             <button
@@ -649,7 +645,7 @@ export default function AiAdvisor({ setActiveTab }) {
               }`}
             >
               <Mic className="w-4 h-4 text-amber-600" />
-              <span>{isListening ? (lang === 'hi' ? 'रोकें' : 'Stop') : t('advisor.btnVoice')}</span>
+              <span>{isListening ? t('swar.stop') : t('advisor.btnVoice')}</span>
             </button>
 
             <button
@@ -660,12 +656,12 @@ export default function AiAdvisor({ setActiveTab }) {
               {loading ? (
                 <>
                   <RefreshCw className="w-4 h-4 animate-spin" />
-                  <span>{lang === 'hi' ? 'AI विश्लेषण कर रहा है...' : 'AI is analyzing...'}</span>
+                  <span>{t('advisor.thinking')}</span>
                 </>
               ) : (
                 <>
                   <Send className="w-4 h-4" />
-                  <span>{imageFile ? (lang === 'hi' ? 'फोटो का AI विश्लेषण करें' : 'Diagnose Photo with AI') : t('advisor.btnAsk')}</span>
+                  <span>{imageFile ? t('advisor.diagnosePhotoBtn') : t('advisor.btnAsk')}</span>
                 </>
               )}
             </button>
@@ -711,12 +707,12 @@ export default function AiAdvisor({ setActiveTab }) {
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 bg-emerald-100 px-3 py-1 rounded-full flex items-center gap-1.5 border border-emerald-200">
                   <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
                   <span>
-                    SWAR (स्वर) VOICE AI • {advisoryResult.cropName ? advisoryResult.cropName.toUpperCase() : (lang === 'hi' ? 'स्वर कृषि सलाहकार' : 'SWAR AI ADVISOR')}
+                    SWAR • {advisoryResult.cropName ? tCrop(advisoryResult.cropName).toUpperCase() : t('advisor.title')}
                   </span>
                 </span>
               </div>
               <h3 className="text-base font-extrabold text-slate-900 mt-2">
-                "{cleanUserQuery(advisoryResult.queryText) || lastQuery || (lang === 'hi' ? 'फसल जांच' : 'Crop Consultation')}"
+                "{cleanUserQuery(advisoryResult.queryText) || lastQuery || t('advisor.consultation')}"
               </h3>
             </div>
 
@@ -731,7 +727,7 @@ export default function AiAdvisor({ setActiveTab }) {
             <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200 space-y-2">
               <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
                 <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
-                <span>{lang === 'hi' ? 'स्पष्ट फोटो की आवश्यकता' : 'Clear Photo Needed'}</span>
+                <span>{t('advisor.clearPhotoNeeded')}</span>
               </div>
               <p className="text-xs text-amber-950 font-medium leading-relaxed">
                 {advisoryResult.answer}
@@ -745,10 +741,10 @@ export default function AiAdvisor({ setActiveTab }) {
               <div className="flex items-center justify-between border-b border-emerald-100 pb-2">
                 <span className="text-xs font-black uppercase tracking-wider text-emerald-900 flex items-center gap-1.5">
                   <Sparkles className="w-4 h-4 text-emerald-600" />
-                  <span>{lang === 'hi' ? 'स्मार्ट AI फोटो विश्लेषण' : 'Smart AI Photo Analysis'}</span>
+                  <span>{t('advisor.smartPhotoAnalysis')}</span>
                 </span>
                 <span className="text-[10px] font-bold text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 shadow-2xs">
-                  {lang === 'hi' ? 'सत्यापित विजन मॉडल' : 'Vision Model Verified'}
+                  {t('advisor.visionVerified')}
                 </span>
               </div>
 
@@ -757,20 +753,20 @@ export default function AiAdvisor({ setActiveTab }) {
                 {/* 1. Crop Identified */}
                 <div className="p-3 bg-white rounded-xl border border-emerald-200 shadow-2xs">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-800 block mb-1">
-                    🌱 {lang === 'hi' ? 'पहचानी गई फसल' : 'Crop Identified'}
+                    🌱 {t('advisor.cropIdentified')}
                   </span>
                   <span className="text-sm font-black text-slate-900 block truncate">
-                    {advisoryResult.cropName || (lang === 'hi' ? 'फसल' : 'Identified Crop')}
+                    {advisoryResult.cropName ? tCrop(advisoryResult.cropName) : t('farm.crop')}
                   </span>
                 </div>
 
                 {/* 2. Plant Part */}
                 <div className="p-3 bg-white rounded-xl border border-teal-200 shadow-2xs">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-teal-800 block mb-1">
-                    🍃 {lang === 'hi' ? 'पौधे का भाग' : 'Plant Part'}
+                    🍃 {t('advisor.plantPart')}
                   </span>
                   <span className="text-sm font-black text-slate-900 block truncate">
-                    {advisoryResult.plantPart || (lang === 'hi' ? 'पत्ती / पौधा' : 'Leaf')}
+                    {advisoryResult.plantPart || t('advisor.leafPart')}
                   </span>
                 </div>
 
@@ -783,17 +779,17 @@ export default function AiAdvisor({ setActiveTab }) {
                         : 'border-rose-300 text-rose-950')
                 }`}>
                   <span className="text-[10px] font-extrabold uppercase tracking-wider block mb-1 opacity-80">
-                    🩺 {lang === 'hi' ? 'स्वास्थ्य स्थिति' : 'Health Status'}
+                    🩺 {t('advisor.healthStatus')}
                   </span>
                   <span className="text-sm font-black block truncate">
-                    {advisoryResult.healthStatus || (lang === 'hi' ? 'रोगग्रस्त' : 'Diseased')}
+                    {advisoryResult.healthStatus || t('farm.cropHealth')}
                   </span>
                 </div>
 
                 {/* 4. Confidence */}
                 <div className="p-3 bg-white rounded-xl border border-blue-200 shadow-2xs">
                   <span className="text-[10px] font-extrabold uppercase tracking-wider text-blue-800 block mb-1">
-                    🎯 {lang === 'hi' ? 'विश्वसनीयता' : 'Confidence'}
+                    🎯 {t('advisor.confidence')}
                   </span>
                   <span className="text-sm font-black text-blue-950 block">
                     {advisoryResult.confidence ? `${advisoryResult.confidence}%` : '92%'}
@@ -808,7 +804,7 @@ export default function AiAdvisor({ setActiveTab }) {
                   <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
                   <div>
                     <span className="text-[11px] font-bold text-amber-900 block uppercase tracking-wider">
-                      ⚠️ {lang === 'hi' ? 'संभावित समस्या / रोग' : 'Detected Problem / Issue'}
+                      ⚠️ {t('advisor.detectedProblem')}
                     </span>
                     <span className="text-sm font-black text-slate-900 mt-0.5 block">
                       {advisoryResult.detectedProblem}
@@ -822,7 +818,7 @@ export default function AiAdvisor({ setActiveTab }) {
                 <div className="p-3.5 bg-white rounded-xl border border-slate-200 shadow-2xs">
                   <span className="text-xs font-bold text-slate-900 flex items-center gap-1.5 mb-1">
                     <Search className="w-4 h-4 text-emerald-600" />
-                    <span>{lang === 'hi' ? '🔍 तस्वीर में दिखे लक्षण:' : '🔍 Visible Symptoms from Photo:'}</span>
+                    <span>{t('advisor.visibleSymptoms')}:</span>
                   </span>
                   <p className="text-xs text-slate-700 leading-relaxed font-medium">
                     {advisoryResult.visibleSymptoms}
@@ -835,7 +831,7 @@ export default function AiAdvisor({ setActiveTab }) {
                 <div className="p-3.5 bg-white rounded-xl border border-emerald-300 shadow-2xs space-y-2">
                   <span className="text-xs font-bold text-emerald-950 flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>{lang === 'hi' ? '💡 जरूरी कदम (Recommended Actions):' : '💡 Recommended Actions:'}</span>
+                    <span>{t('advisor.recommendedActions')}:</span>
                   </span>
                   <ul className="space-y-1.5 pl-1 text-xs text-slate-800 font-medium">
                     {(Array.isArray(advisoryResult.recommendedActions) && advisoryResult.recommendedActions.length > 0 
@@ -858,7 +854,7 @@ export default function AiAdvisor({ setActiveTab }) {
                   {advisoryResult.organicTreatment && (
                     <div className="p-3 bg-white rounded-xl border border-teal-200 shadow-2xs">
                       <span className="text-xs font-bold text-teal-900 block mb-1">
-                        🌿 {lang === 'hi' ? 'जैविक उपाय (Organic):' : 'Organic Remedy:'}
+                        🌿 {t('advisor.organicRemedy')}:
                       </span>
                       <p className="text-xs text-slate-700 leading-relaxed font-medium">
                         {advisoryResult.organicTreatment}
@@ -868,7 +864,7 @@ export default function AiAdvisor({ setActiveTab }) {
                   {advisoryResult.chemicalTreatment && (
                     <div className="p-3 bg-white rounded-xl border border-purple-200 shadow-2xs">
                       <span className="text-xs font-bold text-purple-900 block mb-1">
-                        🧪 {lang === 'hi' ? 'रासायनिक उपाय (Chemical):' : 'Chemical Control:'}
+                        🧪 {t('advisor.chemicalControl')}:
                       </span>
                       <p className="text-xs text-slate-700 leading-relaxed font-medium">
                         {advisoryResult.chemicalTreatment}
@@ -882,7 +878,7 @@ export default function AiAdvisor({ setActiveTab }) {
               {Array.isArray(advisoryResult.preventionTips) && advisoryResult.preventionTips.length > 0 && (
                 <div className="p-3 bg-white rounded-xl border border-sky-200 shadow-2xs">
                   <span className="text-xs font-bold text-sky-900 block mb-1.5">
-                    🛡️ {lang === 'hi' ? 'भविष्य में बचाव (Prevention):' : 'Prevention & Crop Protection:'}
+                    🛡️ {t('advisor.preventionProtect')}:
                   </span>
                   <ul className="space-y-1 text-xs text-slate-700 pl-1 font-medium">
                     {advisoryResult.preventionTips.map((tip, idx) => (
@@ -899,7 +895,7 @@ export default function AiAdvisor({ setActiveTab }) {
               {advisoryResult.whenToSeekExpert && (
                 <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700 shadow-2xs">
                   <span className="font-bold text-slate-900 block mb-0.5">
-                    👨‍🌾 {lang === 'hi' ? 'विशेषज्ञ सलाह कब लें:' : 'When to Seek Expert Help:'}
+                    👨‍🌾 {t('advisor.whenSeekExpert')}:
                   </span>
                   <p className="leading-relaxed">
                     {advisoryResult.whenToSeekExpert}
@@ -922,19 +918,17 @@ export default function AiAdvisor({ setActiveTab }) {
           {/* Follow-up Context Indicator */}
           <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 flex-wrap gap-1">
             <span>
-              {lang === 'hi' 
-                ? '💬 आप फॉलो-अप सवाल पूछ सकते हैं (जैसे "इसके लिए क्या करूं?" या "कहाँ मिलेगा?")' 
-                : '💬 You can ask follow-up questions (e.g., "What organic spray should I use?" or "Where to buy?")'}
+              {t('advisor.followUpPrompt')}
             </span>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
-              Farm Context Active ({chatHistory.length} msgs)
+              {t('advisor.farmContextActive')} ({chatHistory.length} msgs)
             </span>
           </div>
 
           {/* Action Plan Task CTA */}
           <div className="p-3 bg-agri-100 text-agri-950 rounded-xl flex items-center justify-between gap-2 text-xs">
             <span className="font-semibold">
-              {lang === 'hi' ? '✓ आपकी दैनिक खेती के लिए कार्य योजना तैयार की गई है!' : '✓ Action plan generated for your daily farming schedule!'}
+              {t('advisor.actionPlanNotice')}
             </span>
             <button
               onClick={() => setActiveTab('plans')}

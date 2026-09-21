@@ -2,20 +2,85 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌱</text></svg>" />
+    <link rel="icon" type="image/png" href="./logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <title>FASAL DRISHTI – AI for Smarter Farming | फ़सल दृष्टि</title>
     <meta name="description" content="From Space to Soil: Right Information. Better Decisions. Higher Yield. AI-powered smart farming companion for Indian farmers." />
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
-    <!-- Google Fonts Inter -->
+    <!-- Google Fonts Indic Unicode Support -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Gurmukhi:wght@400;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&family=Noto+Sans+Telugu:wght@400;600;700&family=Noto+Sans+Kannada:wght@400;600;700&family=Noto+Sans+Malayalam:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;700&display=swap" rel="stylesheet">
   </head>
-  <body class="bg-slate-50 text-slate-900 font-sans antialiased selection:bg-agri-200 selection:text-agri-900 pb-20 md:pb-0">
-    <div id="root"></div>
+  <body class="bg-slate-900 text-slate-900 font-sans antialiased selection:bg-emerald-200 selection:text-emerald-900 pb-20 md:pb-0">
+    <div id="root">
+      <!-- Instant Startup Branded Shell (Rendered immediately on app launch, replaced by React on mount) -->
+      <div id="app-startup-shell" style="min-height: 100vh; background: linear-gradient(180deg, #091a10 0%, #0d2818 50%, #091a10 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #ffffff; text-align: center; box-sizing: border-box;">
+        <div style="width: 84px; height: 84px; border-radius: 22px; background: #ffffff; border: 1.5px solid rgba(16, 185, 129, 0.4); display: flex; align-items: center; justify-content: center; margin-bottom: 16px; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4); overflow: hidden; padding: 4px;">
+          <img src="./logo.png" alt="Fasal Drishti Logo" style="width: 100%; height: 100%; object-fit: contain; border-radius: 18px;" />
+        </div>
+        <h1 style="font-size: 22px; font-weight: 800; letter-spacing: 0.05em; margin: 0 0 4px 0; color: #ffffff;">
+          FASAL DRISHTI
+        </h1>
+        <p style="font-size: 13px; font-weight: 600; color: #34d399; margin: 0 0 16px 0; letter-spacing: 0.02em;">
+          फ़सल दृष्टि – AI for Smarter Farming
+        </p>
+        <div id="startup-spinner" style="width: 32px; height: 32px; border: 3px solid rgba(16, 185, 129, 0.25); border-top-color: #10b981; border-radius: 50%; animation: spin 0.9s linear infinite; margin-bottom: 16px;"></div>
+        <p id="startup-subtext" style="font-size: 11px; color: rgba(255, 255, 255, 0.6); max-width: 260px; line-height: 1.5; margin: 0;">
+          प्रणाली प्रारंभ की जा रही है...<br><span style="font-size: 10px; opacity: 0.8;">Starting intelligent farm companion</span>
+        </p>
+      </div>
+    </div>
+
+    <style>
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
+
+    <!-- Safe Startup Watchdog: Guarantees NO permanent white or stuck screen under ANY failure -->
+    <script>
+      (function() {
+        window.__fasalDrishtiMounted = false;
+        
+        function renderRecoveryUI(msg) {
+          if (window.__fasalDrishtiMounted) return;
+          var root = document.getElementById('root');
+          if (!root) return;
+          root.innerHTML = 
+            '<div style="min-height: 100vh; background: #0b1911; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, sans-serif; color: #ffffff; text-align: center; box-sizing: border-box;">' +
+              '<div style="width: 64px; height: 64px; border-radius: 20px; background: rgba(239, 68, 68, 0.15); border: 1.5px solid rgba(239, 68, 68, 0.3); display: flex; align-items: center; justify-content: center; font-size: 32px; margin-bottom: 16px;">🌾</div>' +
+              '<h2 style="font-size: 19px; font-weight: 700; color: #f87171; margin: 0 0 8px 0;">Fasal Drishti couldn\'t load this screen.</h2>' +
+              '<p style="font-size: 13px; color: #cbd5e1; margin: 0 0 6px 0;">फ़सल दृष्टि ऐप लोड करने में समस्या आई।</p>' +
+              '<p style="font-size: 11px; color: #94a3b8; max-width: 320px; margin: 0 0 24px 0; line-height: 1.4;">' + (msg || 'नेटवर्क या लोड टाइमआउट के कारण ऐप पुनः प्रारंभ किया जा सकता है।') + '</p>' +
+              '<div style="display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 280px;">' +
+                '<button onclick="window.location.reload()" style="background: #10b981; color: #ffffff; font-weight: 700; font-size: 13px; padding: 12px 20px; border-radius: 12px; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;">🔄 Retry / पुनः प्रयास करें</button>' +
+                '<button onclick="window.location.hash=\'#/home\'; window.location.reload();" style="background: rgba(255,255,255,0.12); color: #ffffff; font-weight: 600; font-size: 13px; padding: 12px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.2); cursor: pointer;">🌾 Go to Home / होम डैशबोर्ड</button>' +
+                '<button onclick="try { localStorage.setItem(\'krishi_demo_role\', \'farmer\'); localStorage.setItem(\'krishi_token\', \'krishi_demo_jwt_token_farmer_2026\'); } catch(e){} window.location.hash=\'#/home\'; window.location.reload();" style="background: transparent; color: #34d399; font-weight: 600; font-size: 12px; padding: 10px 16px; border: none; cursor: pointer; text-decoration: underline;">📶 Continue Offline / ऑफलाइन चलाएं</button>' +
+              '</div>' +
+            '</div>';
+        }
+
+        // Catch uncaught early exceptions
+        window.addEventListener('error', function(e) {
+          if (!window.__fasalDrishtiMounted) {
+            console.error('Startup error caught by watchdog:', e);
+            renderRecoveryUI('लोडिंग के दौरान त्रुटि हुई। कृपया रीलोड करें।');
+          }
+        });
+
+        // Watchdog timeout: If app doesn't mount in 7 seconds, display recovery UI
+        setTimeout(function() {
+          if (!window.__fasalDrishtiMounted) {
+            renderRecoveryUI('Fasal Drishti is taking longer than expected. / लोड होने में अधिक समय लग रहा है।');
+          }
+        }, 7000);
+      })();
+    </script>
+
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

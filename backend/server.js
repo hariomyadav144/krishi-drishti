@@ -173,9 +173,21 @@ process.on('unhandledRejection', (reason, promise) => {
   console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
 
-// Initialize HTTP Server immediately for instant Render health checks
-function startServer() {
-  const server = app.listen(PORT, '0.0.0.0', () => {
+// Initialize server: load environment -> connect to MongoDB -> verify DB -> start HTTP server
+async function startServer() {
+  try {
+    console.log('[Startup] 1. Initializing MongoDB connection...');
+    await connectDB();
+    console.log('[Startup] 2. MongoDB connection verified.');
+  } catch (error) {
+    console.error('[Startup] Failed to connect to MongoDB during startup:', error.message);
+    if (process.env.NODE_ENV === 'production' && process.env.MONGODB_URI) {
+      console.error('[Startup] Exiting due to database failure in production.');
+      process.exit(1);
+    }
+  }
+
+  const server = app.listen(PORT, '0.0.0.0', async () => {
     console.log(`====================================================`);
     console.log(`🌾 FASAL DRISHTI – AI for Smarter Farming API`);
     console.log(`🚀 Server running on port ${PORT}`);
@@ -184,39 +196,33 @@ function startServer() {
     console.log(`📡 Gemini Ping:  http://0.0.0.0:${PORT}/api/health/gemini`);
     console.log(`🤖 Gemini Status: ${Boolean(getApiKey()) ? 'Configured ✓' : 'Not Set ✕ (Add GEMINI_API_KEY in Render Environment)'}`);
     console.log(`====================================================`);
+
+    const mongoose = require('mongoose');
+    if (mongoose.connection && mongoose.connection.readyState === 1) {
+      try {
+        const count = await User.countDocuments();
+        if (count === 0) {
+          console.log('[Startup] Empty database detected. Auto-populating initial dataset...');
+          await seedDatabase();
+        }
+      } catch (seedErr) {
+        console.warn('[Startup] Initial seeding check warning:', seedErr.message);
+      }
+    }
   });
 
   server.on('error', (err) => {
     console.error('HTTP Server Error:', err.message);
   });
 
-  // Connect to Database asynchronously so port binding is never blocked
-  connectDB()
-    .then(async () => {
-      const mongoose = require('mongoose');
-      if (mongoose.connection.readyState === 1) {
-        try {
-          const count = await User.countDocuments();
-          if (count === 0) {
-            console.log('Empty database detected. Auto-populating realistic agricultural demo dataset...');
-            await seedDatabase();
-          }
-        } catch (seedErr) {
-          console.warn('Initial seeding check warning:', seedErr.message);
-        }
-      } else {
-        console.log('Database operating in resilient cloud stateless mode.');
-      }
-    })
-    .catch((err) => {
-      console.warn('Database initialization warning (API active and responsive):', err.message);
-    });
-
   // Start Autonomous Self-Monitoring Background Scheduler
   startMonitoringScheduler();
 
-  // Keep-alive timer
-  setInterval(() => {}, 1000 * 60 * 60);
+  return server;
 }
 
-startServer();
+if (require.main === module) {
+  startServer();
+}
+
+module.exports = { app, startServer };

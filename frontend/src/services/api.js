@@ -24,6 +24,7 @@ import {
 import { fetchOpenMeteoWeather } from './weatherService.js';
 
 export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
+export const USB_DEV_API_URL = 'http://192.168.1.31:5000/api';
 
 /**
  * Standardize and normalize any user or environment provided backend URL:
@@ -56,9 +57,36 @@ export function normalizeBackendApiUrl(url) {
   return clean;
 }
 
-const resolveApiBaseUrl = () => {
+import { Capacitor } from '@capacitor/core';
+
+export const isNativeApp = () => {
+  try {
+    return typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform();
+  } catch (_) {
+    return false;
+  }
+};
+
+export const resolveApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const custom = localStorage.getItem('krishi_backend_url');
+    if (custom && custom.trim()) {
+      return normalizeBackendApiUrl(custom.trim());
+    }
+    const mode = localStorage.getItem('krishi_server_mode');
+    if (mode === 'cloud') {
+      return DEFAULT_PRODUCTION_API_URL;
+    }
+    if (mode === 'usb' || mode === 'local') {
+      return USB_DEV_API_URL;
+    }
+  }
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
     return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
+  }
+  // On Native Android devices connected over USB to development computer
+  if (isNativeApp()) {
+    return USB_DEV_API_URL;
   }
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return 'http://localhost:5000/api';
@@ -71,16 +99,25 @@ export const API_BASE_URL = resolveApiBaseUrl();
 export function setCustomBackendUrl(url) {
   const normalized = normalizeBackendApiUrl(url);
   api.defaults.baseURL = normalized;
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('krishi_backend_url', normalized);
+  }
   return normalized;
 }
 
-if (typeof window !== 'undefined' && localStorage.getItem('krishi_backend_url')) {
-  try { localStorage.removeItem('krishi_backend_url'); } catch (_) {}
+export function switchServerMode(mode = 'usb') {
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('krishi_server_mode', mode);
+    const targetUrl = mode === 'cloud' ? DEFAULT_PRODUCTION_API_URL : USB_DEV_API_URL;
+    api.defaults.baseURL = targetUrl;
+    return targetUrl;
+  }
+  return DEFAULT_PRODUCTION_API_URL;
 }
 
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 3500, // Fast 3.5s default so user UI never hangs on sleeping servers
+  timeout: 25000, // 25s default to accommodate cloud server cold starts and mobile connectivity
   headers: {
     'Content-Type': 'application/json',
   },
@@ -102,12 +139,12 @@ api.interceptors.request.use((config) => {
   }
   config.url = url;
 
-  // Adaptive timeout: Give generous 35s ONLY to generative AI and image scanning
+  // Adaptive timeout: Give generous 45s to generative AI and image scanning, 25s to standard endpoints
   const isAiRoute = url.includes('/ai/') || 
                     url.includes('/ai-advice') || 
                     url.includes('/recommendations/ask') ||
                     url.includes('/analysis/scan');
-  config.timeout = isAiRoute ? 35000 : 3500;
+  config.timeout = isAiRoute ? 45000 : 25000;
 
   const token = localStorage.getItem('krishi_token');
   if (token) {
@@ -118,17 +155,26 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
+const safeParseStorage = (key) => {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch (_) {
+    return null;
+  }
+};
+
 /**
  * Intelligent Fallback Dispatcher:
  * If the cloud backend is cold-starting, offline, or inaccessible,
- * gracefully serve authentic agricultural demo data so farmers and evaluators
- * enjoy a 100% reliable demonstration on mobile devices.
+ * gracefully serve authentic agricultural demo data for demo personas.
  */
 function handleFallbackResponse(url, method = 'get', data = null) {
   const cleanUrl = (url || '').replace(/^https?:\/\/[^/]+/, '').replace(/^\/api/, '');
   const methodLower = (method || 'get').toLowerCase();
 
-  // Auth endpoints
+  // Auth endpoints: DEMO LOGIN ONLY
   if (cleanUrl.startsWith('/auth/demo-login')) {
     const role = data?.role || 'farmer';
     let user = MOCK_FARMER_USER;
@@ -145,76 +191,90 @@ function handleFallbackResponse(url, method = 'get', data = null) {
   }
 
   if (cleanUrl.startsWith('/auth/me')) {
-    const role = localStorage.getItem('krishi_demo_role') || 'farmer';
-    let user = MOCK_FARMER_USER;
-    if (role === 'expert') user = MOCK_EXPERT_USER;
-    if (role === 'admin') user = MOCK_ADMIN_USER;
+    const isDemoRole = localStorage.getItem('krishi_demo_role');
+    if (isDemoRole) {
+      let user = MOCK_FARMER_USER;
+      if (isDemoRole === 'expert') user = MOCK_EXPERT_USER;
+      if (isDemoRole === 'admin') user = MOCK_ADMIN_USER;
+      return {
+        success: true,
+        user,
+        profile: MOCK_PROFILE,
+        farm: MOCK_FARM,
+        currentCrop: MOCK_CURRENT_CROP,
+      };
+    }
+
+    const cachedUser = safeParseStorage('krishi_user');
+    if (cachedUser) {
+      return {
+        success: true,
+        user: cachedUser,
+        profile: safeParseStorage('krishi_profile') || null,
+        farm: safeParseStorage('krishi_farm') || null,
+        currentCrop: safeParseStorage('krishi_current_crop') || null,
+      };
+    }
 
     return {
-      success: true,
-      user,
-      profile: MOCK_PROFILE,
-      farm: MOCK_FARM,
-      currentCrop: MOCK_CURRENT_CROP,
+      success: false,
+      message: 'No active session'
     };
   }
 
-  if (cleanUrl.startsWith('/auth/login')) {
-    const phone = data?.phone || '9876543210';
-    let user = MOCK_FARMER_USER;
-    if (phone === '9876500001') user = MOCK_EXPERT_USER;
-    if (phone === '9876599999') user = MOCK_ADMIN_USER;
-    const token = `krishi_demo_jwt_token_${user.role}_2026`;
-    localStorage.setItem('krishi_token', token);
-    localStorage.setItem('krishi_demo_role', user.role);
+  if (cleanUrl.startsWith('/auth/login') || cleanUrl.startsWith('/auth/register')) {
     return {
-      success: true,
-      token,
-      user,
-    };
-  }
-
-  if (cleanUrl.startsWith('/auth/register')) {
-    const newUser = {
-      id: `usr_reg_${Date.now()}`,
-      name: data?.name || 'Kisan Bandhu',
-      phone: data?.phone || '9876543210',
-      role: 'farmer',
-      isOnboarded: true,
-      languagePreference: 'hi',
-    };
-    const token = `krishi_demo_jwt_token_farmer_reg`;
-    localStorage.setItem('krishi_token', token);
-    localStorage.setItem('krishi_demo_role', 'farmer');
-    return {
-      success: true,
-      token,
-      user: newUser,
+      success: false,
+      message: 'Network error or server unreachable. Please check connection.',
     };
   }
 
   // Farmer endpoints
   if (cleanUrl.startsWith('/farmer/dashboard')) {
+    const isDemoRole = localStorage.getItem('krishi_demo_role');
+    if (isDemoRole === 'farmer') {
+      return {
+        success: true,
+        data: {
+          farmer: MOCK_FARMER_USER,
+          profile: MOCK_PROFILE,
+          farm: MOCK_FARM,
+          currentCrop: MOCK_CURRENT_CROP,
+          crops: MOCK_CROPS,
+          healthScore: 91,
+          pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
+          recentAnalyses: [generateMockScanResult('Tomato').data],
+          recentRecommendations: [
+            {
+              _id: 'rec_01',
+              query: 'Early blight control',
+              aiResponse: 'Spray Mancozeb 75 WP or Neem Oil',
+              createdAt: new Date().toISOString(),
+            },
+          ],
+          unreadAlerts: MOCK_ALERTS,
+        },
+      };
+    }
+
+    const cachedUser = safeParseStorage('krishi_user');
+    const userProfile = safeParseStorage('krishi_profile');
+    const userFarm = safeParseStorage('krishi_farm');
+    const userCurrentCrop = safeParseStorage('krishi_current_crop');
+
     return {
       success: true,
       data: {
-        farmer: MOCK_FARMER_USER,
-        profile: MOCK_PROFILE,
-        farm: MOCK_FARM,
-        currentCrop: MOCK_CURRENT_CROP,
-        crops: MOCK_CROPS,
-        healthScore: 91,
-        pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
-        recentAnalyses: [generateMockScanResult('Tomato').data],
-        recentRecommendations: [
-          {
-            _id: 'rec_01',
-            query: 'Early blight control',
-            aiResponse: 'Spray Mancozeb 75 WP or Neem Oil',
-            createdAt: new Date().toISOString(),
-          },
-        ],
-        unreadAlerts: MOCK_ALERTS,
+        farmer: cachedUser || { name: 'Farmer' },
+        profile: userProfile || null,
+        farm: userFarm || null,
+        currentCrop: userCurrentCrop || null,
+        crops: userCurrentCrop ? [userCurrentCrop] : [],
+        healthScore: userCurrentCrop?.healthScore || null,
+        pendingTasks: [],
+        recentAnalyses: [],
+        recentRecommendations: [],
+        unreadAlerts: [],
       },
     };
   }
@@ -230,8 +290,8 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     return {
       success: true,
       message: 'Onboarding completed successfully!',
-      profile: MOCK_PROFILE,
-      farm: MOCK_FARM,
+      profile: data || null,
+      farm: data ? { farmName: `${data.name || 'My'}'s Farm`, farmSize: data.farmSize, landUnit: data.landUnit || 'Acres' } : null,
     };
   }
 
@@ -973,9 +1033,23 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
+    // Real login and register: If local USB endpoint is unreachable, auto-fallback to Cloud (and vice versa)
+    const url = error.config?.url || '';
+    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/register');
+    if (isAuthRoute) {
+      if (!error.response && error.config && !error.config._retryAuthAlternate) {
+        error.config._retryAuthAlternate = true;
+        const currentBase = normalizeBackendApiUrl(error.config.baseURL || api.defaults.baseURL);
+        const alternateBase = currentBase.includes('onrender.com') ? USB_DEV_API_URL : DEFAULT_PRODUCTION_API_URL;
+        console.log(`[AUTH:FAILOVER] Network error reaching ${currentBase}. Retrying with alternate backend: ${alternateBase}...`);
+        error.config.baseURL = alternateBase;
+        return api(error.config);
+      }
+      return Promise.reject(error);
+    }
+
     // If server is cold-starting, unavailable (Network Error, 404, 500, 502, 503),
     // intercept and return realistic demo data
-    const url = error.config?.url || '';
     const method = error.config?.method || 'get';
     let requestData = null;
     try {

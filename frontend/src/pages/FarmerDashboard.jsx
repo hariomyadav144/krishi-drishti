@@ -38,7 +38,8 @@ import {
   History,
   Clock,
   Activity,
-  Check
+  Check,
+  Map
 } from 'lucide-react';
 import { fetchCropHistoryStats } from '../services/cropScanService';
 import { 
@@ -71,9 +72,40 @@ const safeSet = (key, val) => {
   } catch (_) {}
 };
 
-const getInitialDashboardData = () => {
-  const cached = safeParse('krishi_dash_cache');
+const getInitialDashboardData = (user) => {
+  const userId = user?.id || user?._id;
+  const userCacheKey = userId ? `krishi_dash_cache_${userId}` : 'krishi_dash_cache';
+  const cached = safeParse(userCacheKey) || safeParse('krishi_dash_cache');
   const activeFarm = safeParse('krishi_active_field') || safeParse('farm_data');
+  const isDemo = user?.phone === '9876543210' || (typeof window !== 'undefined' && localStorage.getItem('krishi_demo_role') === 'farmer');
+
+  if (!isDemo && cached && cached.farmer?.id === userId) {
+    const base = { ...cached };
+    if (user?.name) {
+      base.farmer = { ...base.farmer, name: user.name, id: userId };
+    }
+    return base;
+  }
+
+  // If real user (not demo) and no cache yet, return clean real user state
+  if (!isDemo && user) {
+    const userProfile = safeParse('krishi_profile');
+    const userFarm = safeParse('krishi_farm');
+    const userCurrentCrop = safeParse('krishi_current_crop');
+
+    return {
+      farmer: { id: userId, name: user.name || 'Farmer', phone: user.phone || '' },
+      profile: userProfile || null,
+      farm: userFarm || null,
+      currentCrop: userCurrentCrop || null,
+      crops: userCurrentCrop ? [userCurrentCrop] : [],
+      healthScore: userCurrentCrop?.healthScore || null,
+      pendingTasks: [],
+      recentAnalyses: [],
+      recentRecommendations: [],
+      unreadAlerts: [],
+    };
+  }
 
   const base = cached || {
     farmer: { name: 'Rameshwar Patil (रामेश्वर पाटिल)' },
@@ -117,8 +149,15 @@ const getInitialDashboardData = () => {
 
 export default function FarmerDashboard({ setActiveTab }) {
   const { user } = useAuth();
-  const { lang, t } = useLanguage();
-  const [dashboardData, setDashboardData] = useState(() => getInitialDashboardData());
+  const { lang, t, tCrop, tStage, tSoil, tMoisture, tWeather } = useLanguage();
+  const [dashboardData, setDashboardData] = useState(() => getInitialDashboardData(user));
+
+  // Re-sync dashboard state immediately when authenticated user changes
+  useEffect(() => {
+    if (user) {
+      setDashboardData(getInitialDashboardData(user));
+    }
+  }, [user?.id, user?._id]);
   const [weatherData, setWeatherData] = useState(() => safeParse('krishi_weather_cache') || MOCK_WEATHER);
   const [mandiSpotlight, setMandiSpotlight] = useState(() => safeParse('krishi_mandi_cache') || null);
   const [outbreakAlerts, setOutbreakAlerts] = useState(() => safeParse('krishi_outbreak_cache') || MOCK_OUTBREAKS);
@@ -178,7 +217,8 @@ export default function FarmerDashboard({ setActiveTab }) {
 
       if (dashRes?.data?.success) {
         setDashboardData(dashRes.data.data);
-        safeSet('krishi_dash_cache', dashRes.data.data);
+        const currentUid = user?._id || user?.id || '';
+        safeSet(`krishi_dash_cache_${currentUid || 'anonymous'}`, dashRes.data.data);
       }
       if (weatherRes?.data?.success) {
         setWeatherData(weatherRes.data.data);
@@ -331,16 +371,11 @@ export default function FarmerDashboard({ setActiveTab }) {
       {/* 1. Brand & Farmer Header Banner */}
       <div className="bg-gradient-to-r from-[#14532d] via-[#166534] to-[#15803d] text-white p-5 rounded-3xl shadow-md border border-agri-600/30 flex items-center justify-between relative overflow-hidden">
         <div className="relative z-10 flex items-center gap-3.5 sm:gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white/10 backdrop-blur-md border border-white/25 flex items-center justify-center p-1 shrink-0 shadow-inner">
+          <div className="w-12 h-12 rounded-2xl bg-white border border-white/25 flex items-center justify-center p-0.5 shrink-0 shadow-inner overflow-hidden">
             <img
-              src="/logo.svg"
+              src="./logo.png"
               alt="Fasal Drishti Logo"
-              className="w-10 h-10 object-contain rounded-xl"
-              onError={(e) => {
-                if (e.target.src.endsWith('/logo.svg')) {
-                  e.target.src = '/logo.png';
-                }
-              }}
+              className="w-full h-full object-contain rounded-xl"
             />
           </div>
           <div>
@@ -349,14 +384,17 @@ export default function FarmerDashboard({ setActiveTab }) {
                 FASAL DRISHTI
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
-                📍 {typeof profile?.village === 'string' ? `${profile.village}, ${profile.district || ''}` : 'Pimpalgaon, Nashik'}
+                📍 {[profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ') || t('auth.farmLocationNotSet', 'Farm location not set yet')}
               </span>
             </div>
             <h2 className="text-lg sm:text-2xl font-black tracking-tight leading-snug">
-              {getGreeting()}
+              {getGreeting()}{farmer?.name || user?.name ? `, ${farmer?.name || user?.name}` : ''}
             </h2>
             <p className="text-xs text-agri-100/90 mt-0.5 font-medium">
-              {farmer?.name || 'Farmer'} • {farm?.farmSize || 4.5} {farm?.landUnit || 'Acres'} ({farm?.soilType || 'Black Soil'})
+              {farm?.farmName || (farm?.farmSize ? `${farmer?.name || user?.name || 'Farmer'}'s Farm` : t('auth.farmNotAddedYet', 'Farm information not added yet.'))}
+              {farm?.farmSize ? ` • ${farm.farmSize} ${farm?.landUnit || 'Acres'}` : ''}
+              {farm?.soilType ? ` (${farm.soilType})` : ''}
+              {currentCrop?.cropName ? ` • 🌱 ${currentCrop.cropName}` : ''}
             </p>
           </div>
         </div>
@@ -392,20 +430,20 @@ export default function FarmerDashboard({ setActiveTab }) {
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
               <h4 className="font-extrabold text-xs sm:text-sm text-white uppercase tracking-wider">
-                {lang === 'hi' ? '🛰️ निरंतर स्वचालित निगरानी सक्रिय' : '🛰️ AUTONOMOUS MONITORING ACTIVE'}
+                {t('dashboard.autonomousMonitoring')}
               </h4>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">
                 {monitoringSummaries.length > 0
-                  ? `${monitoringSummaries.length} ${lang === 'hi' ? 'खेत पंजीकृत' : 'Plots Active'}`
-                  : (lang === 'hi' ? '1 खेत सक्रिय' : '1 Plot Active')}
+                  ? `${monitoringSummaries.length} ${t('dashboard.plotsActive')}`
+                  : t('dashboard.onePlotActive')}
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-0.5 flex flex-wrap items-center gap-2">
-              <span>{lang === 'hi' ? 'अंतिम जांच: आज' : 'Last Checked: Today'}</span>
+              <span>{t('dashboard.lastCheckedToday')}</span>
               <span>•</span>
-              <span>{lang === 'hi' ? 'अगली जांच: 6 घंटे में (स्वतः)' : 'Next Check: Scheduled in 6h'}</span>
+              <span>{t('dashboard.nextCheckIn6h')}</span>
               <span>•</span>
-              <span className="text-emerald-300 font-semibold">{lang === 'hi' ? 'डेटा: उपग्रह + मौसम + मिट्टी मॉडल' : 'Data: Satellite + ECMWF + Soil'}</span>
+              <span className="text-emerald-300 font-semibold">{t('dashboard.dataSourceSummary')}</span>
             </p>
           </div>
         </div>
@@ -417,7 +455,7 @@ export default function FarmerDashboard({ setActiveTab }) {
             className="w-full sm:w-auto px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-xs disabled:opacity-60"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isManualRunning ? 'animate-spin' : ''}`} />
-            <span>{isManualRunning ? (lang === 'hi' ? 'जांच जारी...' : 'Checking...') : (lang === 'hi' ? 'अभी जांचें' : 'Run Check Now')}</span>
+            <span>{isManualRunning ? t('dashboard.checking') : t('dashboard.runCheckNow')}</span>
           </button>
         </div>
       </div>
@@ -429,7 +467,7 @@ export default function FarmerDashboard({ setActiveTab }) {
             <span className="text-base">⚠️</span>
             <div>
               <h3 className="font-extrabold text-sm sm:text-base text-slate-900 uppercase tracking-wide">
-                {lang === 'hi' ? 'खेत में क्या कार्रवाई चाहिए?' : 'WHAT NEEDS ACTION?'}
+                {t('dashboard.whatNeedsAction')}
               </h3>
               <p className="text-[11px] text-slate-500">
                 {lang === 'hi'
@@ -442,7 +480,7 @@ export default function FarmerDashboard({ setActiveTab }) {
             onClick={() => setActiveTab('field-monitoring')}
             className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
           >
-            <span>{lang === 'hi' ? 'सभी खेत देखें' : 'View All Fields'}</span>
+            <span>{t('dashboard.viewAllFields')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -477,13 +515,13 @@ export default function FarmerDashboard({ setActiveTab }) {
                             : 'bg-amber-600 text-white'
                         }`}>
                           {isResolved
-                            ? (lang === 'hi' ? '✅ समस्या हल हुई' : '✅ PROBLEM RESOLVED')
+                            ? t('farm.problemResolved')
                             : isUrgent
-                            ? (lang === 'hi' ? '🔴 तत्काल ध्यान दें' : '🔴 URGENT ACTION')
-                            : (lang === 'hi' ? '🟠 ध्यान दें' : '🟠 ATTENTION')}
+                            ? t('farm.urgentAction')
+                            : t('farm.attention')}
                         </span>
                         <span className="font-bold text-xs text-slate-800">
-                          {item.fieldName || 'Registered Field'} • {item.crop || 'Crop'}
+                          {item.fieldName || t('farm.mainField')} • {tCrop(item.crop)}
                         </span>
                         <span className="text-[10px] text-slate-500 font-medium">
                           {item.dataSource || '🛰️ Satellite + 🌦️ Weather'}
@@ -498,7 +536,7 @@ export default function FarmerDashboard({ setActiveTab }) {
                       {/* Evidence / Reason (WHY) */}
                       {(item.evidenceHi || item.evidence) && (
                         <p className="text-xs text-slate-600 leading-relaxed">
-                          <strong>{lang === 'hi' ? 'कारण: ' : 'Why: '}</strong>
+                          <strong>{t('dashboard.why')} </strong>
                           {lang === 'hi' ? item.evidenceHi || item.evidence : item.evidence}
                         </p>
                       )}
@@ -507,7 +545,7 @@ export default function FarmerDashboard({ setActiveTab }) {
                       <div className="p-3 rounded-xl bg-white/90 border border-slate-200/80 text-xs text-slate-800 space-y-1 mt-2">
                         <div className="font-bold text-emerald-900 flex items-center gap-1.5">
                           <span>👉</span>
-                          <span>{lang === 'hi' ? 'सुझाई गई कार्रवाई:' : 'Action Required:'}</span>
+                          <span>{t('dashboard.actionRequired')}</span>
                         </div>
                         <p className="font-medium leading-relaxed">
                           {lang === 'hi' ? item.recommendedActionHi || item.recommendedAction : item.recommendedAction}
@@ -553,8 +591,8 @@ export default function FarmerDashboard({ setActiveTab }) {
                           )}
                           <span>
                             {item.actionType === 'irrigation'
-                              ? (lang === 'hi' ? 'सिंचाई पूर्ण हुई ✓' : 'Mark Irrigation Done ✓')
-                              : (lang === 'hi' ? 'कार्य पूर्ण हुआ ✓' : 'Mark Done ✓')}
+                              ? t('common.markIrrigationDone')
+                              : t('common.markDone')}
                           </span>
                         </button>
                       )}
@@ -568,7 +606,7 @@ export default function FarmerDashboard({ setActiveTab }) {
                         }}
                         className="px-3 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 text-xs font-bold transition flex items-center gap-1"
                       >
-                        <span>{lang === 'hi' ? 'खेत देखें' : 'View Field'}</span>
+                        <span>{t('common.viewField')}</span>
                         <ArrowRight className="w-3 h-3" />
                       </button>
                     </div>
@@ -587,7 +625,7 @@ export default function FarmerDashboard({ setActiveTab }) {
               <div>
                 <div className="flex items-center gap-2">
                   <span className="px-2 py-0.5 rounded-full bg-emerald-200/80 text-emerald-900 text-[10px] font-extrabold uppercase">
-                    {lang === 'hi' ? '🟢 सभी खेत स्वस्थ' : '🟢 ALL FIELDS HEALTHY'}
+                    {t('dashboard.allFieldsHealthy')}
                   </span>
                 </div>
                 <h4 className="font-extrabold text-xs sm:text-sm text-slate-900 mt-0.5">
@@ -607,7 +645,7 @@ export default function FarmerDashboard({ setActiveTab }) {
               onClick={() => setActiveTab('field-monitoring')}
               className="hidden sm:flex px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-emerald-800 border border-emerald-300 text-xs font-bold items-center gap-1.5 transition shadow-2xs"
             >
-              <span>{lang === 'hi' ? 'विवरण' : 'Telemetry'}</span>
+              <span>{t('dashboard.telemetry')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -627,57 +665,57 @@ export default function FarmerDashboard({ setActiveTab }) {
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
           <QuickActionBtn
             icon={ScanLine}
-            title={lang === 'hi' ? 'फसल जांच' : 'AI Scan'}
-            subtitle={lang === 'hi' ? 'कैमरा' : 'Doctor'}
+            title={t('nav.diagnose')}
+            subtitle={t('common.takePhoto')}
             onClick={() => setActiveTab('diagnose')}
             color="emerald"
           />
           <QuickActionBtn
             icon={Sparkles}
-            title={lang === 'hi' ? 'AI सलाह' : 'AI Advisor'}
-            subtitle={lang === 'hi' ? 'वॉइस' : 'Voice Q&A'}
+            title={t('nav.advice')}
+            subtitle={t('swar.name')}
             onClick={() => setActiveTab('advice')}
             color="amber"
           />
           <QuickActionBtn
             icon={TrendingUp}
-            title={lang === 'hi' ? 'मंडी भाव' : 'Mandi'}
-            subtitle={lang === 'hi' ? 'लाइव दर' : 'Live Rates'}
+            title={t('nav.mandi')}
+            subtitle={t('mandi.modalPrice')}
             onClick={() => setActiveTab('mandi')}
             color="teal"
           />
           <QuickActionBtn
             icon={Calculator}
-            title={lang === 'hi' ? 'खाद गणना' : 'Fertilizer'}
-            subtitle={lang === 'hi' ? 'NPK डोज' : 'NPK Calc'}
+            title={t('dashboard.fertilizer')}
+            subtitle={t('dashboard.npkCalc')}
             onClick={() => setActiveTab('fertilizer')}
             color="emerald"
           />
           <QuickActionBtn
             icon={Satellite}
-            title={lang === 'hi' ? 'उपग्रह' : 'Satellite'}
-            subtitle={lang === 'hi' ? 'NDVI' : 'Radar'}
+            title={t('dashboard.satellite')}
+            subtitle={t('dashboard.ndviRadar')}
             onClick={() => setActiveTab('satellite')}
             color="blue"
           />
           <QuickActionBtn
             icon={Building2}
-            title={lang === 'hi' ? 'योजनाएं' : 'Schemes'}
-            subtitle={lang === 'hi' ? 'सब्सिडी' : 'Subsidies'}
+            title={t('dashboard.schemes')}
+            subtitle={t('dashboard.subsidies')}
             onClick={() => setActiveTab('schemes')}
             color="amber"
           />
           <QuickActionBtn
             icon={CloudSun}
-            title={lang === 'hi' ? 'मौसम' : 'Weather'}
-            subtitle={lang === 'hi' ? '5-दिन' : '5-Day'}
+            title={t('dashboard.weather')}
+            subtitle={t('dashboard.fiveDay')}
             onClick={() => setActiveTab('weather')}
             color="blue"
           />
           <QuickActionBtn
             icon={ShieldAlert}
-            title={lang === 'hi' ? 'कीट रडार' : 'Outbreak'}
-            subtitle={lang === 'hi' ? 'अलर्ट' : 'Radar'}
+            title={t('dashboard.outbreak')}
+            subtitle={t('dashboard.radar')}
             onClick={() => setActiveTab('outbreak')}
             color="purple"
           />
@@ -879,7 +917,7 @@ export default function FarmerDashboard({ setActiveTab }) {
             onClick={() => setActiveTab('advice')}
             className="text-xs font-bold text-amber-900 hover:text-amber-950 flex items-center gap-1"
           >
-            <span>{lang === 'hi' ? 'सलाहकार से पूछें' : 'Ask AI Advisor'}</span>
+            <span>{t('dashboard.askAdvisor')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -892,7 +930,7 @@ export default function FarmerDashboard({ setActiveTab }) {
             <span className="text-base">🛰️</span>
             <div>
               <h3 className="font-extrabold text-sm sm:text-base text-slate-900">
-                {lang === 'hi' ? 'मेरे खेत की स्वचालित निगरानी' : 'MY FIELD MONITORING'}
+                {t('dashboard.myFieldMonitoring')}
               </h3>
               <p className="text-[11px] text-slate-500">
                 {lang === 'hi'
@@ -905,7 +943,7 @@ export default function FarmerDashboard({ setActiveTab }) {
             onClick={() => setActiveTab('field-monitoring')}
             className="text-xs font-bold text-emerald-700 hover:text-emerald-800 flex items-center gap-1"
           >
-            <span>{lang === 'hi' ? 'विस्तृत निगरानी' : 'Full Telemetry'}</span>
+            <span>{t('dashboard.fullTelemetry')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -943,7 +981,7 @@ export default function FarmerDashboard({ setActiveTab }) {
                   <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80">
                     <span className="text-[10px] font-bold text-slate-400 block mb-0.5">💧 MOISTURE</span>
                     <strong className="text-slate-900 block truncate">
-                      {lang === 'hi' ? f.moistureStatusHi || f.moistureStatus : f.moistureStatus}
+                      {tMoisture(f.moistureStatus)}
                     </strong>
                   </div>
 
@@ -990,7 +1028,7 @@ export default function FarmerDashboard({ setActiveTab }) {
                     }}
                     className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1"
                   >
-                    <span>{lang === 'hi' ? 'खेत का विवरण देखें' : 'Open Field Monitor'}</span>
+                    <span>{t('dashboard.openFieldMonitor')}</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1003,7 +1041,7 @@ export default function FarmerDashboard({ setActiveTab }) {
               🗺️
             </div>
             <h4 className="font-bold text-sm text-slate-900">
-              {lang === 'hi' ? 'कोई सक्रिय खेत निगरानी में नहीं है' : 'No Field Monitored Yet'}
+              {t('dashboard.noFieldMonitored')}
             </h4>
             <p className="text-xs text-slate-500 max-w-md mx-auto">
               {lang === 'hi'
@@ -1014,7 +1052,7 @@ export default function FarmerDashboard({ setActiveTab }) {
               onClick={() => setActiveTab('field-mapping')}
               className="px-4 py-2 rounded-xl bg-emerald-700 text-white font-bold text-xs shadow-sm hover:bg-emerald-600 transition"
             >
-              {lang === 'hi' ? 'खेत की सीमा बनाएं' : 'Mark Field on Map'}
+              {t('dashboard.markFieldMap')}
             </button>
           </div>
         )}
@@ -1036,13 +1074,13 @@ export default function FarmerDashboard({ setActiveTab }) {
             </div>
             <div>
               <h4 className="font-extrabold text-slate-900 text-sm flex items-center gap-2">
-                <span>{lang === 'hi' ? 'फसल स्वास्थ्य इतिहास व तुलना' : 'Crop Health History & Comparison'}</span>
+                <span>{t('dashboard.cropHistoryTitle')}</span>
                 <span className="text-2xs bg-emerald-100 text-emerald-800 font-bold px-2 py-0.5 rounded-full">
                   MongoDB Cloud
                 </span>
               </h4>
               <p className="text-2xs text-slate-500 font-medium">
-                {lang === 'hi' ? 'खेत-वार सभी पुराने व नए स्कैन का सुरक्षित डेटा' : 'Permanent multi-month scan records across plots'}
+                {t('dashboard.cropHistoryDesc')}
               </p>
             </div>
           </div>
@@ -1052,14 +1090,14 @@ export default function FarmerDashboard({ setActiveTab }) {
               onClick={() => setActiveTab('history')}
               className="px-3 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-xs transition shadow-xs flex items-center gap-1.5"
             >
-              <span>{lang === 'hi' ? 'इतिहास देखें' : 'View History'}</span>
+              <span>{t('dashboard.viewHistory')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={() => setActiveTab('history')}
               className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-800 font-extrabold text-xs transition"
             >
-              <span>⚖️ {lang === 'hi' ? 'तुलना करें' : 'Compare'}</span>
+              <span>⚖️ {t('dashboard.compare')}</span>
             </button>
           </div>
         </div>
@@ -1068,7 +1106,7 @@ export default function FarmerDashboard({ setActiveTab }) {
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-150">
             <span className="text-2xs font-bold uppercase text-slate-400 block">
-              {lang === 'hi' ? 'कुल स्कैन' : 'Total Scans'}
+              {t('dashboard.totalScans')}
             </span>
             <span className="text-lg font-black text-slate-800">
               {historyStats?.totalScans ?? (recentAnalyses?.length || 4)}
@@ -1077,7 +1115,7 @@ export default function FarmerDashboard({ setActiveTab }) {
 
           <div className="bg-slate-50 p-3 rounded-2xl border border-slate-150">
             <span className="text-2xs font-bold uppercase text-slate-400 block">
-              {lang === 'hi' ? 'सक्रिय फसलें' : 'Active Crops'}
+              {t('dashboard.activeCrops')}
             </span>
             <span className="text-lg font-black text-slate-800">
               {historyStats?.activeCropsCount ?? 2}
@@ -1086,7 +1124,7 @@ export default function FarmerDashboard({ setActiveTab }) {
 
           <div className="bg-emerald-50/70 p-3 rounded-2xl border border-emerald-200">
             <span className="text-2xs font-bold uppercase text-emerald-600 block">
-              {lang === 'hi' ? 'स्वस्थ फसलें' : 'Healthy Crops'}
+              {t('dashboard.healthyCrops')}
             </span>
             <span className="text-lg font-black text-emerald-700">
               {historyStats?.healthyCount ?? 3}
@@ -1095,7 +1133,7 @@ export default function FarmerDashboard({ setActiveTab }) {
 
           <div className="bg-rose-50/70 p-3 rounded-2xl border border-rose-200">
             <span className="text-2xs font-bold uppercase text-rose-600 block">
-              {lang === 'hi' ? 'ध्यान योग्य' : 'Needs Care'}
+              {t('dashboard.needsCare')}
             </span>
             <span className="text-lg font-black text-rose-700">
               {historyStats?.attentionCount ?? 1}

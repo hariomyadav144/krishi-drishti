@@ -101,6 +101,19 @@ const CROPS = [
   }
 ];
 
+// User-scoped data registries for stateless mode
+const STATELESS_PROFILES = {
+  'usr_farmer_demo_01': { ...PROFILE }
+};
+
+const STATELESS_FARMS = {
+  'usr_farmer_demo_01': { ...FARM }
+};
+
+const STATELESS_CROPS = {
+  'usr_farmer_demo_01': [...CROPS]
+};
+
 let ACTION_PLANS = [
   {
     _id: 'task_01',
@@ -461,21 +474,200 @@ function isDbConnected() {
 
 function getStatelessUserByRole(role = 'farmer') {
   const normalized = (role || 'farmer').toLowerCase();
-  const user = USERS.find(u => u.role === normalized) || USERS[0];
+  const user = USERS.find(u => u.role === normalized && u.isDemo !== false) || USERS[0];
   return { ...user };
 }
 
 function getStatelessUserByPhone(phone) {
+  if (!phone) return null;
   const user = USERS.find(u => u.phone === phone);
   return user ? { ...user } : null;
 }
 
+function getStatelessUserByEmail(email) {
+  if (!email) return null;
+  const clean = email.trim().toLowerCase();
+  const user = USERS.find(u => u.email && u.email.toLowerCase() === clean);
+  return user ? { ...user } : null;
+}
+
 function getStatelessUserById(id) {
+  if (!id) return null;
   const user = USERS.find(u => u._id === id || u.id === id);
   if (user) return { ...user };
-  if (typeof id === 'string' && id.includes('expert')) return { ...USERS[1] };
-  if (typeof id === 'string' && id.includes('admin')) return { ...USERS[2] };
-  return { ...USERS[0] };
+  if (typeof id === 'string') {
+    if (id === 'usr_farmer_demo_01' || id.includes('farmer_demo')) return { ...USERS[0] };
+    if (id === 'usr_expert_demo_01' || id.includes('expert_demo')) return { ...USERS[1] };
+    if (id === 'usr_admin_demo_01' || id.includes('admin_demo')) return { ...USERS[2] };
+  }
+  return null;
+}
+
+function registerStatelessUser(userData) {
+  const existingPhone = USERS.find(u => u.phone === userData.phone);
+  if (existingPhone) {
+    const err = new Error('This mobile number is already registered. Please login.');
+    err.code = 'PHONE_EXISTS';
+    throw err;
+  }
+  if (userData.email && userData.email.trim()) {
+    const cleanEmail = userData.email.trim().toLowerCase();
+    const existingEmail = USERS.find(u => u.email && u.email.toLowerCase() === cleanEmail);
+    if (existingEmail) {
+      const err = new Error('This email is already registered.');
+      err.code = 'EMAIL_EXISTS';
+      throw err;
+    }
+  }
+  const newId = `usr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+  const newUser = {
+    _id: newId,
+    id: newId,
+    name: userData.name,
+    phone: userData.phone,
+    email: userData.email || '',
+    password: userData.password,
+    role: userData.role || 'farmer',
+    isOnboarded: !!(userData.state && userData.mainCrop),
+    languagePreference: userData.languagePreference || 'hi',
+    isDemo: false,
+    createdAt: new Date().toISOString()
+  };
+  USERS.push(newUser);
+
+  // If farmer, create isolated profile and initial farm/crop
+  if (newUser.role === 'farmer') {
+    STATELESS_PROFILES[newId] = {
+      userId: newId,
+      state: userData.state || '',
+      district: userData.district || '',
+      village: userData.village || '',
+      location: (userData.village && userData.district) 
+        ? `${userData.village}, ${userData.district}, ${userData.state || ''}`.replace(/, $/, '')
+        : (userData.state || ''),
+      experienceYears: 0
+    };
+
+    STATELESS_FARMS[newId] = {
+      _id: `farm_${newId}`,
+      farmerId: newId,
+      farmName: userData.farmName || `${userData.name}'s Farm`,
+      farmSize: Number(userData.farmSize) || 0,
+      landUnit: userData.landUnit || 'Acres',
+      soilType: userData.soilType || '',
+      irrigationMethod: userData.irrigationMethod || '',
+    };
+
+    if (userData.mainCrop) {
+      STATELESS_CROPS[newId] = [
+        {
+          _id: `crop_${newId}_01`,
+          farmId: `farm_${newId}`,
+          farmerId: newId,
+          cropName: userData.mainCrop,
+          variety: 'High Yield Standard',
+          cropStage: 'Vegetative Stage',
+          healthStatus: 'Good',
+          healthScore: 88,
+          areaAllocated: Number(userData.farmSize) || 0,
+          isCurrent: true,
+        }
+      ];
+    } else {
+      STATELESS_CROPS[newId] = [];
+    }
+
+    // Welcome Alert for this specific user
+    ALERTS.unshift({
+      _id: `alert_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+      userId: newId,
+      title: 'Welcome to Fasal Drishti! 🌱',
+      titleHi: 'फ़सल दृष्टि में आपका स्वागत है! 🌱',
+      message: 'Your smart farming companion is active. Scan your crop or ask AI advice anytime.',
+      messageHi: 'आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।',
+      priority: 'low',
+      category: 'system',
+      isRead: false,
+      createdAt: new Date().toISOString()
+    });
+  }
+
+  return newUser;
+}
+
+function getStatelessProfile(userId) {
+  if (!userId) return null;
+  return STATELESS_PROFILES[userId] || null;
+}
+
+function saveStatelessProfile(userId, profileData) {
+  if (!userId) return null;
+  const current = STATELESS_PROFILES[userId] || { userId };
+  const updated = {
+    ...current,
+    ...profileData,
+    userId,
+    updatedAt: new Date().toISOString()
+  };
+  STATELESS_PROFILES[userId] = updated;
+  return updated;
+}
+
+function getStatelessFarm(farmerId) {
+  if (!farmerId) return null;
+  return STATELESS_FARMS[farmerId] || null;
+}
+
+function saveStatelessFarm(farmerId, farmData) {
+  if (!farmerId) return null;
+  const current = STATELESS_FARMS[farmerId] || { farmerId, _id: `farm_${farmerId}` };
+  const updated = {
+    ...current,
+    ...farmData,
+    farmerId,
+    updatedAt: new Date().toISOString()
+  };
+  STATELESS_FARMS[farmerId] = updated;
+  return updated;
+}
+
+function getStatelessCrops(farmerId) {
+  if (!farmerId) return [];
+  if (farmerId === 'usr_farmer_demo_01') {
+    return [...CROPS];
+  }
+  return STATELESS_CROPS[farmerId] || [];
+}
+
+function addStatelessCrop(farmerId, cropData) {
+  if (!farmerId) return null;
+  if (!STATELESS_CROPS[farmerId]) {
+    STATELESS_CROPS[farmerId] = [];
+  }
+  const newCrop = {
+    _id: `crop_${farmerId}_${Date.now()}`,
+    farmId: STATELESS_FARMS[farmerId]?._id || `farm_${farmerId}`,
+    farmerId,
+    cropName: cropData.cropName || 'General Crop',
+    variety: cropData.variety || 'Standard Hybrid',
+    cropStage: cropData.cropStage || 'Vegetative Stage',
+    healthStatus: cropData.healthStatus || 'Good',
+    healthScore: cropData.healthScore || 85,
+    areaAllocated: Number(cropData.areaAllocated) || 1.0,
+    isCurrent: STATELESS_CROPS[farmerId].length === 0 ? true : !!cropData.isCurrent,
+    createdAt: new Date().toISOString()
+  };
+  if (newCrop.isCurrent) {
+    STATELESS_CROPS[farmerId].forEach(c => c.isCurrent = false);
+  }
+  STATELESS_CROPS[farmerId].push(newCrop);
+  return newCrop;
+}
+
+function deleteStatelessCrop(cropId, farmerId) {
+  if (!farmerId || !STATELESS_CROPS[farmerId]) return [];
+  STATELESS_CROPS[farmerId] = STATELESS_CROPS[farmerId].filter(c => c._id !== cropId && c.id !== cropId);
+  return STATELESS_CROPS[farmerId];
 }
 
 function getStatelessDashboard() {
@@ -486,7 +678,7 @@ function getStatelessDashboard() {
     currentCrop: { ...CROPS[0] },
     crops: [...CROPS],
     healthScore: 91,
-    pendingTasks: ACTION_PLANS.filter(p => !p.isCompleted),
+    pendingTasks: ACTION_PLANS.filter(p => !p.isCompleted && (p.farmerId === 'usr_farmer_demo_01' || !p.farmerId)),
     recentAnalyses: [
       {
         _id: 'scan_rec_01',
@@ -505,26 +697,70 @@ function getStatelessDashboard() {
         createdAt: new Date().toISOString()
       }
     ],
-    unreadAlerts: [...ALERTS]
+    unreadAlerts: ALERTS.filter(a => a.userId === 'usr_farmer_demo_01')
   };
 }
 
-function getStatelessCrops() {
-  return [...CROPS];
+function getStatelessDashboardForUser(userId) {
+  if (!userId) return null;
+  const user = getStatelessUserById(userId);
+  if (!user) return null;
+
+  // Explicit demo farmer returns demo dashboard
+  if (userId === 'usr_farmer_demo_01' || user.phone === '9876543210') {
+    return getStatelessDashboard();
+  }
+
+  // Real user: strictly return ONLY their data
+  const profile = STATELESS_PROFILES[userId] || null;
+  const farm = STATELESS_FARMS[userId] || null;
+  const userCrops = STATELESS_CROPS[userId] || [];
+  const currentCrop = userCrops.find(c => c.isCurrent) || userCrops[0] || null;
+  const userTasks = ACTION_PLANS.filter(p => p.farmerId === userId);
+  const userScans = STATELESS_CROP_SCANS.filter(s => s.farmerId === userId);
+  const userAlerts = ALERTS.filter(a => a.userId === userId);
+
+  return {
+    farmer: {
+      id: user._id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      role: user.role
+    },
+    profile,
+    farm,
+    crops: userCrops,
+    currentCrop,
+    healthScore: currentCrop ? (currentCrop.healthScore || 85) : null,
+    pendingTasks: userTasks.filter(p => !p.isCompleted),
+    recentAnalyses: userScans.slice(0, 3),
+    recentRecommendations: [],
+    unreadAlerts: userAlerts
+  };
 }
 
-function getStatelessActionPlans() {
-  const completed = ACTION_PLANS.filter(t => t.isCompleted).length;
-  const total = ACTION_PLANS.length;
+function getStatelessActionPlans(farmerId) {
+  const userPlans = farmerId 
+    ? ACTION_PLANS.filter(t => t.farmerId === farmerId)
+    : ACTION_PLANS.filter(t => t.farmerId === 'usr_farmer_demo_01');
+  const completed = userPlans.filter(t => t.isCompleted).length;
+  const total = userPlans.length;
   return {
-    tasks: [...ACTION_PLANS],
+    tasks: [...userPlans],
     stats: {
       total,
       completed,
       pending: total - completed,
-      completionRate: Math.round((completed / total) * 100)
+      completionRate: total > 0 ? Math.round((completed / total) * 100) : 100
     }
   };
+}
+
+function getStatelessAlerts(userId) {
+  if (!userId) return [];
+  if (userId === 'usr_farmer_demo_01') return [...ALERTS];
+  return ALERTS.filter(a => a.userId === userId);
 }
 
 function toggleStatelessActionPlan(taskId) {
@@ -534,10 +770,6 @@ function toggleStatelessActionPlan(taskId) {
     return { ...task };
   }
   return null;
-}
-
-function getStatelessAlerts() {
-  return [...ALERTS];
 }
 
 function getStatelessExpertCases(status = 'all') {
@@ -603,16 +835,18 @@ function getStatelessMandiRates({ commodity, state, district }) {
 let STATELESS_FIELDS = [];
 
 function getStatelessFields(farmerId) {
-  return [...STATELESS_FIELDS];
+  if (!farmerId) return [...STATELESS_FIELDS];
+  return STATELESS_FIELDS.filter(f => f.farmerId === farmerId);
 }
 
 function saveStatelessField(fieldData, farmerId) {
   const id = fieldData._id || fieldData.id || `field_${Date.now()}`;
+  const assignedFarmerId = farmerId || fieldData.farmerId || 'usr_farmer_demo_01';
   const saved = {
     ...fieldData,
     _id: id,
     id,
-    farmerId: farmerId || 'usr_farmer_demo_01',
+    farmerId: assignedFarmerId,
     updatedAt: new Date().toISOString()
   };
   const idx = STATELESS_FIELDS.findIndex(f => f._id === id || f.id === id);
@@ -625,8 +859,12 @@ function saveStatelessField(fieldData, farmerId) {
 }
 
 function deleteStatelessField(id, farmerId) {
-  STATELESS_FIELDS = STATELESS_FIELDS.filter(f => f._id !== id && f.id !== id);
-  return [...STATELESS_FIELDS];
+  if (farmerId) {
+    STATELESS_FIELDS = STATELESS_FIELDS.filter(f => !((f._id === id || f.id === id) && f.farmerId === farmerId));
+  } else {
+    STATELESS_FIELDS = STATELESS_FIELDS.filter(f => f._id !== id && f.id !== id);
+  }
+  return getStatelessFields(farmerId);
 }
 
 // -------------------------------------------------------------
@@ -798,7 +1036,7 @@ let STATELESS_CROP_SCANS = [
 ];
 
 function getStatelessCropScans(farmerId, query = {}) {
-  let list = [...STATELESS_CROP_SCANS];
+  let list = farmerId ? STATELESS_CROP_SCANS.filter(s => s.farmerId === farmerId) : [...STATELESS_CROP_SCANS];
   if (query.crop && query.crop !== 'All') {
     list = list.filter(s => s.cropName.toLowerCase() === query.crop.toLowerCase());
   }
@@ -823,9 +1061,10 @@ function getStatelessCropScanById(id) {
   return STATELESS_CROP_SCANS.find(s => s._id === id || s.id === id) || null;
 }
 
-function createStatelessCropScan(data) {
+function createStatelessCropScan(data, farmerId) {
   const newScan = {
     ...data,
+    farmerId: data.farmerId || farmerId || 'usr_farmer_demo_01',
     _id: data._id || `scan_${Date.now()}`,
     createdAt: new Date().toISOString(),
     scanDate: data.scanDate || new Date().toISOString()
@@ -1793,9 +2032,18 @@ module.exports = {
   isDbConnected,
   getStatelessUserByRole,
   getStatelessUserByPhone,
+  getStatelessUserByEmail,
   getStatelessUserById,
+  registerStatelessUser,
   getStatelessDashboard,
+  getStatelessDashboardForUser,
+  getStatelessProfile,
+  saveStatelessProfile,
+  getStatelessFarm,
+  saveStatelessFarm,
   getStatelessCrops,
+  addStatelessCrop,
+  deleteStatelessCrop,
   getStatelessActionPlans,
   toggleStatelessActionPlan,
   getStatelessAlerts,

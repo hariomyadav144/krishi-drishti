@@ -110,6 +110,10 @@ const SYSTEM_INSTRUCTION_KN = `IMPORTANT: You are an agricultural expert advisin
 
 const SYSTEM_INSTRUCTION_ML = `IMPORTANT: You are an agricultural expert advising a farmer in Kerala. You must answer ONLY in pure Malayalam (മലയാളം). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Malayalam. Do not use LaTeX symbols.`;
 
+const SYSTEM_INSTRUCTION_OR = `IMPORTANT: You are an agricultural expert advising a farmer in Odisha. You must answer ONLY in pure Odia (ଓଡ଼ିଆ). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Odia. Do not use LaTeX symbols.`;
+
+const SYSTEM_INSTRUCTION_AS = `IMPORTANT: You are an agricultural expert advising a farmer in Assam. You must answer ONLY in pure Assamese (অসমীয়া). Do not output English or Hindi explanations. Every heading, explanation, fertilizer name, and instruction must be written in Assamese. Do not use LaTeX symbols.`;
+
 function getSystemInstruction(language = 'hi') {
   const l = (language || 'hi').toLowerCase();
   if (l === 'en') return SYSTEM_INSTRUCTION_EN;
@@ -121,6 +125,8 @@ function getSystemInstruction(language = 'hi') {
   if (l === 'te') return SYSTEM_INSTRUCTION_TE;
   if (l === 'kn') return SYSTEM_INSTRUCTION_KN;
   if (l === 'ml') return SYSTEM_INSTRUCTION_ML;
+  if (l === 'or') return SYSTEM_INSTRUCTION_OR;
+  if (l === 'as') return SYSTEM_INSTRUCTION_AS;
   return SYSTEM_INSTRUCTION_HI;
 }
 
@@ -327,34 +333,50 @@ CRITICAL EXPERT INSTRUCTIONS:
 
 Use respectful, clear Hindi (or the user's preferred regional language). Do not wrap in markdown or backticks. Return pure JSON only.`;
 
+const READABLE_HEADERS = {
+  en: { crop: 'Crop', issue: 'Issue', priority: 'Priority', score: 'Crop Health Score', attention: 'What Needs Attention', why: 'Why This Is Happening', todo: 'What You Should Do Now', timeline: 'Action Timeline', today: 'Today', in24h: '24 Hours', in23d: 'In 2–3 Days', next7d: 'Next 7 Days', defaultCrop: 'Your Crop', defaultIssue: 'Crop Consultation' },
+  hi: { crop: 'फसल', issue: 'समस्या', priority: 'प्राथमिकता', score: 'फसल स्वास्थ्य स्कोर', attention: 'क्या ध्यान देने की आवश्यकता है', why: 'ऐसा क्यों हो रहा है', todo: 'अभी आपको क्या करना चाहिए', timeline: 'समय-सारणी', today: 'आज', in24h: '24 घंटे में', in23d: '2–3 दिन में', next7d: 'अगले 7 दिन में', defaultCrop: 'आपकी फसल', defaultIssue: 'फसल परामर्श' },
+  pa: { crop: 'ਫਸਲ', issue: 'ਸਮੱਸਿਆ', priority: 'ਤਰਜੀਹ', score: 'ਫਸਲ ਸਿਹਤ ਸਕੋਰ', attention: 'ਕਿਸ ਚੀਜ਼ \'ਤੇ ਧਿਆਨ ਦੇਣ ਦੀ ਲੋੜ ਹੈ', why: 'ਇਹ ਕਿਉਂ ਹੋ ਰਿਹਾ ਹੈ', todo: 'ਹੁਣ ਤੁਹਾਨੂੰ ਕੀ ਕਰਨਾ ਚਾਹੀਦਾ ਹੈ', timeline: 'ਸਮਾਂ-ਸਾਰਣੀ', today: 'ਅੱਜ', in24h: '24 ਘੰਟਿਆਂ ਵਿੱਚ', in23d: '2–3 ਦਿਨਾਂ ਵਿੱਚ', next7d: 'ਅਗਲੇ 7 ਦਿਨਾਂ ਵਿੱਚ', defaultCrop: 'ਤੁਹਾਡੀ ਫਸਲ', defaultIssue: 'ਫਸਲ ਸਲਾਹ' },
+  mr: { crop: 'पीक', issue: 'समस्या', priority: 'प्राधान्यता', score: 'पीक आरोग्य गुण', attention: 'कशावर लक्ष देणे आवश्यक आहे', why: 'हे का घडत आहे', todo: 'आता तुम्ही काय करावे', timeline: 'वेळापत्रक', today: 'आज', in24h: '२४ तासांत', in23d: '२–३ दिवसांत', next7d: 'पुढील ७ दिवसांत', defaultCrop: 'तुमचे पीक', defaultIssue: 'पीक सल्ला' },
+  gu: { crop: 'પાક', issue: 'સમસ્યા', priority: 'પ્રાથમિકતા', score: 'પાક આરોગ્ય સ્કોર', attention: 'શું ધ્યાન આપવાની જરૂર છે', why: 'આ શા માટે થઈ રહ્યું છે', todo: 'હવે તમારે શું કરવું જોઈએ', timeline: 'સમયપત્રક', today: 'આજે', in24h: '૨૪ કલાકમાં', in23d: '૨–૩ દિવસમાં', next7d: 'આગામી ૭ દિવસમાં', defaultCrop: 'તમારો પાક', defaultIssue: 'પાક સલાહ' },
+  bn: { crop: 'ফসল', issue: 'সমস্যা', priority: 'অগ্রাধিকার', score: 'ফসলের স্বাস্থ্য স্কোর', attention: 'কিসের ওপর নজর দিতে হবে', why: 'কেন এমন হচ্ছে', todo: 'এখন আপনার কী করা উচিত', timeline: 'সময়সূচী', today: 'আজ', in24h: '২৪ ঘণ্টার মধ্যে', in23d: '২–৩ দিনে', next7d: 'পরবর্তী ৭ দিনে', defaultCrop: 'আপনার ফসল', defaultIssue: 'ফসল পরামর্শ' },
+  ta: { crop: 'பயிர்', issue: 'பிரச்சனை', priority: 'முன்னுரிமை', score: 'பயிர் ஆரோக்கிய மதிப்பெண்', attention: 'எதில் கவனம் செலுத்த வேண்டும்', why: 'இது ஏன் நிகழ்கிறது', todo: 'இப்போது நீங்கள் என்ன செய்ய வேண்டும்', timeline: 'காலவரிசை', today: 'இன்று', in24h: '24 மணி நேரத்திற்குள்', in23d: '2–3 நாட்களில்', next7d: 'அடுத்த 7 நாட்களில்', defaultCrop: 'உங்கள் பயிர்', defaultIssue: 'பயிர் ஆலோசனை' },
+  te: { crop: 'పంట', issue: 'సమస్య', priority: 'ప్రాధాన్యత', score: 'పంట ఆరోగ్య స్కోరు', attention: 'దేనిపై శ్రద్ధ వహించాలి', why: 'ఇది ఎందుకు జరుగుతోంది', todo: 'ఇప్పుడు మీరు ఏమి చేయాలి', timeline: 'సమయ ప్రణాళిక', today: 'ఈ రోజు', in24h: '24 గంటల్లో', in23d: '2–3 రోజుల్లో', next7d: 'వచ్చే 7 రోజుల్లో', defaultCrop: 'మీ పంట', defaultIssue: 'పంట సలహా' },
+  kn: { crop: 'ಬೆಳೆ', issue: 'ಸಮಸ್ಯೆ', priority: 'ಆದ್ಯತೆ', score: 'ಬೆಳೆ ಆರೋಗ್ಯ ಸ್ಕೋರ್', attention: 'ದೇವರ ಮೇಲೆ ಗಮನ ನೀಡಬೇಕು', why: 'ಇದು ಏಕೆ ಸಂಭವಿಸುತ್ತಿದೆ', todo: 'ಈಗ ನೀವು ಏನು ಮಾಡಬೇಕು', timeline: 'ಸಮಯ ಮಿತಿ', today: 'ಇಂದು', in24h: '24 ಗಂಟೆಗಳಲ್ಲಿ', in23d: '2–3 ದಿನಗಳಲ್ಲಿ', next7d: 'ಮುಂದಿನ 7 ದಿನಗಳಲ್ಲಿ', defaultCrop: 'ನಿಮ್ಮ ಬೆಳೆ', defaultIssue: 'ಬೆಳೆ ಸಮಾಲೋಚನೆ' },
+  ml: { crop: 'വിള', issue: 'പ്രശ്നം', priority: 'മുൻഗണന', score: 'വിള ആരോഗ്യ സ്കോർ', attention: 'എന്തിനാണ് ശ്രദ്ധ നൽകേണ്ടത്', why: 'എന്തുകൊണ്ടാണ് ഇത് സംഭവിക്കുന്നത്', todo: 'ഇപ്പോൾ നിങ്ങൾ എന്തു ചെയ്യണം', timeline: 'സമയക്രമം', today: 'ഇന്ന്', in24h: '24 മണിക്കൂറിനുള്ളിൽ', in23d: '2–3 ദിവസങ്ങളിൽ', next7d: 'അടുത്ത 7 ദിവസങ്ങളിൽ', defaultCrop: 'നിങ്ങളുടെ വിള', defaultIssue: 'വിള ഉപദേശം' },
+  or: { crop: 'ଫସଲ', issue: 'ସମସ୍ୟା', priority: 'ପ୍ରାଥମିକତା', score: 'ଫସଲ ସ୍ୱାସ୍ଥ୍ୟ ସ୍କୋର', attention: 'କେଉଁଥିରେ ଧ୍ୟାନ ଦେବା ଆବଶ୍ୟକ', why: 'ଏହା କାହିଁକି ଘଟୁଛି', todo: 'ବର୍ତ୍ତମାନ ଆପଣଙ୍କୁ କ\'ଣ କରିବା ଉଚିତ୍', timeline: 'ସମୟ ସୂଚୀ', today: 'ଆଜି', in24h: '୨୪ ଘଣ୍ଟା ମଧ୍ୟରେ', in23d: '୨–୩ ଦିନରେ', next7d: 'ଆଗାମୀ ୭ ଦିନରେ', defaultCrop: 'ଆପଣଙ୍କ ଫସଲ', defaultIssue: 'ଫସଲ ପରାମର୍ଶ' },
+  as: { crop: 'শস্য', issue: 'সমস্যা', priority: 'অগ্রাধিকাৰ', score: 'শস্যৰ স্বাস্থ্য স্ক\'ৰ', attention: 'ক\'ত মনোযোগ দিয়া প্ৰয়োজন', why: 'এয়া কিয় হৈছে', todo: 'এতিয়া আপুনি কি কৰা উচিত', timeline: 'সময়সূচী', today: 'আজি', in24h: '২৪ ঘণ্টাত', in23d: '২–৩ দিনত', next7d: 'অহা ৭ দিনত', defaultCrop: 'আপোনাৰ শস্য', defaultIssue: 'শস্য পৰামৰ্শ' }
+};
+
 function buildReadableAnswerFromStructured(s, lang = 'hi') {
   if (!s) return '';
-  const isEn = lang === 'en';
+  const l = (lang || 'hi').toLowerCase();
+  const h = READABLE_HEADERS[l] || READABLE_HEADERS.hi;
   const lines = [];
 
-  const crop = s.crop_name || (isEn ? 'Your Crop' : 'आपकी फसल');
-  const issue = s.detected_issue || (isEn ? 'Crop Consultation' : 'फसल परामर्श');
+  const crop = s.crop_name || h.defaultCrop;
+  const issue = s.detected_issue || h.defaultIssue;
   const sev = s.severity || 'Normal';
   const score = s.health_score ?? 80;
 
-  lines.push(isEn ? `🌾 Crop: ${crop} | Issue: ${issue}` : `🌾 फसल: ${crop} | समस्या: ${issue}`);
-  lines.push(isEn ? `🚨 Priority: ${sev} (Crop Health Score: ${score}%)` : `🚨 प्राथमिकता: ${sev} (फसल स्वास्थ्य स्कोर: ${score}%)`);
+  lines.push(`🌾 ${h.crop}: ${crop} | ${h.issue}: ${issue}`);
+  lines.push(`🚨 ${h.priority}: ${sev} (${h.score}: ${score}%)`);
   lines.push('');
 
   if (s.what_needs_attention?.title) {
-    lines.push(isEn ? `⚠️ What Needs Attention:` : `⚠️ क्या ध्यान देने की आवश्यकता है:`);
+    lines.push(`⚠️ ${h.attention}:`);
     lines.push(`• ${s.what_needs_attention.title}: ${s.what_needs_attention.description || ''}`);
     lines.push('');
   }
 
   if (s.why_is_this_happening) {
-    lines.push(isEn ? `💡 Why This Is Happening:` : `💡 ऐसा क्यों हो रहा है:`);
+    lines.push(`💡 ${h.why}:`);
     lines.push(s.why_is_this_happening);
     lines.push('');
   }
 
   if (Array.isArray(s.what_to_do_now) && s.what_to_do_now.length > 0) {
-    lines.push(isEn ? `✅ What You Should Do Now:` : `✅ अभी आपको क्या करना चाहिए:`);
+    lines.push(`✅ ${h.todo}:`);
     s.what_to_do_now.forEach((item, idx) => {
       lines.push(`${idx + 1}. [${item.timing || 'Immediate'}] ${item.action_title ? item.action_title + ' — ' : ''}${item.instruction}`);
     });
@@ -362,11 +384,11 @@ function buildReadableAnswerFromStructured(s, lang = 'hi') {
   }
 
   if (s.action_timeline) {
-    lines.push(isEn ? `⏰ Action Timeline:` : `⏰ समय-सारणी:`);
-    if (s.action_timeline.today) lines.push(isEn ? `• Today: ${s.action_timeline.today}` : `• आज: ${s.action_timeline.today}`);
-    if (s.action_timeline.in_24_hours) lines.push(isEn ? `• 24 Hours: ${s.action_timeline.in_24_hours}` : `• 24 घंटे में: ${s.action_timeline.in_24_hours}`);
-    if (s.action_timeline.in_2_3_days) lines.push(isEn ? `• In 2–3 Days: ${s.action_timeline.in_2_3_days}` : `• 2–3 दिन में: ${s.action_timeline.in_2_3_days}`);
-    if (s.action_timeline.next_7_days) lines.push(isEn ? `• Next 7 Days: ${s.action_timeline.next_7_days}` : `• अगले 7 दिन में: ${s.action_timeline.next_7_days}`);
+    lines.push(`⏰ ${h.timeline}:`);
+    if (s.action_timeline.today) lines.push(`• ${h.today}: ${s.action_timeline.today}`);
+    if (s.action_timeline.in_24_hours) lines.push(`• ${h.in24h}: ${s.action_timeline.in_24_hours}`);
+    if (s.action_timeline.in_2_3_days) lines.push(`• ${h.in23d}: ${s.action_timeline.in_2_3_days}`);
+    if (s.action_timeline.next_7_days) lines.push(`• ${h.next7d}: ${s.action_timeline.next_7_days}`);
   }
 
   return lines.join('\n').trim();
@@ -438,7 +460,13 @@ async function askGeminiAdvisor({
         model: modelName,
         contents,
         config: {
-          systemInstruction: SENIOR_SCIENTIST_SYSTEM_INSTRUCTION,
+          systemInstruction: `${SENIOR_SCIENTIST_SYSTEM_INSTRUCTION}
+
+MANDATORY REGIONAL LANGUAGE ENFORCEMENT:
+The farmer has selected ${langPromptName}.
+You must respond and generate all JSON values (crop_name, detected_issue, what_needs_attention, what_to_do_now, why_is_this_happening, action_timeline) STRICTLY in ${langPromptName} unless the farmer explicitly requests another language.
+Do not mix English into the response unnecessarily.
+Use simple, natural, farmer-friendly ${langPromptName}.`,
           responseMimeType: 'application/json',
           temperature: 0.2,
         }
@@ -567,9 +595,11 @@ CRITICAL MULTIMODAL VISION INSTRUCTIONS:
 Farmer Note / Question: ${question || (language === 'en' ? 'Identify the crop, inspect plant health, and provide practical care advice.' : 'कृपया इस फसल की तस्वीर का विश्लेषण करें, फसल पहचानें और रोग व उपचार बताएं।')}
 
 STRICT LANGUAGE REQUIREMENT:
+The farmer has selected ${langPromptName}.
+You must respond ONLY in ${langPromptName} unless the farmer explicitly asks for another language.
+Do not mix English into the response unnecessarily.
+Use simple, natural, farmer-friendly ${langPromptName}.
 Every single field and value in your response MUST be generated entirely in ${langPromptName}.
-${language === 'en' ? 'ABSOLUTELY NO Hindi or Devanagari script words. Pure English only.' : ''}
-${language === 'hi' ? 'ABSOLUTELY NO English paragraphs. Pure Hindi (सरल देवनागरी हिंदी) only.' : ''}
 
 You MUST return a VALID JSON object (and nothing else) enclosed in \`\`\`json ... \`\`\` with this exact schema:
 {

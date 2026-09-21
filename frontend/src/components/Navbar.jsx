@@ -28,16 +28,12 @@ export default function Navbar({ activeTab, setActiveTab }) {
             <div className="relative flex items-center justify-center">
               {!logoFailed && (
                 <img
-                  src="/logo.svg"
+                  src="./logo.png"
                   alt="Fasal Drishti Brand Logo"
-                  className={`h-10 w-10 object-contain rounded-xl transition-all duration-300 ${logoLoaded ? 'block' : 'hidden'}`}
+                  className={`h-10 w-10 object-contain rounded-xl bg-white p-0.5 shadow-xs transition-all duration-300 ${logoLoaded ? 'block' : 'hidden'}`}
                   onLoad={() => setLogoLoaded(true)}
-                  onError={(e) => {
-                    if (e.target.src.endsWith('/logo.svg')) {
-                      e.target.src = '/logo.png';
-                    } else {
-                      setLogoFailed(true);
-                    }
+                  onError={() => {
+                    setLogoFailed(true);
                   }}
                 />
               )}
@@ -57,7 +53,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
                 </span>
               </div>
               <p className="text-[11px] text-agri-200/80 hidden sm:block tracking-wide">
-                From Space to Soil • Right Information. Better Decisions.
+                {t('appTagline')} • {t('subTagline')}
               </p>
             </div>
           </div>
@@ -70,7 +66,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
               id="nav-btn-swar"
               onClick={() => setActiveTab('advice')}
               className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white px-2.5 py-1.5 rounded-xl text-xs font-black shadow-xs transition active:scale-95 border border-emerald-400/40"
-              title="Talk to SWAR (स्वर)"
+              title={t('nav.swarTrigger') || "Talk to SWAR (स्वर)"}
             >
               <span className="w-2 h-2 rounded-full bg-amber-300 animate-ping"></span>
               <span>🎙️ SWAR</span>
@@ -81,10 +77,10 @@ export default function Navbar({ activeTab, setActiveTab }) {
               <button
                 onClick={() => setShowLangMenu(!showLangMenu)}
                 className="flex items-center gap-1.5 bg-agri-900/80 hover:bg-agri-800 text-agri-100 px-2.5 py-1.5 rounded-xl border border-agri-700/60 text-xs font-bold transition active:scale-95"
-                title="Change Language / भाषा चुनें"
+                title={t('nav.selectLanguage') || "Change Language / भाषा चुनें"}
               >
                 <span>{currentLangObj.icon}</span>
-                <span className="hidden sm:inline">{currentLangObj.native}</span>
+                <span className="text-xs font-bold max-w-[70px] truncate">{currentLangObj.native}</span>
                 <ChevronDown className="w-3 h-3 text-emerald-400" />
               </button>
 
@@ -94,7 +90,7 @@ export default function Navbar({ activeTab, setActiveTab }) {
                   onClick={() => setShowLangMenu(false)}
                 >
                   <div className="px-3 py-1 text-[10px] font-extrabold uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
-                    <span>Select Language</span>
+                    <span>{t('nav.selectLanguage') || 'Select Language'}</span>
                     <Globe className="w-3 h-3" />
                   </div>
                   {availableLanguages.map((l) => (

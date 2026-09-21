@@ -4,21 +4,21 @@ import { useLanguage } from '../context/LanguageContext';
 import api from '../services/api';
 import { Sprout, MapPin, Layers, Droplets, CheckCircle, ArrowRight } from 'lucide-react';
 
-export default function Onboarding({ onOnboardingComplete }) {
+export default function Onboarding({ onOnboardingComplete, onComplete }) {
   const { user, refreshUser } = useAuth();
   const { lang, t } = useLanguage();
 
   const [step, setStep] = useState(1);
   const [formData, setFormData] = useState({
-    name: user ? user.name : '',
-    state: 'Maharashtra',
-    district: 'Nashik',
-    village: 'Pimpalgaon Baswant',
-    farmSize: '4.5',
+    name: user?.name || '',
+    state: user?.state || 'Maharashtra',
+    district: '',
+    village: '',
+    farmSize: '2.5',
     landUnit: 'Acres',
-    mainCrop: 'Tomato',
-    soilType: 'Black Soil / Regur',
-    irrigationMethod: 'Drip Irrigation',
+    mainCrop: 'Wheat',
+    soilType: 'Alluvial',
+    irrigationMethod: 'Tube Well',
   });
 
   const [loading, setLoading] = useState(false);
@@ -56,7 +56,8 @@ export default function Onboarding({ onOnboardingComplete }) {
       const res = await api.post('/farmer/onboarding', formData);
       if (res.data.success) {
         await refreshUser();
-        if (onOnboardingComplete) onOnboardingComplete();
+        const callback = onComplete || onOnboardingComplete;
+        if (callback) callback();
       }
     } catch (e) {
       console.error('Onboarding failed:', e);
@@ -68,16 +69,11 @@ export default function Onboarding({ onOnboardingComplete }) {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center px-4 py-8 max-w-lg mx-auto">
       <div className="text-center mb-6">
-        <div className="w-14 h-14 rounded-2xl bg-white shadow-md border border-slate-200/80 mx-auto flex items-center justify-center p-1.5 mb-2">
+        <div className="w-14 h-14 rounded-2xl bg-white shadow-md border border-slate-200/80 mx-auto flex items-center justify-center p-1 mb-2 overflow-hidden">
           <img
-            src="/logo.svg"
+            src="./logo.png"
             alt="Fasal Drishti Logo"
-            className="w-11 h-11 object-contain rounded-xl"
-            onError={(e) => {
-              if (e.target.src.endsWith('/logo.svg')) {
-                e.target.src = '/logo.png';
-              }
-            }}
+            className="w-full h-full object-contain rounded-xl"
           />
         </div>
         <h2 className="text-2xl font-black text-slate-900">
@@ -140,7 +136,7 @@ export default function Onboarding({ onOnboardingComplete }) {
                   name="district"
                   value={formData.district}
                   onChange={handleChange}
-                  placeholder="e.g. Nashik"
+                  placeholder={lang === 'hi' ? 'उदा. मेरठ / इंदौर / नासिक' : 'e.g. Meerut / Indore / Nashik'}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none"
                 />
               </div>
@@ -154,7 +150,7 @@ export default function Onboarding({ onOnboardingComplete }) {
                   name="village"
                   value={formData.village}
                   onChange={handleChange}
-                  placeholder="e.g. Pimpalgaon"
+                  placeholder={lang === 'hi' ? 'उदा. रामपुर / नया गाँव' : 'e.g. Rampur / New Farm'}
                   className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:outline-none"
                 />
               </div>

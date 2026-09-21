@@ -11,7 +11,7 @@ export default class TabErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.warn('TabErrorBoundary caught an error in active tab:', error, errorInfo);
+    console.error('[TabErrorBoundary Error]:', error, errorInfo);
   }
 
   componentDidUpdate(prevProps) {
@@ -37,6 +37,12 @@ export default class TabErrorBoundary extends React.Component {
           <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
             इस मॉड्यूल का डेटा पुनः सिंक किया जा रहा है। आप नीचे दिए गए बटन से पुनः प्रयास कर सकते हैं या मुख्य डैशबोर्ड पर जा सकते हैं।
           </p>
+          {this.state.error && (
+            <details className="text-left text-xs bg-red-50 text-red-800 p-3 rounded-xl border border-red-200 mt-2 max-h-40 overflow-auto">
+              <summary className="font-bold cursor-pointer text-red-900">तकनीकी विवरण (Technical Details)</summary>
+              <div className="mt-1 font-mono text-[11px] whitespace-pre-wrap">{this.state.error.toString()}</div>
+            </details>
+          )}
           <div className="flex items-center justify-center gap-3 pt-2">
             <button
               onClick={this.handleRetry}

@@ -18,8 +18,9 @@ build/
 
 # Uploads & Temp files
 backend/uploads/crop-*
-*.log
-npm-debug.log*
+!backend/uploads/.gitkeep
+phone_screen*.png
+screen.png
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*

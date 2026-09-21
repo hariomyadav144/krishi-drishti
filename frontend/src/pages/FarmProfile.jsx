@@ -15,25 +15,41 @@ import {
   Trash2, 
   Phone, 
   Mail,
-  ShieldCheck
+  ShieldCheck,
+  LogOut
 } from 'lucide-react';
 
 export default function FarmProfile() {
-  const { user, profile, farm, currentCrop, refreshUser } = useAuth();
+  const { user, profile, farm, currentCrop, refreshUser, logout } = useAuth();
   const { lang, t } = useLanguage();
 
   const [crops, setCrops] = useState([]);
   const [isEditing, setIsEditing] = useState(false);
   const [editData, setEditData] = useState({
     name: user?.name || '',
-    state: profile?.state || 'Maharashtra',
-    district: profile?.district || 'Nashik',
-    village: profile?.village || 'Pimpalgaon',
-    farmSize: farm?.farmSize || 4.5,
+    state: profile?.state || '',
+    district: profile?.district || '',
+    village: profile?.village || '',
+    farmSize: farm?.farmSize ?? '',
     landUnit: farm?.landUnit || 'Acres',
-    soilType: farm?.soilType || 'Black Soil / Regur',
-    irrigationMethod: farm?.irrigationMethod || 'Drip Irrigation',
+    soilType: farm?.soilType || '',
+    irrigationMethod: farm?.irrigationMethod || '',
   });
+
+  useEffect(() => {
+    if (!isEditing) {
+      setEditData({
+        name: user?.name || '',
+        state: profile?.state || '',
+        district: profile?.district || '',
+        village: profile?.village || '',
+        farmSize: farm?.farmSize ?? '',
+        landUnit: farm?.landUnit || 'Acres',
+        soilType: farm?.soilType || '',
+        irrigationMethod: farm?.irrigationMethod || '',
+      });
+    }
+  }, [user, profile, farm, isEditing]);
 
   const [showAddCropModal, setShowAddCropModal] = useState(false);
   const [newCropData, setNewCropData] = useState({
@@ -112,13 +128,23 @@ export default function FarmProfile() {
           <p className="text-xs text-slate-600">Farmer ID: {user?._id?.substring(0, 10)}...</p>
         </div>
 
-        <button
-          onClick={() => setIsEditing(!isEditing)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 text-xs font-bold transition shadow-xs"
-        >
-          <Edit3 className="w-4 h-4 text-agri-600" />
-          <span>{isEditing ? (lang === 'hi' ? 'रद्द करें' : 'Cancel Edit') : t('profile.editProfile')}</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-800 hover:bg-slate-50 text-xs font-bold transition shadow-xs"
+          >
+            <Edit3 className="w-4 h-4 text-agri-600" />
+            <span>{isEditing ? (lang === 'hi' ? 'रद्द करें' : 'Cancel Edit') : t('profile.editProfile')}</span>
+          </button>
+          <button
+            onClick={logout}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 hover:bg-red-100 text-xs font-bold transition shadow-xs"
+            title="Log Out"
+          >
+            <LogOut className="w-4 h-4 text-red-600" />
+            <span>{t('nav.logout')}</span>
+          </button>
+        </div>
       </div>
 
       {/* Edit Form */}
@@ -236,22 +262,22 @@ export default function FarmProfile() {
           <div className="space-y-2 text-xs">
             <div>
               <span className="text-slate-400 block text-[10px] uppercase font-bold">Farmer Name</span>
-              <span className="font-bold text-slate-900 text-sm">{user?.name || 'Rameshwar Patil'}</span>
+              <span className="font-bold text-slate-900 text-sm">{user?.name || '—'}</span>
             </div>
 
             <div className="flex items-center gap-2 text-slate-700">
               <Phone className="w-3.5 h-3.5 text-slate-400" />
-              <span>{user?.phone || '9876543210'}</span>
+              <span>{user?.phone || '—'}</span>
             </div>
 
             <div className="flex items-center gap-2 text-slate-700">
               <Mail className="w-3.5 h-3.5 text-slate-400" />
-              <span>{user?.email || 'farmer@fasaldrishti.in'}</span>
+              <span>{user?.email || '—'}</span>
             </div>
 
             <div className="flex items-center gap-2 text-slate-700">
               <MapPin className="w-3.5 h-3.5 text-slate-400" />
-              <span>{profile?.village || 'Pimpalgaon'}, {profile?.district || 'Nashik'}, {profile?.state || 'Maharashtra'}</span>
+              <span>{[profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ') || '—'}</span>
             </div>
           </div>
         </div>
@@ -267,28 +293,28 @@ export default function FarmProfile() {
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <span className="text-slate-500 block text-[10px]">Total Holding</span>
               <span className="font-bold text-slate-900 text-sm mt-0.5 block">
-                {farm?.farmSize || 4.5} {farm?.landUnit || 'Acres'}
+                {farm?.farmSize ? `${farm.farmSize} ${farm?.landUnit || 'Acres'}` : '—'}
               </span>
             </div>
 
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <span className="text-slate-500 block text-[10px]">Soil Type</span>
               <span className="font-bold text-slate-900 text-xs mt-0.5 block truncate">
-                {farm?.soilType || 'Black Soil'}
+                {farm?.soilType || '—'}
               </span>
             </div>
 
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <span className="text-slate-500 block text-[10px]">Irrigation</span>
               <span className="font-bold text-slate-900 text-xs mt-0.5 block truncate">
-                {farm?.irrigationMethod || 'Drip Irrigation'}
+                {farm?.irrigationMethod || '—'}
               </span>
             </div>
 
             <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100">
               <span className="text-slate-500 block text-[10px]">Water Source</span>
               <span className="font-bold text-slate-900 text-xs mt-0.5 block truncate">
-                Borewell & Pond
+                {farm?.waterSource || 'Borewell & Pond'}
               </span>
             </div>
           </div>
@@ -298,7 +324,7 @@ export default function FarmProfile() {
 
       {/* Interactive OpenStreetMap Farm Location Viewer */}
       <FarmLocationMap 
-        initialName={profile?.village ? `${profile.village}, ${profile.district || ''}` : 'Pimpalgaon, Nashik'}
+        initialName={profile?.village ? `${profile.village}${profile.district ? `, ${profile.district}` : ''}` : ''}
         onLocationSelect={({ lat, lng, locationName }) => {
           console.log('Profile location updated to:', locationName, lat, lng);
         }}
@@ -453,6 +479,17 @@ export default function FarmProfile() {
           </div>
         </div>
       )}
+
+      {/* Logout Action Bar */}
+      <div className="pt-4 border-t border-slate-200 flex justify-center">
+        <button
+          onClick={logout}
+          className="flex items-center justify-center gap-2 w-full max-w-sm py-3 px-4 bg-red-50 hover:bg-red-100 border border-red-200 text-red-700 font-bold rounded-2xl transition shadow-sm text-xs"
+        >
+          <LogOut className="w-4 h-4 text-red-600" />
+          <span>{t('nav.logout')} ({lang === 'hi' ? 'लॉग आउट' : 'Sign Out'})</span>
+        </button>
+      </div>
 
     </div>
   );

@@ -1,7 +1,12 @@
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useLanguage } from './LanguageContext';
 import { cleanTextForSpeech } from '../components/VoiceReader';
-import api from '../services/api';
+import api, { isNativeApp } from '../services/api';
+import { 
+  checkMicrophonePermission, 
+  requestMicrophonePermission, 
+  openNativeAppSettings 
+} from '../services/appPermissions';
 
 const SwarContext = createContext();
 
@@ -16,6 +21,7 @@ export const SwarProvider = ({ children }) => {
   const [swarResponse, setSwarResponse] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [permissionDenied, setPermissionDenied] = useState(false);
   const [currentScreenContext, setCurrentScreenContext] = useState({
     screenName: 'Home',
     crop: '',
@@ -55,7 +61,8 @@ export const SwarProvider = ({ children }) => {
         console.warn('[SWAR] Speech recognition notice:', event.error);
         setIsListening(false);
         if (event.error === 'not-allowed') {
-          setErrorMessage(t('swar.micDenied') || 'Microphone access denied.');
+          setPermissionDenied(true);
+          setErrorMessage(t('swar.micDenied'));
         } else if (event.error === 'no-speech') {
           setErrorMessage(t('swar.notUnderstood') || 'No speech detected.');
         }
@@ -67,7 +74,7 @@ export const SwarProvider = ({ children }) => {
 
       recognitionRef.current = recognition;
     }
-  }, [speechLocale, t]);
+  }, [speechLocale, t, lang]);
 
   // Stop speaking on unmount
   useEffect(() => {
@@ -109,19 +116,87 @@ export const SwarProvider = ({ children }) => {
     }
   };
 
-  const startListening = () => {
+  const openAppSettings = async () => {
+    if (isNativeApp()) {
+      await openNativeAppSettings();
+    }
+  };
+
+  const ensureMicPermission = async () => {
+    // 1. Native Android flow via Capacitor AppPermissions plugin
+    if (isNativeApp()) {
+      try {
+        const isGranted = await checkMicrophonePermission();
+        if (isGranted) {
+          setPermissionDenied(false);
+          return true;
+        }
+
+        const requested = await requestMicrophonePermission();
+        if (requested) {
+          setPermissionDenied(false);
+          return true;
+        } else {
+          setPermissionDenied(true);
+          setErrorMessage(
+            lang === 'hi'
+              ? 'माइक्रोफोन अनुमति अस्वीकृत है। कृपया ऐप सेटिंग्स में जाकर माइक्रोफोन की अनुमति दें।'
+              : 'Microphone permission was denied. Please allow microphone access in App Settings.'
+          );
+          return false;
+        }
+      } catch (err) {
+        console.warn('[SWAR] Native permission error:', err);
+      }
+    }
+
+    // 2. Standard Web Browser fallback
+    if (typeof navigator !== 'undefined' && navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(track => track.stop());
+        setPermissionDenied(false);
+        return true;
+      } catch (err) {
+        console.warn('[SWAR] Web getUserMedia error:', err);
+        setPermissionDenied(true);
+        setErrorMessage(t('swar.micDenied') || 'Microphone access denied.');
+        return false;
+      }
+    }
+
+    return true;
+  };
+
+  const startListening = async () => {
     if (isSpeaking) stopSpeaking();
     setTranscript('');
     setErrorMessage('');
+    setPermissionDenied(false);
+
+    const hasPerm = await ensureMicPermission();
+    if (!hasPerm) {
+      setIsListening(false);
+      return;
+    }
+
     if (recognitionRef.current) {
       try {
         recognitionRef.current.lang = speechLocale || 'hi-IN';
         recognitionRef.current.start();
       } catch (err) {
         console.warn('[SWAR] Start listening error:', err.message);
+        if (err.name === 'InvalidStateError') {
+          try {
+            recognitionRef.current.stop();
+            setTimeout(() => {
+              recognitionRef.current.start();
+            }, 250);
+          } catch (_) {}
+        }
       }
     } else {
-      setErrorMessage('Speech Recognition is not supported on this browser.');
+      setErrorMessage(t('swar.speechNotSupported'));
     }
   };
 
@@ -165,11 +240,7 @@ export const SwarProvider = ({ children }) => {
       // Auto-narrate answer in farmer's selected language
       speakText(answer);
     } catch (err) {
-      console.error('[SWAR] Error:', err);
-      const fallbackErr = lang === 'en' 
-        ? 'SWAR is temporarily busy. Please try again shortly.' 
-        : 'स्वर अभी व्यस्त है। कृपया थोड़ी देर बाद फिर पूछें।';
-      setErrorMessage(fallbackErr);
+      setErrorMessage(t('swar.busyError'));
     } finally {
       setLoading(false);
     }
@@ -204,6 +275,7 @@ export const SwarProvider = ({ children }) => {
       swarResponse,
       loading,
       errorMessage,
+      permissionDenied,
       messages,
       currentScreenContext,
       setCurrentScreenContext,
@@ -212,7 +284,9 @@ export const SwarProvider = ({ children }) => {
       speakText,
       stopSpeaking,
       askSwar,
-      extractFormFieldValue
+      extractFormFieldValue,
+      openAppSettings,
+      requestMicPermission: ensureMicPermission
     }}>
       {children}
     </SwarContext.Provider>

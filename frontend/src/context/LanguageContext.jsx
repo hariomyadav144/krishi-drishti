@@ -9,6 +9,8 @@ import taTranslations from '../translations/ta.json';
 import teTranslations from '../translations/te.json';
 import knTranslations from '../translations/kn.json';
 import mlTranslations from '../translations/ml.json';
+import orTranslations from '../translations/or.json';
+import asTranslations from '../translations/as.json';
 
 const LanguageContext = createContext();
 
@@ -23,6 +25,8 @@ const translations = {
   te: teTranslations,
   kn: knTranslations,
   ml: mlTranslations,
+  or: orTranslations,
+  as: asTranslations,
 };
 
 export const availableLanguages = [
@@ -40,9 +44,25 @@ export const availableLanguages = [
   { code: 'as', label: 'Assamese', native: 'অসমীয়া', icon: '🍃', speechLocale: 'as-IN' },
 ];
 
+const CROP_CANONICAL_MAP = {
+  tomato: 'tomato', 'टमाटर': 'tomato', 'ਟਮਾਟਰ': 'tomato', 'टोमॅटो': 'tomato', 'ટામેટા': 'tomato',
+  wheat: 'wheat', 'गेहूं': 'wheat', 'ਕਣਕ': 'wheat', 'गहू': 'wheat', 'ઘઉં': 'wheat',
+  rice: 'rice', paddy: 'rice', 'धान': 'rice', 'चावल': 'rice', 'ਝੋਨਾ': 'rice', 'भात': 'rice', 'ડાંગર': 'rice',
+  cotton: 'cotton', 'कपास': 'cotton', 'ਨਰਮਾ': 'cotton', 'ਕਪਾਹ': 'cotton', 'कापूस': 'cotton',
+  maize: 'maize', corn: 'maize', 'मक्का': 'maize', 'ਮੱਕੀ': 'maize', 'मका': 'maize',
+  potato: 'potato', 'आलू': 'potato', 'ਆਲੂ': 'potato', 'बटाटा': 'potato', 'બટાટા': 'potato',
+  onion: 'onion', 'प्याज': 'onion', 'ਗੰਢਾ': 'onion', 'कांदा': 'onion', 'ડુંગળી': 'onion',
+  soybean: 'soybean', 'सोयाबीन': 'soybean',
+  sugarcane: 'sugarcane', 'गन्ना': 'sugarcane', 'ਕਮਾਦ': 'sugarcane', 'ऊस': 'sugarcane',
+  mustard: 'mustard', 'सरसों': 'mustard', 'ਸਰ੍ਹੋਂ': 'mustard', 'मोहरी': 'mustard',
+  gram: 'gram', chickpea: 'gram', 'चना': 'gram', 'ਛੋਲੇ': 'gram', 'हरभरा': 'gram',
+  groundnut: 'groundnut', 'मूंगफली': 'groundnut', 'ਮੂੰਗਫਲੀ': 'groundnut', 'भुईमूग': 'groundnut',
+  chili: 'chili', chilli: 'chili', 'मिर्च': 'chili', 'ਮਿਰਚ': 'chili', 'मिरची': 'chili'
+};
+
 export const LanguageProvider = ({ children }) => {
   const [lang, setLang] = useState(() => {
-    return localStorage.getItem('krishi_lang') || 'en';
+    return localStorage.getItem('krishi_lang') || 'hi';
   });
 
   useEffect(() => {
@@ -59,6 +79,11 @@ export const LanguageProvider = ({ children }) => {
     const codes = availableLanguages.map(l => l.code);
     const nextIdx = (codes.indexOf(lang) + 1) % codes.length;
     setLang(codes[nextIdx]);
+  };
+
+  // Dedicated 2-way Hindi <-> English switch for Login, Register, and quick toggling
+  const toggleHindiEnglish = () => {
+    setLang((prev) => (prev === 'hi' ? 'en' : 'hi'));
   };
 
   const currentLanguageObj = availableLanguages.find(l => l.code === lang) || availableLanguages[0];
@@ -88,12 +113,71 @@ export const LanguageProvider = ({ children }) => {
     return current;
   };
 
+  // Dynamic farm data translation helpers
+  const tCrop = (rawCrop) => {
+    if (!rawCrop) return t('crops.general', 'Crop');
+    const clean = String(rawCrop).toLowerCase().trim();
+    const key = CROP_CANONICAL_MAP[clean] || clean;
+    return t(`crops.${key}`, rawCrop);
+  };
+
+  const tStage = (rawStage) => {
+    if (!rawStage) return t('stages.vegetative', 'Vegetative Stage');
+    const s = String(rawStage).toLowerCase();
+    if (s.includes('flower') || s.includes('फूल') || s.includes('ਫੁੱਲ')) return t('stages.flowering', 'Flowering Stage');
+    if (s.includes('fruit') || s.includes('pod') || s.includes('फल') || s.includes('दाण')) return t('stages.fruiting', 'Fruiting Stage');
+    if (s.includes('seedling') || s.includes('पौध') || s.includes('ਪਨੀਰੀ')) return t('stages.seedling', 'Seedling Stage');
+    if (s.includes('germ') || s.includes('अंकुरण') || s.includes('ਪੁੰਗਰ')) return t('stages.germination', 'Germination Stage');
+    if (s.includes('matur') || s.includes('पक्व') || s.includes('ਪੱਕ')) return t('stages.maturity', 'Maturity Stage');
+    if (s.includes('harvest') || s.includes('कटाई') || s.includes('ਵਾਢੀ')) return t('stages.harvesting', 'Harvesting Stage');
+    return t('stages.vegetative', 'Vegetative Stage');
+  };
+
+  const tSoil = (rawSoil) => {
+    if (!rawSoil) return t('soils.black', 'Black Soil');
+    const s = String(rawSoil).toLowerCase();
+    if (s.includes('black') || s.includes('काली') || s.includes('ਕਾਲੀ') || s.includes('काळी')) return t('soils.black', 'Black Soil');
+    if (s.includes('alluvial') || s.includes('जलोढ़') || s.includes('ਜਲੋਢ')) return t('soils.alluvial', 'Alluvial Soil');
+    if (s.includes('red') || s.includes('लाल') || s.includes('ਲਾਲ') || s.includes('तांब')) return t('soils.red', 'Red Soil');
+    if (s.includes('sand') || s.includes('बलुई') || s.includes('ਰੇਤਲੀ')) return t('soils.sandy', 'Sandy Loam Soil');
+    if (s.includes('clay') || s.includes('चिकनी') || s.includes('ਚੀਕਣੀ')) return t('soils.clay', 'Clay Soil');
+    return t('soils.loamy', 'Loamy Soil');
+  };
+
+  const tMoisture = (rawStatus) => {
+    if (!rawStatus) return t('moistureLevels.adequate', 'Adequate');
+    const s = String(rawStatus).toLowerCase();
+    if (s.includes('adequ') || s.includes('पर्याप्त') || s.includes('ਉਚਿਤ')) return t('moistureLevels.adequate', 'Adequate');
+    if (s.includes('optim') || s.includes('उत्तम') || s.includes('ਵਧੀਆ')) return t('moistureLevels.optimal', 'Optimal');
+    if (s.includes('dry') || s.includes('कम') || s.includes('ਸਿੰਚਾਈ') || s.includes('ਘੱਟ')) return t('moistureLevels.dry', 'Dry (Irrigation Needed)');
+    if (s.includes('waterlog') || s.includes('जलभराव') || s.includes('જલ')) return t('moistureLevels.waterlogged', 'Waterlogged');
+    if (s.includes('crit') || s.includes('गंभीर') || s.includes('ਸੋਕਾ')) return t('moistureLevels.critical', 'Critical');
+    return rawStatus;
+  };
+
+  const tWeather = (rawWeather) => {
+    if (!rawWeather) return t('weatherConditions.clear', 'Clear');
+    const s = String(rawWeather).toLowerCase();
+    if (s.includes('no rain') || s.includes('बारिश नहीं') || s.includes('ਮੀਂਹ ਨਹੀਂ')) return t('weatherConditions.noRain', 'No Rain');
+    if (s.includes('rain') || s.includes('बारिश') || s.includes('ਮੀਂਹ')) return t('weatherConditions.rainy', 'Rainy');
+    if (s.includes('cloud') || s.includes('बादल') || s.includes('ਬੱਦਲ')) return t('weatherConditions.cloudy', 'Cloudy');
+    if (s.includes('sun') || s.includes('धूप') || s.includes('ਧੁੱਪ')) return t('weatherConditions.sunny', 'Sunny');
+    if (s.includes('storm') || s.includes('तूफान') || s.includes('ਤੂਫ਼ਾਨ')) return t('weatherConditions.stormy', 'Stormy');
+    return t('weatherConditions.clear', 'Clear');
+  };
+
   return (
     <LanguageContext.Provider value={{ 
       lang, 
       setLanguage, 
       toggleLanguage, 
+      toggleHindiEnglish,
       t, 
+      tCrop,
+      tStage,
+      tSoil,
+      tMoisture,
+      tWeather,
       availableLanguages,
       currentLanguageObj,
       speechLocale: currentLanguageObj.speechLocale || 'hi-IN'

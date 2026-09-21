@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Fasal Drishti</string>
+    <string name="title_activity_main">Fasal Drishti</string>
+    <string name="package_name">com.fasaldristi.app</string>
+    <string name="custom_url_scheme">com.fasaldristi.app</string>
+</resources>

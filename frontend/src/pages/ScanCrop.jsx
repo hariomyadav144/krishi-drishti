@@ -6,6 +6,8 @@ import VoiceReader from '../components/VoiceReader';
 import FeedbackModal from '../components/FeedbackModal';
 import CropComparisonModal from '../components/CropComparisonModal';
 import { compareCropScans } from '../services/cropScanService';
+import { Camera as CapacitorCamera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { 
   Camera, 
   Upload, 
@@ -31,7 +33,7 @@ import {
 } from 'lucide-react';
 
 export default function ScanCrop({ setActiveTab }) {
-  const { lang, t } = useLanguage();
+  const { lang, t, tCrop, tStage } = useLanguage();
   const { currentCrop } = useAuth();
 
   const [symptomDescription, setSymptomDescription] = useState('');
@@ -109,7 +111,37 @@ export default function ScanCrop({ setActiveTab }) {
     }
   }, [isCameraModalOpen, isCameraActive, isCameraLoading]);
 
-  const openCameraModal = () => {
+  const openCameraModal = async () => {
+    // On native Android/iOS, trigger native camera intent directly
+    if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+      try {
+        const photo = await CapacitorCamera.getPhoto({
+          quality: 90,
+          allowEditing: false,
+          resultType: CameraResultType.Uri,
+          source: CameraSource.Prompt
+        });
+        if (photo && photo.webPath) {
+          const res = await fetch(photo.webPath);
+          const blob = await res.blob();
+          const file = new File([blob], `crop-scan-${Date.now()}.${photo.format || 'jpg'}`, {
+            type: `image/${photo.format || 'jpeg'}`
+          });
+          setSelectedFile(file);
+          setSampleUrl('');
+          setAnalysisResult(null);
+          setPreviewUrl(photo.webPath);
+          handleAnalyze(null, file);
+          return;
+        }
+      } catch (err) {
+        if (err && err.message && err.message.toLowerCase().includes('cancel')) {
+          return;
+        }
+        console.warn('Native camera unavailable, falling back to browser modal:', err);
+      }
+    }
+
     setIsCameraModalOpen(true);
     setCameraError('');
     startCameraStream(facingMode);
@@ -130,11 +162,7 @@ export default function ScanCrop({ setActiveTab }) {
 
       // Check browser Camera API support
       if (!navigator?.mediaDevices?.getUserMedia) {
-        setCameraError(
-          lang === 'hi'
-            ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें और पुनः प्रयास करें, या गैलरी से फोटो अपलोड करें।'
-            : 'Camera access is unavailable. Please allow camera permission and try again, or use Upload from Gallery.'
-        );
+        setCameraError(t('diagnose.cameraUnavailable'));
         setIsCameraLoading(false);
         return;
       }
@@ -174,11 +202,7 @@ export default function ScanCrop({ setActiveTab }) {
     } catch (err) {
       console.warn('Camera access error:', err);
       stopCameraStream();
-      setCameraError(
-        lang === 'hi'
-          ? 'कैमरा उपलब्ध नहीं है। कृपया कैमरा अनुमति दें और पुनः प्रयास करें, या गैलरी से फोटो अपलोड करें।'
-          : 'Camera access is unavailable. Please allow camera permission and try again, or use Upload from Gallery.'
-      );
+      setCameraError(t('diagnose.cameraUnavailable'));
       setIsCameraLoading(false);
     }
   };
@@ -264,7 +288,7 @@ export default function ScanCrop({ setActiveTab }) {
     if (e && typeof e.preventDefault === 'function') e.preventDefault();
     const fileToScan = fileOverride || selectedFile;
     if (!previewUrl && !fileToScan && !sampleUrl) {
-      setError(lang === 'hi' ? 'कृपया फसल की एक फोटो चुनें या अपलोड करें।' : 'Please upload or select a crop photo to scan.');
+      setError(t('diagnose.uploadOrSelectPrompt'));
       return;
     }
 
@@ -303,7 +327,7 @@ export default function ScanCrop({ setActiveTab }) {
       }
     } catch (err) {
       console.error('Scan error:', err);
-      setError(err.response?.data?.message || (lang === 'hi' ? 'AI रोग जांच में समस्या आई। पुनः प्रयास करें।' : 'Error running AI crop disease diagnosis.'));
+      setError(err.response?.data?.message || t('diagnose.diagnosisError'));
     } finally {
       setIsAnalyzing(false);
     }
@@ -316,7 +340,7 @@ export default function ScanCrop({ setActiveTab }) {
       const comp = await compareCropScans(previousScanContext._id, savedScanId, lang);
       if (comp) setComparisonModalData(comp);
     } catch (err) {
-      alert(err.response?.data?.message || (lang === 'hi' ? 'तुलना करने में समस्या आई।' : 'Error comparing with previous scan.'));
+      alert(err.response?.data?.message || t('diagnose.compareError'));
     } finally {
       setIsComparingWithPrevious(false);
     }
@@ -337,11 +361,12 @@ export default function ScanCrop({ setActiveTab }) {
 
   const shareOnWhatsApp = () => {
     if (!analysisResult) return;
-    const problem = lang === 'hi' && analysisResult.detectedProblemHi ? analysisResult.detectedProblemHi : analysisResult.detectedProblem;
-    const recAction = lang === 'hi' && analysisResult.recommendedActionHi ? analysisResult.recommendedActionHi : analysisResult.recommendedAction;
+    const langKey = lang.charAt(0).toUpperCase() + lang.slice(1);
+    const problem = analysisResult[`detectedProblem${langKey}`] || (lang === 'hi' && analysisResult.detectedProblemHi ? analysisResult.detectedProblemHi : analysisResult.detectedProblem);
+    const recAction = analysisResult[`recommendedAction${langKey}`] || (lang === 'hi' && analysisResult.recommendedActionHi ? analysisResult.recommendedActionHi : analysisResult.recommendedAction);
     
     const text = `🌾 *FASAL DRISHTI AI DIAGNOSIS & PRESCRIPTION*\n` +
-      `🌿 *Crop:* ${analysisResult.cropName}\n` +
+      `🌿 *Crop:* ${tCrop(analysisResult.cropName) || analysisResult.cropName}\n` +
       `🔍 *Detected Problem:* ${problem}\n` +
       `⚠️ *Severity:* ${analysisResult.severity} (${analysisResult.confidence}% AI Confidence)\n` +
       `💊 *Recommended Treatment:* ${recAction}\n` +
@@ -392,7 +417,7 @@ export default function ScanCrop({ setActiveTab }) {
               className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-xs"
             >
               <RefreshCw className="w-3.5 h-3.5" />
-              <span>{lang === 'hi' ? 'कैमरा पुनः प्रयास करें' : 'Try Camera Again'}</span>
+              <span>{t('diagnose.tryCameraAgain')}</span>
             </button>
             <button
               type="button"
@@ -400,7 +425,7 @@ export default function ScanCrop({ setActiveTab }) {
               className="bg-sky-600 hover:bg-sky-700 text-white px-3 py-1.5 rounded-xl font-bold text-xs flex items-center gap-1.5 transition active:scale-95 shadow-xs"
             >
               <Upload className="w-3.5 h-3.5" />
-              <span>{lang === 'hi' ? 'गैलरी से फोटो चुनें' : 'Upload from Gallery'}</span>
+              <span>{t('diagnose.uploadFromGallery')}</span>
             </button>
           </div>
         </div>
@@ -415,7 +440,7 @@ export default function ScanCrop({ setActiveTab }) {
               <div className="flex items-center gap-2 text-white">
                 <Camera className="w-5 h-5 text-emerald-400" />
                 <span className="font-extrabold text-sm tracking-wide">
-                  {lang === 'hi' ? 'कैमरा दृश्य (CAMERA VIEW)' : 'CAMERA VIEW'}
+                  {t('diagnose.cameraView')}
                 </span>
               </div>
               <button
@@ -446,7 +471,7 @@ export default function ScanCrop({ setActiveTab }) {
                 <div className="absolute inset-0 z-30 bg-black/80 flex flex-col items-center justify-center text-white gap-3 p-4">
                   <RefreshCw className="w-9 h-9 animate-spin text-emerald-400" />
                   <span className="text-sm font-bold text-center">
-                    {lang === 'hi' ? 'कैमरा शुरू हो रहा है... अनुमति दें' : 'Starting camera feed... please allow camera permission'}
+                    {t('diagnose.startingCamera')}
                   </span>
                 </div>
               )}
@@ -459,7 +484,7 @@ export default function ScanCrop({ setActiveTab }) {
                   </div>
                   <div className="max-w-md space-y-1">
                     <h4 className="font-black text-base text-amber-300">
-                      {lang === 'hi' ? 'कैमरा एक्सेस उपलब्ध नहीं है' : 'Camera Access Unavailable'}
+                      {t('diagnose.cameraUnavailable')}
                     </h4>
                     <p className="text-xs text-slate-300 leading-relaxed">
                       {cameraError}
@@ -472,7 +497,7 @@ export default function ScanCrop({ setActiveTab }) {
                       className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
                     >
                       <RefreshCw className="w-4 h-4" />
-                      <span>{lang === 'hi' ? 'पुनः प्रयास करें' : 'Try Camera Again'}</span>
+                      <span>{t('diagnose.tryCameraAgain')}</span>
                     </button>
                     <button
                       type="button"
@@ -483,7 +508,7 @@ export default function ScanCrop({ setActiveTab }) {
                       className="flex-1 bg-sky-600 hover:bg-sky-500 text-white font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-1.5 transition active:scale-95 shadow-md"
                     >
                       <Upload className="w-4 h-4" />
-                      <span>{lang === 'hi' ? 'गैलरी से अपलोड' : 'Upload from Gallery'}</span>
+                      <span>{t('diagnose.uploadFromGallery')}</span>
                     </button>
                   </div>
                 </div>
@@ -509,7 +534,7 @@ export default function ScanCrop({ setActiveTab }) {
                   </div>
 
                   <div className="text-center text-[11px] text-emerald-200 font-bold bg-black/75 py-1.5 px-4 rounded-full backdrop-blur-md self-center shadow-md">
-                    {lang === 'hi' ? 'रोगग्रस्त पत्ती को चौखट के बीच में रखें' : 'Center the infected leaf in the reticle'}
+                    {t('diagnose.centerLeaf')}
                   </div>
                 </div>
               )}
@@ -522,7 +547,7 @@ export default function ScanCrop({ setActiveTab }) {
                   type="button"
                   onClick={switchCameraMode}
                   className="p-3 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 transition active:scale-95"
-                  title={lang === 'hi' ? 'कैमरा बदलें' : 'Switch Camera'}
+                  title={t('diagnose.switchCamera')}
                 >
                   <SwitchCamera className="w-5 h-5" />
                 </button>
@@ -534,7 +559,7 @@ export default function ScanCrop({ setActiveTab }) {
                   className="flex-1 max-w-xs bg-gradient-to-r from-emerald-500 to-agri-600 hover:from-emerald-600 hover:to-agri-700 text-white font-extrabold py-3.5 px-6 rounded-2xl shadow-xl flex items-center justify-center gap-2 text-sm transition active:scale-95 disabled:opacity-50"
                 >
                   <Camera className="w-5 h-5" />
-                  <span>{lang === 'hi' ? 'फोटो खींचें (Capture Photo)' : 'Capture Photo'}</span>
+                  <span>{t('diagnose.capturePhoto')}</span>
                 </button>
 
                 <button
@@ -567,9 +592,9 @@ export default function ScanCrop({ setActiveTab }) {
                 <span>{t('diagnose.autoCropBanner')}</span>
               </p>
               <p className="text-[11px] text-emerald-800 font-normal mt-0.5">
-                {lang === 'hi'
+                {t('diagnose.autoCropSubtext') || (lang === 'hi'
                   ? 'गेहूं, धान, टमाटर, आलू, कपास, मिर्च या किसी भी फसल की फोटो अपलोड करें — AI स्वतः पहचान करेगा।'
-                  : 'Upload or capture any crop photo (Wheat, Rice, Tomato, Potato, Cotton, etc.) — AI will detect it automatically.'}
+                  : 'Upload or capture any crop photo (Wheat, Rice, Tomato, Potato, Cotton, etc.) — AI will detect it automatically.')}
               </p>
             </div>
           </div>
@@ -577,7 +602,7 @@ export default function ScanCrop({ setActiveTab }) {
           {/* Photo Selection or Preview Area */}
           <div>
             <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-              {lang === 'hi' ? 'पत्ती / पौधे की फोटो (Camera / Gallery)' : 'Crop Leaf Photo (Camera / Gallery)'}
+              {t('diagnose.leafPhotoLabel')}
             </label>
 
             {previewUrl ? (
@@ -606,7 +631,7 @@ export default function ScanCrop({ setActiveTab }) {
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center text-white gap-2 p-4">
                       <RefreshCw className="w-8 h-8 animate-spin text-emerald-400" />
                       <span className="text-xs font-bold uppercase tracking-wider text-emerald-300">
-                        {lang === 'hi' ? 'AI द्वारा रोग का विश्लेषण हो रहा है...' : 'AI Analyzing Crop Health...'}
+                        {t('diagnose.aiAnalyzing')}
                       </span>
                     </div>
                   )}
@@ -623,7 +648,7 @@ export default function ScanCrop({ setActiveTab }) {
                     className="flex-1 bg-gradient-to-r from-emerald-600 to-agri-700 hover:from-emerald-700 hover:to-agri-800 text-white py-2.5 px-3 rounded-xl text-xs font-bold shadow-xs flex items-center justify-center gap-1.5 active:scale-95 transition"
                   >
                     <Camera className="w-4 h-4" />
-                    <span>{lang === 'hi' ? 'कैमरा से दूसरी फोटो लें' : 'Retake with Camera'}</span>
+                    <span>{t('diagnose.retakeWithCamera')}</span>
                   </button>
 
                   <button
@@ -635,7 +660,7 @@ export default function ScanCrop({ setActiveTab }) {
                     className="bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 py-2.5 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 active:scale-95 transition"
                   >
                     <Upload className="w-4 h-4 text-slate-600" />
-                    <span>{lang === 'hi' ? 'गैलरी' : 'Gallery'}</span>
+                    <span>{t('diagnose.gallery')}</span>
                   </button>
                 </div>
               </div>
@@ -658,9 +683,9 @@ export default function ScanCrop({ setActiveTab }) {
                     <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center group-hover:scale-110 transition">
                       <Camera className="w-7 h-7" />
                     </div>
-                    <span className="text-sm font-black">{lang === 'hi' ? 'कैमरा से फोटो खींचें' : 'Take Photo (Camera)'}</span>
+                    <span className="text-sm font-black">{t('diagnose.takePhotoCamera')}</span>
                     <span className="text-[10px] text-emerald-100 font-normal">
-                      {lang === 'hi' ? 'डिवाइस कैमरा सीधे खुलेगा' : 'Opens device camera directly'}
+                      {t('diagnose.opensDirectly')}
                     </span>
                   </button>
 
@@ -677,9 +702,9 @@ export default function ScanCrop({ setActiveTab }) {
                     <div className="w-12 h-12 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center group-hover:scale-110 transition">
                       <Video className="w-7 h-7 animate-pulse" />
                     </div>
-                    <span className="text-sm font-black">{lang === 'hi' ? 'लाइव वीडियो स्कैनर' : 'Live Viewfinder'}</span>
+                    <span className="text-sm font-black">{t('diagnose.liveViewfinder')}</span>
                     <span className="text-[10px] text-emerald-700 font-normal">
-                      {lang === 'hi' ? 'स्क्रीन पर लाइव व्यू' : 'Interactive video scanner'}
+                      {t('diagnose.interactiveScanner')}
                     </span>
                   </button>
 
@@ -697,15 +722,15 @@ export default function ScanCrop({ setActiveTab }) {
                     <div className="w-12 h-12 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center group-hover:scale-110 transition">
                       <Upload className="w-7 h-7 text-sky-700" />
                     </div>
-                    <span className="text-sm font-black">{lang === 'hi' ? 'गैलरी से फोटो चुनें' : 'Upload from Gallery'}</span>
+                    <span className="text-sm font-black">{t('diagnose.uploadFromGallery')}</span>
                     <span className="text-[10px] text-sky-700 font-normal">
-                      {lang === 'hi' ? 'फोटो या फाइल चुनें' : 'Browse saved photos'}
+                      {t('diagnose.browseSaved')}
                     </span>
                   </button>
 
                 </div>
                 <p className="text-[11px] text-slate-500">
-                  {lang === 'hi' ? '💡 सलाह: बेहतर AI जांच के लिए पत्ती के रोगग्रस्त भाग की स्पष्ट रोशनी में फोटो लें।' : '💡 Tip: Capture a clear, close photo of the affected leaf surface under good light.'}
+                  {t('diagnose.photoTip')}
                 </p>
               </div>
             )}
@@ -800,10 +825,10 @@ export default function ScanCrop({ setActiveTab }) {
             </div>
             <div className="space-y-1">
               <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
-                {lang === 'hi' ? 'पहचान अस्पष्ट' : 'Unclear Image'}
+                {t('diagnose.unclearImage')}
               </span>
               <h3 className="text-base font-black text-amber-950">
-                {lang === 'hi' ? 'फसल की पहचान नहीं हो सकी' : 'Could Not Confidently Identify Crop'}
+                {t('diagnose.unclearDesc')}
               </h3>
               <p className="text-xs text-amber-900 leading-relaxed font-medium">
                 {analysisResult.unclearMessage || t('diagnose.unclearImageMsg')}
@@ -814,12 +839,12 @@ export default function ScanCrop({ setActiveTab }) {
           <div className="p-3 bg-white/80 rounded-xl border border-amber-200 text-xs text-amber-950 space-y-1">
             <p className="font-bold flex items-center gap-1.5 text-amber-900">
               <Info className="w-4 h-4 text-amber-700 shrink-0" />
-              <span>{lang === 'hi' ? 'स्पष्ट फोटो के लिए सुझाव:' : 'Tips for a Clear Photo:'}</span>
+              <span>{t('diagnose.tipsForClearPhoto')}</span>
             </p>
             <ul className="list-disc list-inside space-y-0.5 text-[11px] text-amber-900 pl-1">
-              <li>{lang === 'hi' ? 'अच्छी रोशनी में पौधे या प्रभावित पत्ती की नजदीक से फोटो लें।' : 'Take a close photo of the plant or affected leaf in good light.'}</li>
-              <li>{lang === 'hi' ? 'कैमरा फोकस साफ रखें और धुंधली तस्वीरों से बचें।' : 'Keep the camera focused and avoid blurry or shaky pictures.'}</li>
-              <li>{lang === 'hi' ? 'पत्ती के आगे और पीछे दोनों हिस्सों का स्पष्ट दृश्य रखें।' : 'Ensure the leaf surface and symptoms are clearly visible.'}</li>
+              <li>{t('diagnose.tip1')}</li>
+              <li>{t('diagnose.tip2')}</li>
+              <li>{t('diagnose.tip3')}</li>
             </ul>
           </div>
 
@@ -830,7 +855,7 @@ export default function ScanCrop({ setActiveTab }) {
               className="w-full sm:flex-1 py-3 px-4 bg-amber-600 hover:bg-amber-700 text-white font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-95"
             >
               <Camera className="w-4 h-4" />
-              <span>{lang === 'hi' ? 'कैमरे से साफ फोटो लें' : 'Retake Clear Photo'}</span>
+              <span>{t('diagnose.retakeClearPhoto')}</span>
             </button>
             <button
               type="button"
@@ -838,7 +863,7 @@ export default function ScanCrop({ setActiveTab }) {
               className="w-full sm:flex-1 py-3 px-4 bg-white hover:bg-amber-100 text-amber-950 border border-amber-300 font-extrabold rounded-xl text-xs flex items-center justify-center gap-2 shadow-xs transition active:scale-95"
             >
               <Upload className="w-4 h-4 text-amber-800" />
-              <span>{lang === 'hi' ? 'गैलरी से दूसरी फोटो चुनें' : 'Upload Another Photo'}</span>
+              <span>{t('diagnose.uploadAnotherPhoto')}</span>
             </button>
           </div>
         </div>
@@ -856,10 +881,10 @@ export default function ScanCrop({ setActiveTab }) {
               </div>
               <div>
                 <span className="text-xs font-black text-emerald-950 block">
-                  {lang === 'hi' ? 'स्थायी रूप से किसान इतिहास में सुरक्षित (Saved)' : 'Permanently Saved to Farmer History'}
+                  {t('diagnose.savedToHistory')}
                 </span>
                 <span className="text-[11px] text-emerald-800 font-medium">
-                  {lang === 'hi' ? 'यह रिपोर्ट MongoDB Atlas में हमेशा के लिए सुरक्षित कर दी गई है।' : 'Archived permanently under your farmer account in MongoDB Atlas.'}
+                  {t('diagnose.archivedUnderAccount')}
                 </span>
               </div>
             </div>
@@ -869,7 +894,7 @@ export default function ScanCrop({ setActiveTab }) {
               onClick={() => setActiveTab && setActiveTab('history')}
               className="px-3.5 py-1.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white text-xs font-extrabold transition shadow-xs flex items-center justify-center gap-1.5 self-start sm:self-auto"
             >
-              <span>{lang === 'hi' ? 'फसल इतिहास देखें' : 'View In History'}</span>
+              <span>{t('diagnose.viewInHistory')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -883,12 +908,12 @@ export default function ScanCrop({ setActiveTab }) {
                 </div>
                 <div>
                   <span className="text-xs font-extrabold uppercase tracking-wide text-amber-900 block">
-                    {lang === 'hi' ? 'पिछला स्कैन इतिहास उपलब्ध है' : 'Historical Scan Detected'}
+                    {t('diagnose.historicalDetected')}
                   </span>
                   <p className="text-xs font-bold text-amber-950">
                     {lang === 'hi' 
                       ? `आपने पहले ${new Date(previousScanContext.scanDate).toLocaleDateString('hi-IN')} को इस फसल को स्कैन किया था (${previousScanContext.detectedProblem})।`
-                      : `You previously scanned this crop on ${new Date(previousScanContext.scanDate).toLocaleDateString()} (${previousScanContext.detectedProblem}).`}
+                      : `${t('diagnose.scannedPreviously') || 'You previously scanned this crop on'} ${new Date(previousScanContext.scanDate).toLocaleDateString(lang === 'pa' ? 'pa-IN' : (lang === 'mr' ? 'mr-IN' : (lang === 'gu' ? 'gu-IN' : 'en-IN')))} (${previousScanContext.detectedProblem}).`}
                   </p>
                 </div>
               </div>
@@ -902,12 +927,12 @@ export default function ScanCrop({ setActiveTab }) {
                 {isComparingWithPrevious ? (
                   <>
                     <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>{lang === 'hi' ? 'तुलना हो रही है...' : 'Comparing...'}</span>
+                    <span>{t('diagnose.comparing')}</span>
                   </>
                 ) : (
                   <>
                     <span>⚖️</span>
-                    <span>{lang === 'hi' ? 'पुराने स्कैन से तुलना करें' : 'Compare with Past Scan'}</span>
+                    <span>{t('diagnose.comparePastScan')}</span>
                   </>
                 )}
               </button>
@@ -936,7 +961,7 @@ export default function ScanCrop({ setActiveTab }) {
                 {/* 🩺 Section 2: Crop Health / Problem */}
                 <h3 className="text-xl font-black text-slate-900 mt-1.5 flex items-center gap-2">
                   <span className="text-base">🩺</span>
-                  <span>{lang === 'hi' && analysisResult.detectedProblemHi ? analysisResult.detectedProblemHi : analysisResult.detectedProblem}</span>
+                  <span>{analysisResult[`detectedProblem${lang.charAt(0).toUpperCase() + lang.slice(1)}`] || (lang === 'hi' && analysisResult.detectedProblemHi ? analysisResult.detectedProblemHi : analysisResult.detectedProblem)}</span>
                 </h3>
               </div>
             </div>
@@ -949,11 +974,11 @@ export default function ScanCrop({ setActiveTab }) {
           {/* Audio voice reader on the diagnostic outcome */}
           <div className="flex items-center justify-between bg-slate-50 p-2.5 rounded-xl border border-slate-100">
             <span className="text-xs font-semibold text-slate-700">
-              {lang === 'hi' ? 'रोग निदान व उपचार विवरण सुनें:' : 'Listen to Diagnosis & Treatment:'}
+              {t('diagnose.listenDiagnosis')}
             </span>
             <VoiceReader
-              textToRead={`${analysisResult.cropName}. ${analysisResult.detectedProblem}. Severity is ${analysisResult.severity}. Recommended action: ${analysisResult.recommendedAction}. Next step: ${analysisResult.nextActionTimeline}`}
-              textToReadHi={`पहचानी गई फसल: ${analysisResult.cropName}। ${analysisResult.detectedProblemHi || analysisResult.detectedProblem}। गंभीरता स्तर ${analysisResult.severity} है। अनुशंसित उपाय: ${analysisResult.recommendedActionHi || analysisResult.recommendedAction}`}
+              textToRead={`${tCrop(analysisResult.cropName) || analysisResult.cropName}. ${analysisResult[`detectedProblem${lang.charAt(0).toUpperCase() + lang.slice(1)}`] || analysisResult.detectedProblem}. Severity is ${analysisResult.severity}. Recommended action: ${analysisResult[`recommendedAction${lang.charAt(0).toUpperCase() + lang.slice(1)}`] || analysisResult.recommendedAction}. Next step: ${analysisResult.nextActionTimeline}`}
+              textToReadHi={`पहचानी गई फसल: ${tCrop(analysisResult.cropName) || analysisResult.cropName}। ${analysisResult.detectedProblemHi || analysisResult.detectedProblem}। गंभीरता स्तर ${analysisResult.severity} है। अनुशंसित उपाय: ${analysisResult.recommendedActionHi || analysisResult.recommendedAction}`}
             />
           </div>
 
@@ -965,7 +990,7 @@ export default function ScanCrop({ setActiveTab }) {
                 <span>{t('diagnose.whatAiFound')}</span>
               </p>
               <p className="text-amber-900 text-xs leading-relaxed">
-                {analysisResult.whatAiFound || (lang === 'hi' && analysisResult.causeHi ? analysisResult.causeHi : analysisResult.cause)}
+                {analysisResult[`whatAiFound${lang.charAt(0).toUpperCase() + lang.slice(1)}`] || analysisResult.whatAiFound || (lang === 'hi' && analysisResult.causeHi ? analysisResult.causeHi : analysisResult.cause)}
               </p>
             </div>
           )}
@@ -978,7 +1003,7 @@ export default function ScanCrop({ setActiveTab }) {
                 <span>{t('diagnose.recommendedSolution')}</span>
               </p>
               <p className="text-xs text-emerald-900 leading-relaxed font-medium">
-                {lang === 'hi' && analysisResult.recommendedActionHi ? analysisResult.recommendedActionHi : analysisResult.recommendedAction}
+                {analysisResult[`recommendedAction${lang.charAt(0).toUpperCase() + lang.slice(1)}`] || (lang === 'hi' && analysisResult.recommendedActionHi ? analysisResult.recommendedActionHi : analysisResult.recommendedAction)}
               </p>
             </div>
 

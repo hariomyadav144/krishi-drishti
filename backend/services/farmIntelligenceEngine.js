@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const User = require('../models/User');
+const FarmerProfile = require('../models/FarmerProfile');
 const Field = require('../models/Field');
 const Crop = require('../models/Crop');
 const Farm = require('../models/Farm');
@@ -6,7 +8,15 @@ const CropScan = require('../models/CropScan');
 const FieldMonitoringObservation = require('../models/FieldMonitoringObservation');
 const CropHealthRecord = require('../models/CropHealthRecord');
 const Recommendation = require('../models/Recommendation');
-const { isDbConnected, getStatelessFields, getStatelessCropScans, getStatelessLatestObservation } = require('../utils/statelessStore');
+const { 
+  isDbConnected, 
+  getStatelessFields, 
+  getStatelessCropScans, 
+  getStatelessLatestObservation,
+  getStatelessUserById,
+  getStatelessProfile,
+  getStatelessFarm
+} = require('../utils/statelessStore');
 const { extractCropFromQuery, extractProblemFromQuery } = require('../utils/universalAgricultureEngine');
 
 /**
@@ -78,24 +88,40 @@ async function loadFarmIntelligenceContext(userId, fieldId = 'default') {
     }
 
     // 1. Farm & Field Dimension
-    const fieldArea = fieldDoc?.areaAcres || farmDoc?.farmSize || 4.5;
+    const fieldArea = fieldDoc?.areaAcres || farmDoc?.farmSize || 0;
     const landUnit = fieldDoc?.areaUnit || farmDoc?.landUnit || 'Acres';
-    const soilType = fieldDoc?.soilType || farmDoc?.soilType || 'Black Soil / Regur';
-    const irrigationMethod = fieldDoc?.irrigationMethod || farmDoc?.irrigationMethod || 'Drip Irrigation';
+    const soilType = fieldDoc?.soilType || farmDoc?.soilType || 'Loam';
+    const irrigationMethod = fieldDoc?.irrigationMethod || farmDoc?.irrigationMethod || 'Standard';
+
+    let farmerUser = null;
+    let farmerProfile = null;
+    if (isDbConnected() && userId) {
+      farmerUser = await User.findById(userId).catch(() => null);
+      farmerProfile = await FarmerProfile.findOne({ userId }).catch(() => null);
+    } else if (userId) {
+      farmerUser = getStatelessUserById(userId);
+      farmerProfile = getStatelessProfile(userId);
+      if (!farmDoc) farmDoc = getStatelessFarm(userId);
+    }
+
+    const farmerName = farmDoc?.farmerName || fieldDoc?.farmerName || farmerUser?.name || 'Farmer';
+    const district = farmDoc?.district || farmerProfile?.district || '';
+    const state = farmDoc?.state || farmerProfile?.state || '';
+    const village = farmDoc?.village || farmerProfile?.village || '';
 
     context.farmInfo = {
       farmId: farmDoc?._id || 'farm_01',
-      farmerName: farmDoc?.farmerName || fieldDoc?.farmerName || 'Rameshwar Patil',
-      district: farmDoc?.district || 'Nashik',
-      state: farmDoc?.state || 'Maharashtra',
-      village: farmDoc?.village || 'Pimpalgaon Baswant',
+      farmerName,
+      district,
+      state,
+      village,
       totalFarmArea: fieldArea,
       landUnit
     };
 
     context.fieldInfo = {
-      fieldId: fieldDoc?._id || fieldDoc?.id || fieldId || 'field_demo_01',
-      fieldName: fieldDoc?.fieldName || 'North Plot - Wheat & Maize Block',
+      fieldId: fieldDoc?._id || fieldDoc?.id || fieldId || 'field_01',
+      fieldName: fieldDoc?.fieldName || 'Primary Plot',
       areaAcres: fieldArea,
       soilType,
       irrigationMethod,
@@ -398,10 +424,10 @@ Language: Generate your complete output strictly in ${langPrompt}. Do not mix la
 COMPLETE FARM INTELLIGENCE CONTEXT FOR THIS FARM:
 ==================================================
 1. FARM & PLOT:
-   - Farmer: ${context.farmInfo?.farmerName || 'Rameshwar Patil'} (${context.farmInfo?.village || 'Pimpalgaon'}, ${context.farmInfo?.district || 'Nashik'}, ${context.farmInfo?.state || 'Maharashtra'})
-   - Field: "${f.fieldName || 'Plot A'}" | Area: ${f.areaAcres || 4.5} ${context.farmInfo?.landUnit || 'Acres'}
-   - Soil Classification: ${f.soilType || 'Black Soil'} | Drainage: ${f.drainage || 'Well Drained'}
-   - Irrigation Facility: ${f.irrigationMethod || 'Drip Irrigation'}
+   - Farmer: ${context.farmInfo?.farmerName || 'Farmer'}${context.farmInfo?.village || context.farmInfo?.district ? ` (${[context.farmInfo?.village, context.farmInfo?.district, context.farmInfo?.state].filter(Boolean).join(', ')})` : ''}
+   - Field: "${f.fieldName || 'Plot A'}" | Area: ${f.areaAcres || 0} ${context.farmInfo?.landUnit || 'Acres'}
+   - Soil Classification: ${f.soilType || 'Standard'} | Drainage: ${f.drainage || 'Well Drained'}
+   - Irrigation Facility: ${f.irrigationMethod || 'Standard'}
 
 2. CROP & GROWTH STAGE:
    - Active Crop: ${c.crop || 'Wheat'} | Variety: ${c.cropVariety || 'Certified Hybrid'}

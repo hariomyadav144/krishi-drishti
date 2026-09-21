@@ -17,16 +17,42 @@ export const DEFAULT_DEMO_COORDINATE = {
  */
 export const SAMPLE_DEMO_FIELD_BOUNDARY = [];
 
+import { Geolocation } from '@capacitor/geolocation';
+import { Capacitor } from '@capacitor/core';
+
 /**
- * Request real device GPS using browser navigator.geolocation
+ * Request real device GPS using native Capacitor on mobile or browser navigator.geolocation
  */
-export function getDeviceLocation(options = {}) {
+export async function getDeviceLocation(options = {}) {
+  // If running on native Android/iOS, use high-precision Native Geolocation
+  if (typeof Capacitor !== 'undefined' && Capacitor.isNativePlatform && Capacitor.isNativePlatform()) {
+    try {
+      const position = await Geolocation.getCurrentPosition({
+        enableHighAccuracy: true,
+        timeout: options.timeout || 15000,
+        maximumAge: 0
+      });
+      return {
+        lat: position.coords.latitude,
+        lng: position.coords.longitude,
+        accuracy: Math.round(position.coords.accuracy || 10),
+        altitude: position.coords.altitude,
+        speed: position.coords.speed,
+        heading: position.coords.heading,
+        timestamp: position.timestamp,
+        isDemo: false
+      };
+    } catch (nativeErr) {
+      console.warn('Native GPS fetch error, falling back to browser geolocation:', nativeErr);
+    }
+  }
+
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
       reject({
         code: 0,
         message: 'Geolocation is not supported by your browser or device.',
-        userMessage: 'आपके ब्राउज़र में GPS सुविधा उपलब्ध नहीं है। Geolocation is not supported by this device.'
+        userMessage: 'आपके डिवाइस में GPS सुविधा उपलब्ध नहीं है। Geolocation is not supported by this device.'
       });
       return;
     }

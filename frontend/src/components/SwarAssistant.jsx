@@ -12,7 +12,8 @@ import {
   RefreshCw, 
   HelpCircle,
   ArrowRight,
-  Bot
+  Bot,
+  Settings
 } from 'lucide-react';
 
 export default function SwarAssistant() {
@@ -24,12 +25,14 @@ export default function SwarAssistant() {
     transcript, 
     loading, 
     errorMessage, 
+    permissionDenied,
     messages, 
     startListening, 
     stopListening, 
     speakText, 
     stopSpeaking, 
-    askSwar 
+    askSwar,
+    openAppSettings
   } = useSwar();
 
   const { lang, t } = useLanguage();
@@ -145,9 +148,7 @@ export default function SwarAssistant() {
                   {t('swar.talkToSwar') || 'स्वर से बात करें'}
                 </h4>
                 <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
-                  {lang === 'hi' 
-                    ? 'नीचे दिए गए माइक बटन को दबाकर अपनी भाषा में खेती से जुड़ा कोई भी सवाल पूछें।' 
-                    : 'Tap the microphone below to ask any farming question in your chosen language.'}
+                  {t('swar.voicePrompt') || 'Tap the microphone below to ask any farming question in your chosen language.'}
                 </p>
               </div>
             ) : (
@@ -194,8 +195,20 @@ export default function SwarAssistant() {
             )}
 
             {errorMessage && (
-              <div className="text-[11px] text-red-700 bg-red-50 p-2.5 rounded-xl border border-red-200 font-medium">
-                {errorMessage}
+              <div className="space-y-2">
+                <div className="text-[11px] text-red-700 bg-red-50 p-2.5 rounded-xl border border-red-200 font-medium leading-relaxed">
+                  {errorMessage}
+                </div>
+                {permissionDenied && (
+                  <button
+                    type="button"
+                    onClick={openAppSettings}
+                    className="w-full py-2 px-3 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95"
+                  >
+                    <Settings className="w-3.5 h-3.5" />
+                    <span>{t('swar.openSettings') || 'Open App Settings (Allow Mic)'}</span>
+                  </button>
+                )}
               </div>
             )}
           </div>

@@ -9,7 +9,14 @@ const {
   isDbConnected,
   getStatelessUserByRole,
   getStatelessUserByPhone,
-  getStatelessDashboard
+  getStatelessUserByEmail,
+  getStatelessUserById,
+  registerStatelessUser,
+  getStatelessDashboard,
+  getStatelessDashboardForUser,
+  getStatelessProfile,
+  getStatelessFarm,
+  getStatelessCrops,
 } = require('../utils/statelessStore');
 
 const generateToken = (id) => {
@@ -25,87 +32,206 @@ const register = async (req, res) => {
     const { name, phone, email, password, role = 'farmer', state, district, village, farmSize, mainCrop, soilType, irrigationMethod } = req.body;
 
     if (!name || !phone || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide name, phone number, and password.' });
+      return res.status(400).json({ success: false, code: 'MISSING_FIELDS', message: 'Please provide name, phone number, and password.' });
     }
 
-    const userExists = await User.findOne({ phone });
-    if (userExists) {
-      return res.status(400).json({ success: false, message: 'A user already exists with this phone number.' });
+    const cleanPhone = phone.trim();
+    if (cleanPhone.length < 10) {
+      return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: 'Please enter a valid 10-digit mobile number.' });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ success: false, code: 'WEAK_PASSWORD', message: 'Password must be at least 6 characters long.' });
     }
 
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const user = await User.create({
-      name,
-      phone,
-      email: email || '',
-      password: hashedPassword,
-      role: role || 'farmer',
-      isOnboarded: !!(state && mainCrop),
-    });
+    const effectiveCrop = mainCrop || req.body.crop || '';
 
-    // Create Farmer Profile if farmer
-    if (user.role === 'farmer') {
-      const profile = await FarmerProfile.create({
-        userId: user._id,
-        state: state || 'Maharashtra',
-        district: district || 'Nashik',
-        village: village || 'Pimpalgaon',
-        location: `${village || 'Pimpalgaon'}, ${district || 'Nashik'}, ${state || 'Maharashtra'}`,
+    // If external DB is not connected, register user in stateless in-memory store
+    if (!isDbConnected()) {
+      const existingUser = getStatelessUserByPhone(cleanPhone);
+      if (existingUser) {
+        return res.status(400).json({ success: false, code: 'PHONE_EXISTS', message: 'This mobile number is already registered. Please login.' });
+      }
+
+      if (email && email.trim()) {
+        const existingEmail = getStatelessUserByEmail(email);
+        if (existingEmail) {
+          return res.status(400).json({ success: false, code: 'EMAIL_EXISTS', message: 'This email is already registered.' });
+        }
+      }
+
+      const user = registerStatelessUser({
+        name: name.trim(),
+        phone: cleanPhone,
+        email: email ? email.trim() : '',
+        password: hashedPassword,
+        role: role || 'farmer',
+        state: state || '',
+        district: district || '',
+        village: village || '',
+        farmSize: farmSize ? Number(farmSize) : 0,
+        mainCrop: effectiveCrop,
+        soilType: soilType || '',
+        irrigationMethod: irrigationMethod || '',
       });
 
-      // Create default Farm
-      const farm = await Farm.create({
-        farmerId: user._id,
-        farmName: `${name}'s Farm`,
-        farmSize: Number(farmSize) || 4.5,
-        landUnit: 'Acres',
-        soilType: soilType || 'Black Soil / Regur',
-        irrigationMethod: irrigationMethod || 'Drip Irrigation',
-      });
+      const token = generateToken(user._id);
 
-      // Create default Crop
-      await Crop.create({
-        farmId: farm._id,
-        farmerId: user._id,
-        cropName: mainCrop || 'Tomato',
-        variety: 'High Yield Hybrid',
-        cropStage: 'Flowering Stage',
-        healthStatus: 'Good',
-        areaAllocated: Number(farmSize) || 4.5,
-      });
-
-      // Send Welcome Alert
-      await Alert.create({
-        userId: user._id,
-        title: 'Welcome to Fasal Drishti! 🌱',
-        titleHi: 'फ़सल दृष्टि में आपका स्वागत है! 🌱',
-        message: 'Your smart farming companion is active. Scan your crop or ask AI advice anytime.',
-        messageHi: 'आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।',
-        priority: 'low',
-        category: 'system',
+      return res.status(201).json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          email: user.email,
+          role: user.role,
+          isOnboarded: user.isOnboarded,
+          languagePreference: user.languagePreference,
+        },
       });
     }
 
-    const token = generateToken(user._id);
+    // When MongoDB is connected
+    try {
+      const userExists = await User.findOne({ phone: cleanPhone });
+      if (userExists) {
+        return res.status(400).json({ success: false, code: 'PHONE_EXISTS', message: 'This mobile number is already registered. Please login.' });
+      }
 
-    res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
-        isOnboarded: user.isOnboarded,
-        languagePreference: user.languagePreference,
-      },
-    });
+      if (email && email.trim()) {
+        const emailExists = await User.findOne({ email: email.trim().toLowerCase() });
+        if (emailExists) {
+          return res.status(400).json({ success: false, code: 'EMAIL_EXISTS', message: 'This email is already registered.' });
+        }
+      }
+
+      const user = await User.create({
+        name: name.trim(),
+        phone: cleanPhone,
+        email: email ? email.trim() : '',
+        password: hashedPassword,
+        role: role || 'farmer',
+        isOnboarded: !!(state && effectiveCrop),
+      });
+
+      // Create Farmer Profile if farmer
+      if (user.role === 'farmer') {
+        const locationString = (village && district) 
+          ? `${village}, ${district}, ${state || ''}`.replace(/, $/, '') 
+          : (state || '');
+
+        await FarmerProfile.create({
+          userId: user._id,
+          state: state || '',
+          district: district || '',
+          village: village || '',
+          location: locationString,
+        });
+
+        // Create initial Farm for this specific farmer
+        const farm = await Farm.create({
+          farmerId: user._id,
+          farmName: `${name.trim()}'s Farm`,
+          farmSize: Number(farmSize) || 0,
+          landUnit: 'Acres',
+          soilType: soilType || '',
+          irrigationMethod: irrigationMethod || '',
+        });
+
+        // Create default Crop only if mainCrop or crop was provided
+        if (effectiveCrop) {
+          await Crop.create({
+            farmId: farm._id,
+            farmerId: user._id,
+            cropName: effectiveCrop,
+            variety: 'High Yield Standard',
+            cropStage: 'Vegetative Stage',
+            healthStatus: 'Good',
+            areaAllocated: Number(farmSize) || 0,
+            isCurrent: true,
+          });
+        }
+
+        // Send Welcome Alert
+        await Alert.create({
+          userId: user._id,
+          title: 'Welcome to Fasal Drishti! 🌱',
+          titleHi: 'फ़सल दृष्टि में आपका स्वागत है! 🌱',
+          message: 'Your smart farming companion is active. Scan your crop or ask AI advice anytime.',
+          messageHi: 'आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।',
+          priority: 'low',
+          category: 'system',
+        });
+      }
+
+      const token = generateToken(user._id);
+
+      return res.status(201).json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          email: user.email,
+          role: user.role,
+          isOnboarded: user.isOnboarded,
+          languagePreference: user.languagePreference,
+        },
+      });
+    } catch (mongoErr) {
+      console.warn('MongoDB register error, falling back to stateless store:', mongoErr.message);
+      const user = registerStatelessUser({
+        name: name.trim(),
+        phone: cleanPhone,
+        email: email ? email.trim() : '',
+        password: hashedPassword,
+        role: role || 'farmer',
+        state: state || '',
+        district: district || '',
+        village: village || '',
+        farmSize: farmSize ? Number(farmSize) : 0,
+        mainCrop: effectiveCrop,
+        soilType: soilType || '',
+        irrigationMethod: irrigationMethod || '',
+      });
+
+      const token = generateToken(user._id);
+
+      return res.status(201).json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          email: user.email,
+          role: user.role,
+          isOnboarded: user.isOnboarded,
+          languagePreference: user.languagePreference,
+        },
+      });
+    }
   } catch (error) {
-    console.error('Register error:', error);
-    res.status(500).json({ success: false, message: error.message });
+    console.error('Register error:', error.stack || error.message);
+    const isMongooseError = error.message && (
+      error.message.includes('bufferCommands') ||
+      error.message.includes('findOne') ||
+      error.message.includes('initial connection')
+    );
+    const clientMessage = isMongooseError
+      ? 'Unable to create your account right now. Please try again.'
+      : (error.message || 'Registration failed. Please try again.');
+
+    res.status(500).json({
+      success: false,
+      code: 'SERVER_ERROR',
+      message: clientMessage,
+    });
   }
 };
 
@@ -116,14 +242,32 @@ const login = async (req, res) => {
     const { phone, password } = req.body;
 
     if (!phone || !password) {
-      return res.status(400).json({ success: false, message: 'Please provide phone number and password.' });
+      return res.status(400).json({ success: false, code: 'MISSING_CREDENTIALS', message: 'Please provide phone number and password.' });
     }
 
+    const cleanPhone = phone.trim();
+
     if (!isDbConnected()) {
-      const statelessUser = getStatelessUserByPhone(phone) || (password === 'password123' ? getStatelessUserByRole('farmer') : null);
+      const statelessUser = getStatelessUserByPhone(cleanPhone);
       if (!statelessUser) {
-        return res.status(401).json({ success: false, message: 'Invalid phone number or password.' });
+        return res.status(404).json({ success: false, code: 'ACCOUNT_NOT_FOUND', message: 'No account found with this mobile number. Please register.' });
       }
+
+      let isMatch = false;
+      if (statelessUser.password) {
+        try {
+          isMatch = await bcrypt.compare(password, statelessUser.password);
+        } catch (_) {
+          isMatch = statelessUser.password === password;
+        }
+      } else if (password === 'password123' && statelessUser.isDemo !== false) {
+        isMatch = true;
+      }
+
+      if (!isMatch) {
+        return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', message: 'Incorrect password. Please try again.' });
+      }
+
       const token = generateToken(statelessUser._id);
       return res.json({
         success: true,
@@ -140,40 +284,67 @@ const login = async (req, res) => {
       });
     }
 
-    const user = await User.findOne({ phone });
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Invalid phone number or password.' });
+    try {
+      const user = await User.findOne({ phone: cleanPhone });
+      if (!user) {
+        return res.status(404).json({ success: false, code: 'ACCOUNT_NOT_FOUND', message: 'No account found with this mobile number. Please register.' });
+      }
+
+      const isMatch = await bcrypt.compare(password, user.password);
+      if (!isMatch) {
+        return res.status(401).json({ success: false, code: 'WRONG_PASSWORD', message: 'Incorrect password. Please try again.' });
+      }
+
+      const token = generateToken(user._id);
+
+      return res.json({
+        success: true,
+        token,
+        user: {
+          id: user._id,
+          name: user.name,
+          phone: user.phone,
+          email: user.email,
+          role: user.role,
+          isOnboarded: user.isOnboarded,
+          languagePreference: user.languagePreference,
+        },
+      });
+    } catch (mongoErr) {
+      console.warn('MongoDB login error, falling back to stateless store:', mongoErr.message);
+      const statelessUser = getStatelessUserByPhone(cleanPhone);
+      if (statelessUser) {
+        let isMatch = false;
+        try {
+          isMatch = await bcrypt.compare(password, statelessUser.password);
+        } catch (_) {
+          isMatch = statelessUser.password === password;
+        }
+        if (isMatch) {
+          const token = generateToken(statelessUser._id);
+          return res.json({
+            success: true,
+            token,
+            user: {
+              id: statelessUser._id,
+              name: statelessUser.name,
+              phone: statelessUser.phone,
+              email: statelessUser.email,
+              role: statelessUser.role,
+              isOnboarded: statelessUser.isOnboarded,
+              languagePreference: statelessUser.languagePreference,
+            },
+          });
+        }
+      }
+      return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Invalid mobile number or password.' });
     }
-
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: 'Invalid phone number or password.' });
-    }
-
-    const token = generateToken(user._id);
-
-    res.json({
-      success: true,
-      token,
-      user: {
-        id: user._id,
-        name: user.name,
-        phone: user.phone,
-        email: user.email,
-        role: user.role,
-        isOnboarded: user.isOnboarded,
-        languagePreference: user.languagePreference,
-      },
-    });
   } catch (error) {
     console.error('Login error:', error);
-    // Fallback gracefully
-    const fallbackUser = getStatelessUserByRole('farmer');
-    const token = generateToken(fallbackUser._id);
-    res.json({
-      success: true,
-      token,
-      user: fallbackUser,
+    res.status(500).json({
+      success: false,
+      code: 'SERVER_ERROR',
+      message: 'Server error during authentication.',
     });
   }
 };
@@ -227,7 +398,7 @@ const demoLogin = async (req, res) => {
           languagePreference: 'en',
         });
 
-        const profile = await FarmerProfile.create({
+        await FarmerProfile.create({
           userId: user._id,
           state: 'Maharashtra',
           district: 'Nashik',
@@ -321,26 +492,28 @@ const demoLogin = async (req, res) => {
 // @route GET /api/auth/me
 const getMe = async (req, res) => {
   try {
+    const userId = req.user._id;
+
     if (!isDbConnected()) {
-      const data = getStatelessDashboard();
+      const data = getStatelessDashboardForUser(userId);
       return res.json({
         success: true,
         user: req.user,
-        profile: data.profile,
-        farm: data.farm,
-        currentCrop: data.currentCrop,
+        profile: data?.profile || null,
+        farm: data?.farm || null,
+        currentCrop: data?.currentCrop || null,
       });
     }
 
-    const user = await User.findById(req.user._id).select('-password');
+    const user = await User.findById(userId).select('-password');
     let profile = null;
     let farm = null;
     let currentCrop = null;
 
     if (user && user.role === 'farmer') {
-      profile = await FarmerProfile.findOne({ userId: user._id });
-      farm = await Farm.findOne({ farmerId: user._id });
-      currentCrop = await Crop.findOne({ farmerId: user._id, isCurrent: true });
+      profile = await FarmerProfile.findOne({ userId });
+      farm = await Farm.findOne({ farmerId: userId });
+      currentCrop = await Crop.findOne({ farmerId: userId, isCurrent: true });
     }
 
     res.json({
@@ -351,13 +524,13 @@ const getMe = async (req, res) => {
       currentCrop,
     });
   } catch (error) {
-    const data = getStatelessDashboard();
+    console.error('getMe error:', error);
     res.json({
       success: true,
       user: req.user,
-      profile: data.profile,
-      farm: data.farm,
-      currentCrop: data.currentCrop,
+      profile: null,
+      farm: null,
+      currentCrop: null,
     });
   }
 };

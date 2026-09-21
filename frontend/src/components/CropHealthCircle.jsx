@@ -22,7 +22,7 @@ export default function CropHealthCircle({
   onAddField,
   isRefreshing = false,
 }) {
-  const { lang } = useLanguage();
+  const { lang, t, tCrop, tStage } = useLanguage();
   const [animatedScore, setAnimatedScore] = useState(0);
 
   // If no field or health data is registered yet, show First-Use Onboarding Experience
@@ -57,7 +57,6 @@ export default function CropHealthCircle({
   }, [targetScore, hasValidData]);
 
   // If farmer has NOT added a field/crop yet:
-  // Show clean first-use experience without fake percentage
   if (!hasValidData && fieldsSummary.length === 0) {
     return (
       <div className="agri-card p-6 sm:p-8 bg-gradient-to-br from-emerald-50/90 via-white to-agri-50/90 border-2 border-dashed border-emerald-300 text-center rounded-3xl shadow-sm space-y-4 animate-in fade-in duration-300">
@@ -66,12 +65,12 @@ export default function CropHealthCircle({
         </div>
         <div>
           <h3 className="text-xl font-black text-slate-900 tracking-tight">
-            {lang === 'hi' ? '🌱 फसल स्वास्थ्य (Crop Health)' : '🌱 Crop Health'}
+            🌱 {t('dashboard.cropHealth') || 'Crop Health'}
           </h3>
           <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mt-1.5 leading-relaxed font-medium">
-            {lang === 'hi'
+            {t('dashboard.addInfoPrompt') || (lang === 'hi'
               ? 'फसल स्वास्थ्य निगरानी शुरू करने के लिए अपने खेत और फसल की जानकारी जोड़ें।'
-              : 'Add your field and crop information to start crop health monitoring.'}
+              : 'Add your field and crop information to start crop health monitoring.')}
           </p>
         </div>
         <button
@@ -79,17 +78,13 @@ export default function CropHealthCircle({
           className="px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs shadow-md transition transform active:scale-95 inline-flex items-center gap-2"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>{lang === 'hi' ? 'खेत जोड़ें (Add Field)' : 'Add Field'}</span>
+          <span>{t('farm.addField') || (lang === 'hi' ? 'खेत जोड़ें' : 'Add Field')}</span>
         </button>
       </div>
     );
   }
 
-  // Color & Theme Mapping based on prompt specifications:
-  // 80–100% → GREEN → Healthy
-  // 60–79% → YELLOW → Attention Needed
-  // 40–59% → ORANGE → At Risk
-  // 0–39% → RED → Critical
+  // Color & Theme Mapping based on prompt specifications
   const getTheme = (score) => {
     if (score >= 80) {
       return {
@@ -99,10 +94,6 @@ export default function CropHealthCircle({
         badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
         textColor: 'text-emerald-700',
         glow: 'shadow-emerald-500/20',
-        statusEn: 'HEALTHY',
-        statusHi: 'स्वस्थ',
-        statusMr: 'निरोगी',
-        statusPa: 'ਸਿਹਤਮੰਦ',
       };
     }
     if (score >= 60) {
@@ -113,10 +104,6 @@ export default function CropHealthCircle({
         badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
         textColor: 'text-amber-700',
         glow: 'shadow-amber-500/20',
-        statusEn: 'ATTENTION NEEDED',
-        statusHi: 'ध्यान योग्य',
-        statusMr: 'लक्ष देणे गरजेचे',
-        statusPa: 'ਧਿਆਨ ਦੀ ਲੋੜ',
       };
     }
     if (score >= 40) {
@@ -127,10 +114,6 @@ export default function CropHealthCircle({
         badgeBg: 'bg-orange-100 text-orange-900 border-orange-300',
         textColor: 'text-orange-700',
         glow: 'shadow-orange-500/20',
-        statusEn: 'AT RISK',
-        statusHi: 'जोखिम में',
-        statusMr: 'धोक्यात',
-        statusPa: 'ਖ਼ਤਰੇ ਵਿੱਚ',
       };
     }
     return {
@@ -140,16 +123,38 @@ export default function CropHealthCircle({
       badgeBg: 'bg-rose-100 text-rose-900 border-rose-300',
       textColor: 'text-rose-700',
       glow: 'shadow-rose-500/20',
-      statusEn: 'CRITICAL',
-      statusHi: 'गंभीर',
-      statusMr: 'गंभीर',
-      statusPa: 'ਨਾਜ਼ੁਕ',
     };
   };
 
   const theme = getTheme(targetScore);
 
-  // Large SVG circular gauge dimensions (Visually large and impossible to miss)
+  const STATUS_DICT = {
+    healthy: {
+      en: 'HEALTHY', hi: 'स्वस्थ', pa: 'ਸਿਹਤਮੰਦ', mr: 'निरोगी', gu: 'સ્વસ્થ',
+      bn: 'সুস্থ', ta: 'ஆரோக்கியமானது', te: 'ఆరోగ్యకరమైనది', kn: 'ಆರೋಗ್ಯಕರ',
+      ml: 'ആരോഗ്യകരം', or: 'ସୁସ୍ଥ', as: 'সুস্থ'
+    },
+    attention: {
+      en: 'ATTENTION NEEDED', hi: 'ध्यान योग्य', pa: 'ਧਿਆਨ ਦੀ ਲੋੜ', mr: 'लक्ष द्या', gu: 'ધ્યાન આપો',
+      bn: 'নজরদারি দরকার', ta: 'கவனம் தேவை', te: 'శ్రద్ధ అవసరం', kn: 'ಗಮನ ಬೇಕು',
+      ml: 'ശ്രദ്ധ വേണം', or: 'ଧ୍ୟାନ ଆବଶ୍ୟକ', as: 'মনোযোগৰ প্ৰয়োজন'
+    },
+    risk: {
+      en: 'AT RISK', hi: 'जोखिम में', pa: 'ਖ਼ਤਰੇ ਵਿੱਚ', mr: 'धोक्यात', gu: 'જોખમમાં',
+      bn: 'ঝুঁকিপূর্ণ', ta: 'ஆபத்தில்', te: 'ప్రమాదంలో', kn: 'ಅಪಾಯದಲ್ಲಿದೆ',
+      ml: 'അപകടത്തിൽ', or: 'ବିପଦରେ', as: 'বিপদাপন্ন'
+    },
+    critical: {
+      en: 'CRITICAL', hi: 'गंभीर', pa: 'ਨਾਜ਼ੁਕ', mr: 'गंभीर', gu: 'ગંભીર',
+      bn: 'সঙ্কটজনক', ta: 'ஆபத்தான நிலை', te: 'అత్యవసరం', kn: 'ಗಂಭೀರ',
+      ml: 'ഗുരുതരം', or: 'ଗୁରୁତର', as: 'সংকটজনক'
+    }
+  };
+
+  const statusKey = targetScore >= 80 ? 'healthy' : (targetScore >= 60 ? 'attention' : (targetScore >= 40 ? 'risk' : 'critical'));
+  const statusLabel = STATUS_DICT[statusKey]?.[lang] || STATUS_DICT[statusKey]?.en || 'HEALTHY';
+
+  // Large SVG circular gauge dimensions
   const size = 220;
   const strokeWidth = 16;
   const radius = (size - strokeWidth) / 2;
@@ -158,19 +163,16 @@ export default function CropHealthCircle({
 
   // Format real timestamp
   const formatTimestamp = (dateStr) => {
-    if (!dateStr) return 'Just now';
+    if (!dateStr) return t('common.justNow') || 'Just now';
     try {
       const d = new Date(dateStr);
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (_) {
-      return 'Today';
+      return t('common.today') || 'Today';
     }
   };
 
   const lastUpdatedFormatted = formatTimestamp(healthData?.calculatedAt);
-
-  // Localized Status String
-  const statusLabel = lang === 'hi' ? theme.statusHi : (lang === 'mr' ? theme.statusMr : (lang === 'pa' ? theme.statusPa : theme.statusEn));
 
   // Localized reasons from actual data
   const displayReasons = (lang === 'hi' && Array.isArray(healthData?.reasonsHi) && healthData.reasonsHi.length > 0)
@@ -188,9 +190,9 @@ export default function CropHealthCircle({
               <Sprout className="w-5 h-5" />
             </span>
             <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
-              <span>{lang === 'hi' ? '🌱 आपकी फसल का स्वास्थ्य' : '🌱 YOUR CROP HEALTH'}</span>
+              <span>🌱 {t('dashboard.yourCropHealth') || 'YOUR CROP HEALTH'}</span>
               <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-                Real Data
+                {t('common.realData') || 'Real Data'}
               </span>
             </h2>
           </div>
@@ -198,8 +200,8 @@ export default function CropHealthCircle({
             <MapPin className="w-3.5 h-3.5 text-emerald-700" />
             <span>{healthData?.fieldName || 'Plot A'}</span>
             <span>•</span>
-            <span className="text-emerald-800 font-bold">{healthData?.crop || 'Wheat'}</span>
-            <span>({healthData?.cropStage || 'Vegetative Stage'})</span>
+            <span className="text-emerald-800 font-bold">{tCrop(healthData?.crop) || healthData?.crop || 'Wheat'}</span>
+            <span>({tStage(healthData?.cropStage) || healthData?.cropStage || 'Vegetative Stage'})</span>
           </p>
         </div>
 
@@ -285,7 +287,7 @@ export default function CropHealthCircle({
                 {statusLabel}
               </span>
               <span className="text-[10px] text-slate-400 font-bold mt-1.5 group-hover:text-emerald-700 flex items-center gap-0.5 transition">
-                Tap for Details
+                {t('dashboard.tapForDetails') || (lang === 'hi' ? 'विवरण हेतु टैप करें' : 'Tap for Details')}
                 <ArrowUpRight className="w-3 h-3" />
               </span>
             </div>
@@ -295,13 +297,13 @@ export default function CropHealthCircle({
           <div className="flex items-center gap-3 mt-4 text-xs font-bold text-slate-600 bg-white/80 px-3.5 py-1.5 rounded-full border border-slate-200/60 shadow-2xs">
             <span className="flex items-center gap-1">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{lang === 'hi' ? 'विश्वसनीयता: ' : 'Confidence: '}</span>
-              <strong className="text-slate-900">{healthData?.confidence || 'High'}</strong>
+              <span>{t('dashboard.confidence') || (lang === 'hi' ? 'विश्वसनीयता: ' : 'Confidence: ')}</span>
+              <strong className="text-slate-900">{t(`common.${(healthData?.confidence || 'High').toLowerCase()}`, healthData?.confidence || 'High')}</strong>
             </span>
             <span className="text-slate-300">•</span>
             <span className="flex items-center gap-1">
               <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>{lang === 'hi' ? 'अपडेट: ' : 'Updated: '}</span>
+              <span>{t('dashboard.updated') || (lang === 'hi' ? 'अपडेट: ' : 'Updated: ')}</span>
               <strong className="text-slate-900">{lastUpdatedFormatted}</strong>
             </span>
           </div>
@@ -311,7 +313,7 @@ export default function CropHealthCircle({
         <div className="flex-1 w-full space-y-3.5">
           <div>
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 block mb-2">
-              {lang === 'hi' ? 'वास्तविक कृषि डेटा आधारित मुख्य कारण' : 'PRIMARY FACTORS SHAPING HEALTH'}
+              {t('dashboard.primaryFactors') || (lang === 'hi' ? 'वास्तविक कृषि डेटा आधारित मुख्य कारण' : 'PRIMARY FACTORS SHAPING HEALTH')}
             </span>
 
             {displayReasons.length > 0 ? (
@@ -330,7 +332,7 @@ export default function CropHealthCircle({
               </div>
             ) : (
               <div className="bg-white p-3 rounded-2xl border border-slate-200 text-xs text-slate-600 font-medium">
-                {lang === 'hi' ? 'फसल की स्थिति सामान्य व स्थिर है।' : 'All monitored crop parameters are in stable range.'}
+                {t('dashboard.allStable') || (lang === 'hi' ? 'फसल की स्थिति सामान्य व स्थिर है।' : 'All monitored crop parameters are in stable range.')}
               </div>
             )}
           </div>
@@ -346,8 +348,8 @@ export default function CropHealthCircle({
               <div>
                 <strong className="font-black block text-xs tracking-tight">
                   {targetScore < 40 
-                    ? (lang === 'hi' ? '🚨 तत्काल ध्यान आवश्यक' : '🚨 Urgent Intervention Needed')
-                    : (lang === 'hi' ? '⚠️ ध्यान देने योग्य स्थिति' : '⚠️ Attention Recommended')}
+                    ? (t('dashboard.urgentIntervention') || '🚨 Urgent Intervention Needed')
+                    : (t('dashboard.attentionRecommended') || '⚠️ Attention Recommended')}
                 </strong>
                 <p className="text-[11px] mt-0.5 leading-relaxed font-semibold opacity-95">
                   {healthData?.recommendations?.[0]?.description || (lang === 'hi' ? 'खेत का निरीक्षण करें व आवश्यक जल प्रबंधन करें।' : 'Inspect field and follow moisture management guidance.')}
@@ -359,13 +361,13 @@ export default function CropHealthCircle({
           {/* Action Button to Open Detailed Breakdown Modal */}
           <div className="pt-1 flex items-center justify-between gap-3">
             <span className="text-xs text-slate-500 font-semibold hidden sm:inline">
-              {lang === 'hi' ? '6-घटक पारदर्शी विश्लेषण व स्थायी इतिहास' : 'Deep 6-factor telemetry & permanent history'}
+              {t('dashboard.telemetryNote') || (lang === 'hi' ? '6-घटक पारदर्शी विश्लेषण व स्थायी इतिहास' : 'Deep 6-factor telemetry & permanent history')}
             </span>
             <button
               onClick={onOpenDetails}
               className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs shadow-sm transition flex items-center justify-center gap-2 ml-auto active:scale-95"
             >
-              <span>{lang === 'hi' ? 'विस्तृत स्वास्थ्य देखें' : 'View Detailed Health'}</span>
+              <span>{t('dashboard.viewDetailedHealth') || (lang === 'hi' ? 'विस्तृत स्वास्थ्य देखें' : 'View Detailed Health')}</span>
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>

@@ -1,0 +1,20 @@
+{
+  "appId": "com.fasaldristi.app",
+  "appName": "Fasal Drishti",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  },
+  "android": {
+    "allowMixedContent": true
+  },
+  "plugins": {
+    "Camera": {
+      "presentationStyle": "fullscreen"
+    },
+    "Geolocation": {
+      "enableHighAccuracy": true
+    }
+  }
+}

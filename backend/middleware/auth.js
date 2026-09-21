@@ -36,13 +36,20 @@ const protect = async (req, res, next) => {
       }
     }
 
-    // Stateless fallback: synthesize authenticated user from decoded token
-    req.user = getStatelessUserById(decoded.id);
+    // Stateless fallback: lookup authenticated user by ID from decoded token
+    const statelessUser = getStatelessUserById(decoded.id);
+    if (!statelessUser) {
+      return res.status(401).json({ success: false, message: 'User account not found or session expired.' });
+    }
+    req.user = statelessUser;
     next();
   } catch (err) {
-    // If token verification fails, check if it's a demo or fallback user
-    if (token && token.includes('demo')) {
-      req.user = getStatelessUserByRole('farmer');
+    // If token verification fails, check if it's an explicit demo token
+    if (token && token.startsWith('krishi_demo_jwt_token_')) {
+      let role = 'farmer';
+      if (token.includes('expert')) role = 'expert';
+      if (token.includes('admin')) role = 'admin';
+      req.user = getStatelessUserByRole(role);
       return next();
     }
     return res.status(401).json({ success: false, message: 'Invalid or expired token.' });

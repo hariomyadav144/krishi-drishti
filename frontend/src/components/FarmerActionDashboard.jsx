@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { calculateCropHealth, fetchCropHealthHistory } from '../services/cropHealthService';
 import { extractCropFromQuery, extractProblemFromQuery } from '../services/universalCropEngine';
+import { useLanguage } from '../context/LanguageContext';
 
 /**
  * FarmerActionDashboard:
@@ -38,9 +39,10 @@ import { extractCropFromQuery, extractProblemFromQuery } from '../services/unive
 export default function FarmerActionDashboard({ 
   advisoryResult, 
   activeFarmContext, 
-  lang = 'en',
+  lang: propLang,
   onNavigateTab
 }) {
+  const { t, tCrop, tStage, tSoil, tMoisture, tWeather, lang } = useLanguage();
   const [showDetailedAnalysis, setShowDetailedAnalysis] = useState(false);
   const [trendPeriod, setTrendPeriod] = useState('30d');
   const [healthHistory, setHealthHistory] = useState([]);
@@ -110,8 +112,8 @@ export default function FarmerActionDashboard({
   const healthStatusConfig = useMemo(() => {
     if (healthScore >= 80) {
       return {
-        labelEn: 'GOOD',
-        labelHi: 'उत्तम (Good)',
+        label: t('farm.good', 'GOOD'),
+        conditionText: t('farm.goodCondition', '✓ Good Condition'),
         color: '#10B981',
         textClass: 'text-emerald-700',
         bgClass: 'bg-emerald-50 border-emerald-300',
@@ -121,8 +123,8 @@ export default function FarmerActionDashboard({
       };
     } else if (healthScore >= 60) {
       return {
-        labelEn: 'MODERATE',
-        labelHi: 'सामान्य (Moderate)',
+        label: t('farm.moderate', 'MODERATE'),
+        conditionText: t('farm.moderateCondition', '⚡ Moderate Condition'),
         color: '#F59E0B',
         textClass: 'text-amber-700',
         bgClass: 'bg-amber-50 border-amber-300',
@@ -132,8 +134,8 @@ export default function FarmerActionDashboard({
       };
     } else if (healthScore >= 40) {
       return {
-        labelEn: 'NEEDS ATTENTION',
-        labelHi: 'ध्यान दें (Needs Attention)',
+        label: t('farm.needsAttentionLabel', 'NEEDS ATTENTION'),
+        conditionText: t('farm.needsAttention', '⚠️ Needs Attention'),
         color: '#F97316',
         textClass: 'text-orange-700',
         bgClass: 'bg-orange-50 border-orange-300',
@@ -143,8 +145,8 @@ export default function FarmerActionDashboard({
       };
     } else {
       return {
-        labelEn: 'CRITICAL',
-        labelHi: 'गंभीर (Critical)',
+        label: t('farm.critical', 'CRITICAL'),
+        conditionText: t('farm.criticalCondition', '🚨 Critical Condition'),
         color: '#EF4444',
         textClass: 'text-rose-700',
         bgClass: 'bg-rose-50 border-rose-300',
@@ -153,31 +155,24 @@ export default function FarmerActionDashboard({
         ringBg: '#FEE2E2'
       };
     }
-  }, [healthScore]);
+  }, [healthScore, t]);
 
   // Derived Crop Name:
   // Priority: 1. Current query crop -> 2. advisoryResult crop_name -> 3. advisoryResult cropName -> 4. activeFarmContext crop -> 5. General
   const cropName = useMemo(() => {
-    if (queryCrop) {
-      return isHindi ? queryCrop.nameHi : queryCrop.canonical;
-    }
-    if (advisoryResult?.crop_name && advisoryResult.crop_name !== 'General' && advisoryResult.crop_name !== 'Field Crop' && advisoryResult.crop_name !== 'फसल') {
-      return advisoryResult.crop_name;
-    }
-    if (advisoryResult?.cropName && advisoryResult.cropName !== 'Fasal Drishti AI' && advisoryResult.cropName !== 'Krishi Drishti AI' && advisoryResult.cropName !== 'General') {
-      return advisoryResult.cropName;
-    }
-    if (activeFarmContext?.crop && activeFarmContext.crop !== 'General') {
-      return activeFarmContext.crop;
-    }
-    return isHindi ? 'आपकी फसल' : 'Your Crop';
-  }, [queryCrop, advisoryResult?.crop_name, advisoryResult?.cropName, activeFarmContext?.crop, isHindi]);
+    let raw = 'Wheat';
+    if (queryCrop) raw = queryCrop.canonical;
+    else if (advisoryResult?.crop_name && advisoryResult.crop_name !== 'General' && advisoryResult.crop_name !== 'Field Crop' && advisoryResult.crop_name !== 'फसल') raw = advisoryResult.crop_name;
+    else if (advisoryResult?.cropName && advisoryResult.cropName !== 'Fasal Drishti AI' && advisoryResult.cropName !== 'Krishi Drishti AI' && advisoryResult.cropName !== 'General') raw = advisoryResult.cropName;
+    else if (activeFarmContext?.crop && activeFarmContext.crop !== 'General') raw = activeFarmContext.crop;
+    return tCrop(raw);
+  }, [queryCrop, advisoryResult?.crop_name, advisoryResult?.cropName, activeFarmContext?.crop, tCrop]);
 
-  const cropStage = activeFarmContext?.cropStage || 'Vegetative Stage';
-  const fieldName = activeFarmContext?.fieldName || (isHindi ? 'मुख्य खेत' : 'Main Field');
+  const cropStage = tStage(activeFarmContext?.cropStage || 'Vegetative Stage');
+  const fieldName = activeFarmContext?.fieldName || t('farm.mainField', 'Main Field');
   const lastChecked = healthData?.calculatedTime 
-    ? `${isHindi ? 'आज' : 'Today'} ${healthData.calculatedTime}`
-    : (isHindi ? 'आज, अभी' : 'Today, Just now');
+    ? `${t('common.today', 'Today')} ${healthData.calculatedTime}`
+    : `${t('common.today', 'Today')}, ${t('common.justNow', 'Just now')}`;
 
   const moistureScore = activeFarmContext?.moisture?.score ?? 72;
   const weatherTemp = activeFarmContext?.weather?.temp ?? 27;
@@ -634,7 +629,7 @@ export default function FarmerActionDashboard({
                   {healthScore}%
                 </span>
                 <span className={`text-[10px] font-black uppercase tracking-wider mt-1 px-2 py-0.5 rounded-full ${healthStatusConfig.badgeBg}`}>
-                  {isHindi ? healthStatusConfig.labelHi : healthStatusConfig.labelEn}
+                  {healthStatusConfig.label}
                 </span>
               </div>
             </div>
@@ -643,20 +638,20 @@ export default function FarmerActionDashboard({
             <div className="space-y-1">
               <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-wider">
                 <Sprout className="w-4 h-4 text-emerald-600" />
-                <span>{isHindi ? 'फसल स्वास्थ्य' : 'Crop Health'}</span>
+                <span>{t('farm.cropHealth', 'Crop Health')}</span>
               </div>
               <h3 className="text-lg sm:text-xl font-black text-slate-900 leading-tight">
                 {cropName}
               </h3>
               <div className="text-xs text-slate-700 font-medium space-y-0.5">
                 <p>
-                  <span className="text-slate-500 font-bold">{isHindi ? 'अवस्था:' : 'Growth Stage:'}</span> {cropStage}
+                  <span className="text-slate-500 font-bold">{t('farm.growthStage', 'Growth Stage')}:</span> {cropStage}
                 </p>
                 <p>
-                  <span className="text-slate-500 font-bold">{isHindi ? 'खेत:' : 'Field:'}</span> {fieldName}
+                  <span className="text-slate-500 font-bold">{t('farm.field', 'Field')}:</span> {fieldName}
                 </p>
                 <p className="text-[11px] text-slate-500">
-                  <span className="font-semibold">{isHindi ? 'अंतिम जांच:' : 'Last Checked:'}</span> {lastChecked}
+                  <span className="font-semibold">{t('farm.lastChecked', 'Last Checked')}:</span> {lastChecked}
                 </p>
               </div>
             </div>
@@ -665,7 +660,7 @@ export default function FarmerActionDashboard({
           {/* Quick Condition Badge */}
           <div className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-slate-200">
             <span className="text-[11px] font-bold text-slate-500 uppercase">
-              {isHindi ? 'स्थिति स्तर' : 'Condition Level'}
+              {t('farm.conditionLevel', 'Condition Level')}
             </span>
             <span className={`px-3 py-1 rounded-xl text-xs font-black uppercase border ${healthStatusConfig.badgeBg}`}>
               {healthScore >= 80 
@@ -688,10 +683,10 @@ export default function FarmerActionDashboard({
         <div className="flex items-center justify-between">
           <h4 className="text-xs sm:text-sm font-black text-slate-900 flex items-center gap-2 uppercase tracking-wide">
             <span>⚠️</span>
-            <span>{isHindi ? 'क्या ध्यान देने की जरूरत है? (WHAT NEEDS ATTENTION?)' : 'WHAT NEEDS ATTENTION?'}</span>
+            <span>{t('farm.whatNeedsAttention', 'WHAT NEEDS ATTENTION?')}</span>
           </h4>
           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-            {isHindi ? 'महत्वपूर्ण मुद्दे' : 'Urgency Sorted'}
+            {t('farm.urgencySorted', 'Urgency Sorted')}
           </span>
         </div>
 
@@ -727,10 +722,10 @@ export default function FarmerActionDashboard({
         <div className="flex items-center justify-between">
           <h4 className="text-xs sm:text-sm font-black text-emerald-950 flex items-center gap-2 uppercase tracking-wide">
             <span>✅</span>
-            <span>{isHindi ? 'आपको अभी क्या करना चाहिए? (WHAT TO DO NOW)' : 'WHAT YOU SHOULD DO NOW'}</span>
+            <span>{t('farm.whatToDoNow', 'WHAT YOU SHOULD DO NOW')}</span>
           </h4>
           <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-200">
-            {isHindi ? 'प्राथमिकता अनुसार' : 'Priority Actions'}
+            {t('dashboard.priorityActions', 'Priority Actions')}
           </span>
         </div>
 
@@ -763,7 +758,7 @@ export default function FarmerActionDashboard({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs pt-1 border-t border-slate-100">
                 <div className="bg-slate-50 p-2 rounded-lg">
                   <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">
-                    👉 {isHindi ? 'क्या करें? (WHAT)' : 'WHAT to do?'}
+                    👉 {t('dashboard.actionRequired', 'WHAT to do?')}
                   </span>
                   <p className="font-bold text-slate-900 leading-snug">
                     {isHindi ? act.whatHi : act.whatEn}
@@ -772,7 +767,7 @@ export default function FarmerActionDashboard({
 
                 <div className="bg-slate-50 p-2 rounded-lg">
                   <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">
-                    💡 {isHindi ? 'क्यों करें? (WHY)' : 'WHY do it?'}
+                    💡 {t('dashboard.why', 'WHY do it?')}
                   </span>
                   <p className="text-slate-700 font-medium leading-snug">
                     {isHindi ? act.whyHi : act.whyEn}
@@ -781,7 +776,7 @@ export default function FarmerActionDashboard({
 
                 <div className="bg-slate-50 p-2 rounded-lg">
                   <span className="text-[10px] font-bold text-slate-500 uppercase block mb-0.5">
-                    ⏰ {isHindi ? 'कब करें? (WHEN)' : 'WHEN to do?'}
+                    ⏰ {t('farm.actionTimeline', 'WHEN to do?')}
                   </span>
                   <p className="font-bold text-emerald-900 leading-snug">
                     {isHindi ? act.whenHi : act.whenEn}
@@ -833,32 +828,32 @@ export default function FarmerActionDashboard({
       <div className="p-4 sm:p-5 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
         <h4 className="text-xs font-black text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
           <span>📊</span>
-          <span>{isHindi ? 'खेत का संक्षिप्त विवरण (FARM SNAPSHOT)' : 'FARM SNAPSHOT'}</span>
+          <span>{t('profile.farmInfo', 'FARM SNAPSHOT')}</span>
         </h4>
 
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 text-xs">
           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">📍 {isHindi ? 'स्थान / खेत' : 'Location / Field'}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">📍 {t('farm.field', 'Location / Field')}</span>
             <span className="font-bold text-slate-900 truncate block mt-0.5">{fieldName}</span>
           </div>
 
           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">🌾 {isHindi ? 'फसल व रकबा' : 'Crop & Area'}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">🌾 {t('farm.crop', 'Crop')}</span>
             <span className="font-bold text-slate-900 truncate block mt-0.5">{cropName} • {activeFarmContext?.areaAcres || 4.5} Ac</span>
           </div>
 
           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">🌱 {isHindi ? 'फसल अवस्था' : 'Crop Stage'}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">🌱 {t('farm.stage', 'Crop Stage')}</span>
             <span className="font-bold text-slate-900 truncate block mt-0.5">{cropStage}</span>
           </div>
 
           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">💧 {isHindi ? 'मिट्टी नमी' : 'Soil Moisture'}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">💧 {t('farm.moisture', 'Soil Moisture')}</span>
             <span className="font-bold text-slate-900 truncate block mt-0.5">{moistureScore}% ({moistureScore < 50 ? (isHindi ? 'कम' : 'Low') : (isHindi ? 'पर्याप्त' : 'Adequate')})</span>
           </div>
 
           <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
-            <span className="text-[10px] font-bold text-slate-500 uppercase block">🌡️ {isHindi ? 'मौसम व तापमान' : 'Weather / Temp'}</span>
+            <span className="text-[10px] font-bold text-slate-500 uppercase block">🌡️ {t('farm.weather', 'Weather / Temp')}</span>
             <span className="font-bold text-slate-900 truncate block mt-0.5">{weatherTemp}°C • {weatherRainProb}% {isHindi ? 'बारिश' : 'Rain'}</span>
           </div>
         </div>
@@ -969,13 +964,13 @@ export default function FarmerActionDashboard({
       <div className="p-4 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-2.5">
         <h4 className="text-xs font-black text-slate-800 flex items-center gap-1.5 uppercase tracking-wide">
           <Calendar className="w-4 h-4 text-emerald-600" />
-          <span>{isHindi ? 'किसान कार्य समयरेखा (FARMER ACTION TIMELINE)' : 'FARMER ACTION TIMELINE'}</span>
+          <span>{t('farm.actionTimeline', 'FARMER ACTION TIMELINE')}</span>
         </h4>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
           <div className="p-2.5 bg-rose-50/80 rounded-xl border border-rose-200">
             <span className="text-[10px] font-black text-rose-800 uppercase block mb-1">
-              🔴 {isHindi ? 'आज (TODAY)' : 'TODAY'}
+              🔴 {t('farm.today', 'TODAY')}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
               {timelineData.today}
@@ -984,7 +979,7 @@ export default function FarmerActionDashboard({
 
           <div className="p-2.5 bg-orange-50/80 rounded-xl border border-orange-200">
             <span className="text-[10px] font-black text-orange-800 uppercase block mb-1">
-              🟠 {isHindi ? 'अगले 24 घंटे' : 'NEXT 24 HOURS'}
+              🟠 {t('farm.in24Hours', 'NEXT 24 HOURS')}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
               {timelineData.in24h}
@@ -993,7 +988,7 @@ export default function FarmerActionDashboard({
 
           <div className="p-2.5 bg-amber-50/80 rounded-xl border border-amber-200">
             <span className="text-[10px] font-black text-amber-800 uppercase block mb-1">
-              🟡 {isHindi ? '2–3 दिन बाद' : 'NEXT 2–3 DAYS'}
+              🟡 {t('farm.in23Days', 'NEXT 2–3 DAYS')}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
               {timelineData.in23Days}
@@ -1002,7 +997,7 @@ export default function FarmerActionDashboard({
 
           <div className="p-2.5 bg-emerald-50/80 rounded-xl border border-emerald-200">
             <span className="text-[10px] font-black text-emerald-800 uppercase block mb-1">
-              🟢 {isHindi ? 'अगले 7 दिन' : 'NEXT 7 DAYS'}
+              🟢 {t('farm.next7Days', 'NEXT 7 DAYS')}
             </span>
             <p className="font-bold text-slate-900 leading-snug">
               {timelineData.next7Days}
@@ -1088,9 +1083,7 @@ export default function FarmerActionDashboard({
           <div className="flex items-center gap-2">
             <Search className="w-4 h-4 text-emerald-600" />
             <span>
-              {isHindi 
-                ? '🔍 विस्तृत AI विश्लेषण देखें (View Detailed AI Analysis)' 
-                : '🔍 View Detailed AI Analysis & Scientific Reasoning'}
+              {showDetailedAnalysis ? t('farm.hideDetailedAnalysis', 'Hide Detailed AI Analysis') : t('farm.viewDetailedAnalysis', 'View Detailed AI Analysis')}
             </span>
           </div>
           {showDetailedAnalysis ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}

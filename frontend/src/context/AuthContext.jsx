@@ -70,6 +70,15 @@ export const AuthProvider = ({ children }) => {
     safeSet('krishi_current_crop', c);
   };
 
+  // Safe watchdog: Never let isLoading remain true for more than 2.5 seconds
+  useEffect(() => {
+    if (!isLoading) return;
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 2500);
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
   // Revalidate or restore user session
   useEffect(() => {
     let isMounted = true;
@@ -81,9 +90,11 @@ export const AuthProvider = ({ children }) => {
         return;
       }
 
-      // If we don't have a cached user, activate safe fallback while backend checks
+      // If we don't have a cached user, only activate fallback if explicitly a demo session
       const cachedUser = safeParse('krishi_user');
-      if (!cachedUser) {
+      const isDemoSession = savedToken && (savedToken.startsWith('krishi_demo_jwt_token_') || !!localStorage.getItem('krishi_demo_role'));
+
+      if (!cachedUser && isDemoSession) {
         const role = localStorage.getItem('krishi_demo_role') || 'farmer';
         const fallbackUser = role === 'admin' ? MOCK_ADMIN_USER : (role === 'expert' ? MOCK_EXPERT_USER : MOCK_FARMER_USER);
         if (isMounted) {
@@ -99,9 +110,9 @@ export const AuthProvider = ({ children }) => {
         const res = await api.get('/auth/me');
         if (isMounted && res.data?.success) {
           if (res.data.user) setUser(res.data.user);
-          if (res.data.profile) setProfile(res.data.profile);
-          if (res.data.farm) setFarm(res.data.farm);
-          if (res.data.currentCrop) setCurrentCrop(res.data.currentCrop);
+          setProfile(res.data.profile || null);
+          setFarm(res.data.farm || null);
+          setCurrentCrop(res.data.currentCrop || null);
         }
       } catch (error) {
         console.warn('Silent user session refresh:', error.message);
@@ -117,47 +128,127 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const login = async (phone, password) => {
+  const clearSessionStorage = () => {
+    localStorage.removeItem('krishi_demo_role');
+    localStorage.removeItem('krishi_user');
+    localStorage.removeItem('krishi_profile');
+    localStorage.removeItem('krishi_farm');
+    localStorage.removeItem('krishi_current_crop');
+    localStorage.removeItem('krishi_dash_cache');
+    localStorage.removeItem('krishi_active_field');
+    localStorage.removeItem('farm_data');
+    localStorage.removeItem('krishi_saved_fields');
+    localStorage.removeItem('krishi_crop_health_cache');
+    localStorage.removeItem('krishi_farm_coords');
+    localStorage.removeItem('krishi_outbreak_cache');
+
     try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (key.startsWith('krishi_dash_cache_') || key.startsWith('farmer_profile_') || key.startsWith('farm_data_'))) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+    } catch (_) {}
+  };
+
+  const login = async (phone, password) => {
+    console.log('[AUTH:LOGIN] 1. Login attempt started for phone:', phone);
+    try {
+      console.log('[AUTH:LOGIN] 2. Sending authentication request to:', api.defaults.baseURL);
       const res = await api.post('/auth/login', { phone, password });
+      console.log('[AUTH:LOGIN] 3. Authentication response received:', res.data?.success);
+
       if (res.data.success) {
         const { token: newToken, user: newUser } = res.data;
+        console.log('[AUTH:LOGIN] 4. Authentication successful. UID:', newUser?.id || newUser?._id);
+        
+        // Purge previous user/demo cache before storing new identity
+        clearSessionStorage();
         localStorage.setItem('krishi_token', newToken);
         setToken(newToken);
         setUser(newUser);
+        
+        console.log('[AUTH:LOGIN] 5. Loading user profile, farm, and crops for UID:', newUser?.id || newUser?._id);
         await refreshUser();
+        console.log('[AUTH:LOGIN] 6. Dashboard initialized for UID:', newUser?.id || newUser?._id);
         return { success: true, user: newUser };
       }
       return { success: false, message: res.data.message || 'Login failed' };
     } catch (error) {
+      console.error('[AUTH:LOGIN] ERROR during authentication:', error);
+      let errMsg = '';
+      if (error.response?.data?.message) {
+        errMsg = error.response.data.message;
+        if (errMsg.includes('bufferCommands') || errMsg.includes('findOne') || errMsg.includes('initial connection')) {
+          errMsg = 'Unable to log in right now. Please try again in a few moments.';
+        }
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errMsg = 'Server response timed out. The server may be waking up, please try again.';
+      } else if (error.message?.includes('Network Error') || !error.response) {
+        errMsg = 'Network error. Please check your internet connection.';
+      } else {
+        errMsg = error.message || 'Invalid mobile number or password.';
+      }
       return {
         success: false,
-        message: error.response?.data?.message || 'Login failed. Please check your credentials.',
+        code: error.response?.data?.code || error.code || 'UNKNOWN_ERROR',
+        message: errMsg,
       };
     }
   };
 
   const register = async (formData) => {
+    console.log('[AUTH:REGISTER] 1. Registration started for:', formData?.name, formData?.phone);
     try {
+      console.log('[AUTH:REGISTER] 2. Sending registration request to backend...');
       const res = await api.post('/auth/register', formData);
+      console.log('[AUTH:REGISTER] 3. Registration response received:', res.data?.success);
+
       if (res.data.success) {
         const { token: newToken, user: newUser } = res.data;
+        console.log('[AUTH:REGISTER] 4. Account created successfully. UID:', newUser?.id || newUser?._id);
+        
+        // Purge previous user/demo cache before storing new identity
+        clearSessionStorage();
         localStorage.setItem('krishi_token', newToken);
         setToken(newToken);
         setUser(newUser);
+        
+        console.log('[AUTH:REGISTER] 5. Initializing profile and farm for UID:', newUser?.id || newUser?._id);
         await refreshUser();
+        console.log('[AUTH:REGISTER] 6. Registration completed successfully.');
         return { success: true, user: newUser };
       }
       return { success: false, message: res.data.message || 'Registration failed' };
     } catch (error) {
+      console.error('[AUTH:REGISTER] ERROR during registration:', error);
+      let errMsg = '';
+      if (error.response?.data?.message) {
+        errMsg = error.response.data.message;
+        if (errMsg.includes('bufferCommands') || errMsg.includes('findOne') || errMsg.includes('initial connection')) {
+          errMsg = 'Unable to create your account right now. Please try again.';
+        }
+      } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+        errMsg = 'Server response timed out. The server may be waking up, please try again.';
+      } else if (error.message?.includes('Network Error') || !error.response) {
+        errMsg = 'Network error. Please check your internet connection.';
+      } else {
+        errMsg = error.message || 'Registration failed. Please try again.';
+      }
       return {
         success: false,
-        message: error.response?.data?.message || 'Registration failed. Please try again.',
+        code: error.response?.data?.code || error.code || 'UNKNOWN_ERROR',
+        message: errMsg,
       };
     }
   };
 
   const demoLogin = async (role = 'farmer') => {
+    clearSessionStorage();
+
     // 1. Instant local session hydration for 0ms lag
     let demoUser = MOCK_FARMER_USER;
     if (role === 'expert') demoUser = MOCK_EXPERT_USER;
@@ -187,12 +278,8 @@ export const AuthProvider = ({ children }) => {
   };
 
   const logout = () => {
+    clearSessionStorage();
     localStorage.removeItem('krishi_token');
-    localStorage.removeItem('krishi_demo_role');
-    safeSet('krishi_user', null);
-    safeSet('krishi_profile', null);
-    safeSet('krishi_farm', null);
-    safeSet('krishi_current_crop', null);
 
     setToken(null);
     setUserState(null);

@@ -10,7 +10,12 @@ const Alert = require('../models/Alert');
 const { runFieldMonitoringPipeline } = require('../services/fieldMonitoringService');
 const { 
   isDbConnected, 
-  getStatelessDashboard, 
+  getStatelessDashboard,
+  getStatelessDashboardForUser,
+  getStatelessUserById,
+  saveStatelessProfile,
+  saveStatelessFarm,
+  addStatelessCrop,
   getStatelessFields, 
   saveStatelessField, 
   deleteStatelessField 
@@ -35,47 +40,93 @@ const completeOnboarding = async (req, res) => {
 
     const userId = req.user._id;
 
-    // Update User
+    if (!isDbConnected()) {
+      const u = getStatelessUserById(userId);
+      if (u) {
+        if (name) u.name = name;
+        u.isOnboarded = true;
+      }
+
+      const locationStr = location || ((village && district) 
+        ? `${village}, ${district}, ${state || ''}`.replace(/, $/, '') 
+        : (state || ''));
+
+      const profile = saveStatelessProfile(userId, {
+        state: state || '',
+        district: district || '',
+        village: village || '',
+        location: locationStr
+      });
+
+      const farm = saveStatelessFarm(userId, {
+        farmName: `${name || req.user.name}'s Farm`,
+        farmSize: Number(farmSize) || 0,
+        landUnit: landUnit || 'Acres',
+        soilType: soilType || '',
+        irrigationMethod: irrigationMethod || '',
+      });
+
+      if (mainCrop) {
+        addStatelessCrop(userId, {
+          cropName: mainCrop,
+          areaAllocated: Number(farmSize) || 0,
+          isCurrent: true
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: 'Onboarding completed successfully!',
+        profile,
+        farm,
+      });
+    }
+
+    // Update User in DB
     if (name) {
       await User.findByIdAndUpdate(userId, { name, isOnboarded: true });
     } else {
       await User.findByIdAndUpdate(userId, { isOnboarded: true });
     }
 
+    const locationStr = location || ((village && district) 
+      ? `${village}, ${district}, ${state || ''}`.replace(/, $/, '') 
+      : (state || ''));
+
     // Upsert Profile
     let profile = await FarmerProfile.findOne({ userId });
     if (profile) {
-      profile.state = state || profile.state;
-      profile.district = district || profile.district;
-      profile.village = village || profile.village;
-      profile.location = location || `${profile.village}, ${profile.district}, ${profile.state}`;
+      profile.state = state !== undefined ? state : profile.state;
+      profile.district = district !== undefined ? district : profile.district;
+      profile.village = village !== undefined ? village : profile.village;
+      profile.location = locationStr || profile.location;
       await profile.save();
     } else {
       profile = await FarmerProfile.create({
         userId,
-        state: state || 'Maharashtra',
-        district: district || 'Nashik',
-        village: village || 'Pimpalgaon',
-        location: location || `${village || 'Pimpalgaon'}, ${district || 'Nashik'}, ${state || 'Maharashtra'}`,
+        state: state || '',
+        district: district || '',
+        village: village || '',
+        location: locationStr,
       });
     }
 
     // Upsert Farm
     let farm = await Farm.findOne({ farmerId: userId });
     if (farm) {
-      farm.farmSize = Number(farmSize) || farm.farmSize;
-      farm.landUnit = landUnit || farm.landUnit;
-      farm.soilType = soilType || farm.soilType;
-      farm.irrigationMethod = irrigationMethod || farm.irrigationMethod;
+      if (farmSize) farm.farmSize = Number(farmSize);
+      if (landUnit) farm.landUnit = landUnit;
+      if (soilType) farm.soilType = soilType;
+      if (irrigationMethod) farm.irrigationMethod = irrigationMethod;
       await farm.save();
     } else {
       farm = await Farm.create({
         farmerId: userId,
-        farmName: `${req.user.name}'s Farm`,
-        farmSize: Number(farmSize) || 4.0,
+        farmName: `${name || req.user.name}'s Farm`,
+        farmSize: Number(farmSize) || 0,
         landUnit: landUnit || 'Acres',
-        soilType: soilType || 'Black Soil / Regur',
-        irrigationMethod: irrigationMethod || 'Drip Irrigation',
+        soilType: soilType || '',
+        irrigationMethod: irrigationMethod || '',
       });
     }
 
@@ -84,7 +135,7 @@ const completeOnboarding = async (req, res) => {
       let crop = await Crop.findOne({ farmerId: userId, isCurrent: true });
       if (crop) {
         crop.cropName = mainCrop;
-        crop.areaAllocated = Number(farmSize) || 4.0;
+        crop.areaAllocated = Number(farmSize) || crop.areaAllocated;
         await crop.save();
       } else {
         await Crop.create({
@@ -94,13 +145,13 @@ const completeOnboarding = async (req, res) => {
           variety: 'High Yield Standard',
           cropStage: 'Vegetative Stage',
           healthStatus: 'Good',
-          areaAllocated: Number(farmSize) || 4.0,
+          areaAllocated: Number(farmSize) || 0,
           isCurrent: true,
         });
       }
     }
 
-    // Create initial tasks
+    // Create initial task for new farmer
     await ActionPlan.create({
       farmerId: userId,
       title: 'Complete First Crop Foliage & Root Inspection',
@@ -127,14 +178,15 @@ const completeOnboarding = async (req, res) => {
 // @route GET /api/farmer/dashboard
 const getFarmerDashboard = async (req, res) => {
   try {
+    const userId = req.user._id;
+
     if (!isDbConnected()) {
+      const data = getStatelessDashboardForUser(userId);
       return res.json({
         success: true,
-        data: getStatelessDashboard()
+        data: data || getStatelessDashboard()
       });
     }
-
-    const userId = req.user._id;
 
     const [profile, farm, crops, currentCrop, pendingTasks, recentAnalyses, recentRecommendations, unreadAlerts] = await Promise.all([
       FarmerProfile.findOne({ userId }),
@@ -147,8 +199,7 @@ const getFarmerDashboard = async (req, res) => {
       Alert.find({ userId, isRead: false }).sort({ createdAt: -1 }).limit(5),
     ]);
 
-    // Calculate farm health average
-    const healthScore = currentCrop ? currentCrop.healthScore : 88;
+    const healthScore = currentCrop ? currentCrop.healthScore : null;
 
     res.json({
       success: true,
@@ -159,28 +210,10 @@ const getFarmerDashboard = async (req, res) => {
           phone: req.user.phone,
           email: req.user.email,
         },
-        profile: profile || {
-          state: 'Maharashtra',
-          district: 'Nashik',
-          village: 'Pimpalgaon',
-          location: 'Pimpalgaon, Nashik, Maharashtra',
-        },
-        farm: farm || {
-          farmName: 'My Primary Farm',
-          farmSize: 4.5,
-          landUnit: 'Acres',
-          soilType: 'Black Soil / Regur',
-          irrigationMethod: 'Drip Irrigation',
-        },
+        profile: profile || null,
+        farm: farm || null,
         crops: crops || [],
-        currentCrop: currentCrop || {
-          cropName: 'Tomato',
-          variety: 'Abhinav Hybrid',
-          cropStage: 'Flowering Stage',
-          healthStatus: 'Good',
-          healthScore: 88,
-          areaAllocated: 3.0,
-        },
+        currentCrop: currentCrop || null,
         healthScore,
         pendingTasks: pendingTasks || [],
         recentAnalyses: recentAnalyses || [],
@@ -189,10 +222,27 @@ const getFarmerDashboard = async (req, res) => {
       },
     });
   } catch (error) {
-    console.warn('Farmer dashboard falling back to stateless dataset:', error.message);
+    console.error('Farmer dashboard error:', error.message);
+    const fallbackData = getStatelessDashboardForUser(req.user?._id);
     res.json({
       success: true,
-      data: getStatelessDashboard()
+      data: fallbackData || {
+        farmer: {
+          id: req.user?._id,
+          name: req.user?.name,
+          phone: req.user?.phone,
+          email: req.user?.email,
+        },
+        profile: null,
+        farm: null,
+        crops: [],
+        currentCrop: null,
+        healthScore: null,
+        pendingTasks: [],
+        recentAnalyses: [],
+        recentRecommendations: [],
+        unreadAlerts: [],
+      }
     });
   }
 };
@@ -215,18 +265,11 @@ const getFarmInsights = async (req, res) => {
       { name: 'High/Critical', value: 1, color: '#EF4444' },
     ];
 
+    const userId = req.user?._id;
+
     if (!isDbConnected()) {
-      return res.json({
-        success: true,
-        data: {
-          totalAnalyses: 11,
-          criticalIssues: 1,
-          totalTasks: 5,
-          completedTasks: 4,
-          taskCompletionRate: 80,
-          healthTrends,
-          severityDistribution,
-          recentAnalyses: [
+      const userScans = req.user?.isDemo !== false 
+        ? [
             {
               _id: 'ana_demo_01',
               detectedProblem: 'Early Blight (Alternaria solani)',
@@ -234,20 +277,24 @@ const getFarmInsights = async (req, res) => {
               severity: 'Medium',
               createdAt: new Date().toISOString()
             }
-          ],
-          recentRecommendations: [
-            {
-              _id: 'rec_demo_01',
-              query: 'Early blight control for Tomato',
-              aiResponse: 'Spray Mancozeb 75 WP or Neem Oil',
-              createdAt: new Date().toISOString()
-            }
-          ],
+          ]
+        : [];
+
+      return res.json({
+        success: true,
+        data: {
+          totalAnalyses: userScans.length,
+          criticalIssues: 0,
+          totalTasks: 2,
+          completedTasks: 1,
+          taskCompletionRate: 50,
+          healthTrends,
+          severityDistribution,
+          recentAnalyses: userScans,
+          recentRecommendations: [],
         }
       });
     }
-
-    const userId = req.user._id;
 
     const [totalAnalyses, criticalIssues, totalTasks, completedTasks, analyses, recommendations] = await Promise.all([
       CropAnalysis.countDocuments({ farmerId: userId }),
@@ -275,27 +322,17 @@ const getFarmInsights = async (req, res) => {
       }
     });
   } catch (error) {
-    console.warn('Insights falling back to simulated values:', error.message);
+    console.warn('Insights falling back to empty values:', error.message);
     res.json({
       success: true,
       data: {
-        totalAnalyses: 10,
-        criticalIssues: 1,
-        totalTasks: 4,
-        completedTasks: 3,
-        taskCompletionRate: 75,
-        healthTrends: [
-          { month: 'Apr', score: 82, problems: 2 },
-          { month: 'May', score: 85, problems: 1 },
-          { month: 'Jun', score: 79, problems: 3 },
-          { month: 'Jul', score: 88, problems: 1 },
-          { month: 'Aug', score: 92, problems: 0 },
-        ],
-        severityDistribution: [
-          { name: 'Healthy', value: 7, color: '#10B981' },
-          { name: 'Moderate', value: 2, color: '#F59E0B' },
-          { name: 'High/Critical', value: 1, color: '#EF4444' },
-        ],
+        totalAnalyses: 0,
+        criticalIssues: 0,
+        totalTasks: 0,
+        completedTasks: 0,
+        taskCompletionRate: 100,
+        healthTrends: [],
+        severityDistribution: [],
         recentAnalyses: [],
         recentRecommendations: [],
       }
@@ -353,7 +390,11 @@ const saveField = async (req, res) => {
     }
   }
 
-  const farmerId = req.user?._id || 'usr_farmer_demo_01';
+  const farmerId = req.user?._id;
+  if (!farmerId) {
+    return res.status(401).json({ success: false, message: 'Authentication required to save field.' });
+  }
+
   if (isDbConnected() && req.user?._id) {
     try {
       let savedDbField = null;
@@ -391,7 +432,10 @@ const saveField = async (req, res) => {
 
 const deleteField = async (req, res) => {
   const { id } = req.params;
-  const farmerId = req.user?._id || 'usr_farmer_demo_01';
+  const farmerId = req.user?._id;
+  if (!farmerId) {
+    return res.status(401).json({ success: false, message: 'Authentication required to delete field.' });
+  }
 
   if (isDbConnected() && req.user?._id) {
     try {

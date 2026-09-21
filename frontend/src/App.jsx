@@ -96,11 +96,52 @@ function MainApp() {
     window.scrollTo({ top: 0, behavior: 'instant' });
   }, [activeTab]);
 
+  const [loadDelayWarning, setLoadDelayWarning] = useState(false);
+  useEffect(() => {
+    let timer;
+    if (isLoading) {
+      timer = setTimeout(() => setLoadDelayWarning(true), 3000);
+    } else {
+      setLoadDelayWarning(false);
+    }
+    return () => clearTimeout(timer);
+  }, [isLoading]);
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white">
-        <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-3"></div>
-        <p className="font-bold text-xs tracking-wider uppercase text-emerald-400">Loading FASAL DRISHTI...</p>
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white px-4 text-center">
+        <div className="w-12 h-12 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+        <p className="font-bold text-sm tracking-wider uppercase text-emerald-400 mb-1">Loading FASAL DRISHTI...</p>
+        <p className="text-xs text-slate-400 mb-2">फ़सल दृष्टि प्रारंभ हो रही है</p>
+        {loadDelayWarning && (
+          <div className="mt-4 p-4 rounded-2xl bg-white/5 border border-white/10 max-w-xs">
+            <p className="text-xs text-slate-300 mb-3">
+              Fasal Drishti is taking longer than expected.<br />
+              <span className="text-[11px] text-slate-400">लोड होने में अधिक समय लग रहा है।</span>
+            </p>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={() => window.location.reload()}
+                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs py-2 px-3 rounded-xl transition"
+              >
+                🔄 Retry / पुनः प्रयास करें
+              </button>
+              <button
+                onClick={() => {
+                  try {
+                    localStorage.setItem('krishi_demo_role', 'farmer');
+                    localStorage.setItem('krishi_token', 'krishi_demo_jwt_token_farmer_2026');
+                  } catch (_) {}
+                  window.location.hash = '#/home';
+                  window.location.reload();
+                }}
+                className="w-full bg-white/10 hover:bg-white/20 text-emerald-300 font-semibold text-xs py-2 px-3 rounded-xl transition"
+              >
+                📶 Continue Offline / ऑफलाइन चलाएं
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
