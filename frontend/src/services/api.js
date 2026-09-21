@@ -84,9 +84,10 @@ export const resolveApiBaseUrl = () => {
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
     return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
   }
-  // On Native Android devices connected over USB to development computer
+  // On Native Android devices, default to live production cloud backend
+  // so the app works seamlessly whether USB is connected or disconnected, on Wi-Fi, or on mobile data.
   if (isNativeApp()) {
-    return USB_DEV_API_URL;
+    return DEFAULT_PRODUCTION_API_URL;
   }
   if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
     return 'http://localhost:5000/api';
@@ -154,6 +155,30 @@ api.interceptors.request.use((config) => {
 }, (error) => {
   return Promise.reject(error);
 });
+
+// Interceptor to handle connection failovers between Cloud and Local Dev
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const originalRequest = error.config;
+    if (!originalRequest || originalRequest._retryCount) {
+      return Promise.reject(error);
+    }
+
+    const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || error.message?.includes('Network Error');
+    if (isNetworkOrTimeout && (originalRequest.url?.includes('/auth/') || originalRequest.url?.includes('/farmer/'))) {
+      originalRequest._retryCount = 1;
+      const currentBase = originalRequest.baseURL || api.defaults.baseURL;
+      const targetBase = currentBase === DEFAULT_PRODUCTION_API_URL ? USB_DEV_API_URL : DEFAULT_PRODUCTION_API_URL;
+      
+      console.warn(`[API FAILOVER] Request failed on ${currentBase}. Retrying on alternate ${targetBase}...`);
+      originalRequest.baseURL = targetBase;
+      return api(originalRequest);
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 const safeParseStorage = (key) => {
   if (typeof window === 'undefined') return null;
