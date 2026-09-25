@@ -184,6 +184,21 @@ export default function PresentationToolbar({
             </button>
           </div>
 
+          {/* 1-Click WhatsApp Share Button */}
+          <a
+            id="btn-whatsapp-share"
+            href={`https://api.whatsapp.com/send?text=${encodeURIComponent(
+              `🌾 *फ़सल दृष्टि (FASAL DRISHTI)*\n_स्मार्ट खेती के लिए AI साथी • अंतरिक्ष से मिट्टी तक_\n\nमाननीय महोदय, फ़सल दृष्टि का लाइव मोबाइल व वेब एप्लिकेशन लिंक देखें:\n👉 https://hariomyadav144.github.io/krishi-drishti/\n\n✨ मुख्य सुविधाएं:\n• 📸 AI फसल रोग पहचान व दवा उपचार\n• 📈 लाइव APMC मंडी भाव\n• 🛰️ उपग्रह Sentinel-2 फसल स्वास्थ्य व नमी रडार\n• 🎙️ स्वर (SWAR) बोलकर सवाल पूछने वाला AI सहायक`
+            )}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 bg-[#25D366] hover:bg-[#20ba59] text-white px-2.5 py-1 rounded-lg font-bold text-[11px] shadow-sm transition active:scale-95"
+            title="Share via WhatsApp"
+          >
+            <span>💬</span>
+            <span className="hidden sm:inline">WhatsApp</span>
+          </a>
+
           {/* Fullscreen Toggle (F11 Presentation) */}
           <button
             onClick={toggleFullscreen}
