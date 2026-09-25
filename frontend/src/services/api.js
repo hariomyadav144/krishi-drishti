@@ -847,6 +847,25 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     };
   }
 
+  // App Version Telemetry & In-App Update Fallback
+  if (cleanUrl.startsWith('/app/version-check')) {
+    return {
+      success: true,
+      latestVersion: '1.0.1',
+      latestVersionCode: 2,
+      minRequiredVersion: '1.0.0',
+      minRequiredVersionCode: 1,
+      hasUpdate: false,
+      isMandatory: false,
+      updateUrl: 'https://play.google.com/store/apps/details?id=com.fasaldristi.app',
+      apkUrl: 'https://github.com/hariomyadav144/krishi-drishti/releases/latest',
+      title: 'New Fasal Drishti Version Available',
+      titleHi: 'फ़सल दृष्टि का नया अपडेट उपलब्ध है 🌱',
+      releaseNotes: '• Enhanced Sentinel-2 satellite NDVI resolution\n• AI leaf scanner precision update\n• Faster GPS field boundary calculation',
+      releaseNotesHi: '• उपग्रह Sentinel-2 फसल स्वास्थ्य रडार अपडेट\n• AI पत्ती स्कैनर और अधिक सटीक\n• जीपीएस खेत मैपिंग में नई सुविधाएं'
+    };
+  }
+
   // Crop Health Telemetry Fallback (Dynamic calculation for standalone/demo/offline modes)
   if (cleanUrl.startsWith('/crop-health')) {
     const calculateFieldHealth = (fieldId) => {

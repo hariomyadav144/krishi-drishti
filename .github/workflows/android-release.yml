@@ -1,0 +1,100 @@
+name: Build & Package Android Release (AAB & APK)
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'Build Target'
+        required: true
+        default: 'both'
+        type: choice
+        options:
+          - both
+          - aab
+          - apk
+
+jobs:
+  build-android:
+    name: Build Android Release Bundle & APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build Web Application
+        working-directory: frontend
+        run: npm run build
+
+      - name: Sync Web Application with Android Capacitor Project
+        working-directory: frontend
+        run: npx cap sync android
+
+      - name: Configure Keystore Signing (if secret provided)
+        if: env.KEYSTORE_BASE64 != ''
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > frontend/android/release.keystore
+          cat <<EOF > frontend/android/keystore.properties
+          storeFile=release.keystore
+          storePassword=$KEYSTORE_PASSWORD
+          keyAlias=$KEY_ALIAS
+          keyPassword=$KEY_PASSWORD
+          EOF
+
+      - name: Grant Execute Permission to Gradle Wrapper
+        working-directory: frontend/android
+        run: chmod +x gradlew
+
+      - name: Build Android App Bundle (.aab for Google Play Store)
+        if: github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'aab' || github.event_name == 'push'
+        working-directory: frontend/android
+        run: ./gradlew bundleRelease --stacktrace
+
+      - name: Build Android Release APK (.apk for Direct Testing/Distribution)
+        if: github.event.inputs.build_type == 'both' || github.event.inputs.build_type == 'apk' || github.event_name == 'push'
+        working-directory: frontend/android
+        run: ./gradlew assembleRelease --stacktrace
+
+      - name: Upload Android App Bundle (.aab) Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fasal-drishti-release-aab
+          path: frontend/android/app/build/outputs/bundle/release/*.aab
+          if-no-files-found: ignore
+
+      - name: Upload Release APK (.apk) Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fasal-drishti-release-apk
+          path: frontend/android/app/build/outputs/apk/release/*.apk
+          if-no-files-found: ignore

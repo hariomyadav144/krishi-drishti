@@ -11,6 +11,7 @@ import SwarAssistant from './components/SwarAssistant';
 import LanguageSelectionModal from './components/LanguageSelectionModal';
 import PresentationToolbar from './components/PresentationToolbar';
 import PhoneFrameContainer from './components/PhoneFrameContainer';
+import InAppUpdateModal from './components/InAppUpdateModal';
 
 // Keep critical initial path components statically loaded
 import Login from './pages/Login';
@@ -486,6 +487,9 @@ function MainApp() {
             isOpen={!localStorage.getItem('krishi_lang_selected_once')}
             onClose={() => localStorage.setItem('krishi_lang_selected_once', 'true')}
           />
+
+          {/* Automatic In-App Production Update Check Dialog */}
+          <InAppUpdateModal />
         </div>
       </PhoneFrameContainer>
     </div>

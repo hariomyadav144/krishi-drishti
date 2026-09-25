@@ -29,6 +29,7 @@ const aiAdviceRoutes = require('./routes/aiAdviceRoutes');
 const cropScanRoutes = require('./routes/cropScanRoutes');
 const fieldMonitoringRoutes = require('./routes/fieldMonitoringRoutes');
 const cropHealthRoutes = require('./routes/cropHealthRoutes');
+const appVersionRoutes = require('./routes/appVersionRoutes');
 
 const app = express();
 
@@ -117,6 +118,8 @@ app.use('/api/field-monitoring', fieldMonitoringRoutes);
 app.use('/field-monitoring', fieldMonitoringRoutes);
 app.use('/api/crop-health', cropHealthRoutes);
 app.use('/crop-health', cropHealthRoutes);
+app.use('/api/app', appVersionRoutes);
+app.use('/app', appVersionRoutes);
 
 // Health check endpoints (supports both /health and /api/health)
 const healthHandler = (req, res) => {

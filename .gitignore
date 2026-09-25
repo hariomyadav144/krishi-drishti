@@ -30,3 +30,9 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Android Signing Keys & Credentials
+*.jks
+*.keystore
+keystore.properties
+*.key
