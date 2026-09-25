@@ -54,49 +54,16 @@ export function purgeLegacyMockStorage() {
       } catch (_) {}
     });
 
-    // 2. Check and purge krishi_farm_coords if it contains mock Pimpalgaon coordinates
-    try {
-      const rawCoords = localStorage.getItem('krishi_farm_coords');
-      if (rawCoords) {
-        const parsedCoords = JSON.parse(rawCoords);
-        if (
-          parsedCoords &&
-          (Math.abs(Number(parsedCoords.lat) - 20.174) < 0.05 && Math.abs(Number(parsedCoords.lng) - 73.985) < 0.05)
-        ) {
-          localStorage.removeItem('krishi_farm_coords');
-        }
-      }
-    } catch (_) {}
-
-    // 3. Purge legacy boundary points keys if they hold mock data
-    try {
-      ['farm_boundary_geo_points', 'farm_boundary_points'].forEach(key => {
-        const raw = localStorage.getItem(key);
-        if (raw) {
-          const parsed = JSON.parse(raw);
-          if (Array.isArray(parsed) && (parsed.length === 7 || parsed.length === 8 || isLegacyMockPolygon(parsed))) {
-            localStorage.removeItem(key);
-          }
-        }
-      });
-    } catch (_) {}
-
-    // 4. Wipe active field cache if it holds legacy demo IDs, 7 or 8-point mock coordinates, or North Plot
+    // 2. Clear stale mock active field cache only if it is explicitly the hardcoded demo ID
     try {
       const rawActive = localStorage.getItem(STORAGE_KEY_ACTIVE_FIELD);
       if (rawActive) {
         const parsed = JSON.parse(rawActive);
-        const pts = parsed?.boundary || parsed?.points;
         if (
-          !parsed ||
-          parsed.id === 'field_demo_01' ||
-          parsed.id === 'field_demo_maize_01' ||
-          parsed._id === 'field_demo_01' ||
-          parsed._id === 'field_demo_maize_01' ||
-          (parsed.fieldName && (parsed.fieldName.includes('North Plot') || parsed.fieldName.includes('field_demo') || parsed.fieldName.includes('Pimpalgaon'))) ||
-          (parsed.name && (parsed.name.includes('North Plot') || parsed.name.includes('field_demo') || parsed.name.includes('Pimpalgaon'))) ||
-          isLegacyMockPolygon(pts) ||
-          (Array.isArray(pts) && (pts.length === 7 || pts.length === 8))
+          parsed &&
+          (parsed.id === 'field_demo_01' || parsed.id === 'field_demo_maize_01' ||
+           parsed._id === 'field_demo_01' || parsed._id === 'field_demo_maize_01' ||
+           (parsed.fieldName === 'North Plot - Wheat & Maize Block' && isLegacyMockPolygon(parsed.boundary || parsed.points)))
         ) {
           localStorage.removeItem(STORAGE_KEY_ACTIVE_FIELD);
           localStorage.removeItem(STORAGE_KEY_ACTIVE_FARM_ID);
@@ -104,7 +71,7 @@ export function purgeLegacyMockStorage() {
       }
     } catch (_) {}
 
-    // 5. Cleanse saved fields list of any 7 or 8-point mock polygons or demo fields
+    // 3. Cleanse saved fields list of only explicit legacy demo fields
     try {
       [STORAGE_KEY_SAVED_FIELDS, STORAGE_KEY_FARMS].forEach(key => {
         const raw = localStorage.getItem(key);
@@ -112,47 +79,11 @@ export function purgeLegacyMockStorage() {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed)) {
             const sanitized = sanitizeStoredFields(parsed);
-            if (sanitized.length === 0) {
-              localStorage.removeItem(key);
-            } else {
-              localStorage.setItem(key, JSON.stringify(sanitized));
-            }
+            localStorage.setItem(key, JSON.stringify(sanitized));
           }
         }
       });
     } catch (_) {}
-
-    // 6. Scan all remaining localStorage and sessionStorage keys for legacy coordinates or demo strings
-    const stores = [
-      typeof localStorage !== 'undefined' ? localStorage : null,
-      typeof sessionStorage !== 'undefined' ? sessionStorage : null
-    ].filter(Boolean);
-
-    stores.forEach(store => {
-      for (let i = store.length - 1; i >= 0; i--) {
-        const key = store.key(i);
-        if (!key) continue;
-        const val = store.getItem(key);
-        if (val && (
-          val.includes('20.17316') || 
-          val.includes('20.17482') || 
-          val.includes('field_demo_01') || 
-          val.includes('North Plot - Wheat')
-        )) {
-          try {
-            const parsed = JSON.parse(val);
-            if (Array.isArray(parsed) && (parsed.length === 7 || parsed.length === 8 || isLegacyMockPolygon(parsed))) {
-              store.removeItem(key);
-            } else if (parsed && typeof parsed === 'object') {
-              const pts = parsed.points || parsed.boundary;
-              if (isLegacyMockPolygon(pts) || (Array.isArray(pts) && (pts.length === 7 || pts.length === 8))) {
-                store.removeItem(key);
-              }
-            }
-          } catch (_) {}
-        }
-      }
-    });
   } catch (err) {
     console.warn('[FieldService] Silent purge note:', err);
   }
@@ -164,20 +95,16 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Clean up legacy/demo fields that were previously pre-seeded into browser storage
+ * Clean up only explicit legacy demo mock fields, never user-created farms
  */
 export function sanitizeStoredFields(fields) {
   if (!Array.isArray(fields)) return [];
   return fields.filter(f => {
     if (!f) return false;
+    // Only remove explicit mock IDs
     if (f.id === 'field_demo_maize_01' || f.id === 'field_demo_01') return false;
     if (f._id === 'field_demo_maize_01' || f._id === 'field_demo_01') return false;
-    if (f.fieldName && (f.fieldName.includes('North Plot') || f.fieldName.includes('Pimpalgaon') || f.fieldName.includes('Demo') || f.fieldName.includes('Test'))) return false;
-    if (f.name && (f.name.includes('North Plot') || f.name.includes('Pimpalgaon') || f.name.includes('Demo') || f.name.includes('Test'))) return false;
-    const pts = f.boundary || f.points;
-    if (Array.isArray(pts) && (pts.length === 7 || pts.length === 8)) return false;
-    if (isLegacyMockPolygon(pts)) return false;
-    if (Array.isArray(pts) && pts.some(p => Math.abs(Number(p.lat) - 20.174) < 0.05 && Math.abs(Number(p.lng) - 73.985) < 0.05)) return false;
+    if ((f.fieldName === 'North Plot - Wheat & Maize Block' || f.name === 'North Plot - Wheat & Maize Block') && isLegacyMockPolygon(f.boundary || f.points)) return false;
     return true;
   });
 }

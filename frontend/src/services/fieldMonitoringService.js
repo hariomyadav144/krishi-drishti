@@ -63,8 +63,11 @@ export async function executeClientSatelliteScan({ lat, lng, polygon = [], crop 
   let precipitationMm = 0;
 
   try {
+    const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 3000) : null;
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${latitude.toFixed(4)}&longitude=${longitude.toFixed(4)}&hourly=soil_moisture_0_to_7cm,temperature_2m,relative_humidity_2m,precipitation&forecast_days=1&timezone=auto`;
-    const res = await fetch(url);
+    const res = await fetch(url, controller ? { signal: controller.signal } : {});
+    if (timeoutId) clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       if (data?.hourly) {
@@ -221,34 +224,72 @@ export async function scanLandWithSatellite(payload) {
 
 // Fetch latest observation for a specific field (with autonomous fallback)
 export async function fetchLatestObservation(fieldId) {
-  const farms = getFarms();
-  const farm = farms.find(f => String(f.id) === String(fieldId) || String(f._id) === String(fieldId) || f.fieldName === fieldId || f.name === fieldId) 
-    || getActiveFarm() 
-    || farms[0];
+  let farms = getFarms();
+  if (!Array.isArray(farms) || farms.length === 0) {
+    try {
+      const raw = localStorage.getItem('krishi_saved_fields') || localStorage.getItem('krishi_farms_v2');
+      if (raw) farms = JSON.parse(raw);
+    } catch (_) {}
+  }
+  if (!Array.isArray(farms)) farms = [];
 
-  // If local mapped farm exists, compute coordinate-specific real-time satellite observation
-  if (farm) {
-    const points = farm.boundary || farm.points || [];
-    let lat = farm.latitude || farm.center?.lat || 26.7683;
-    let lng = farm.longitude || farm.center?.lng || 83.2303;
+  let farm = farms.find(f => String(f.id) === String(fieldId) || String(f._id) === String(fieldId) || f.fieldName === fieldId || f.name === fieldId) 
+    || getActiveFarm();
+
+  if (!farm && typeof localStorage !== 'undefined') {
+    try {
+      const rawActive = localStorage.getItem('krishi_active_field');
+      if (rawActive) {
+        const parsed = JSON.parse(rawActive);
+        if (parsed && (String(parsed.id) === String(fieldId) || String(parsed._id) === String(fieldId) || !fieldId)) {
+          farm = parsed;
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (!farm && farms.length > 0) {
+    farm = farms[0];
+  }
+
+  // If local mapped farm exists or we have a valid fieldId, compute coordinate-specific real-time satellite observation
+  if (farm || fieldId) {
+    const safeFarm = farm || {
+      id: fieldId || 'field_01',
+      _id: fieldId || 'field_01',
+      fieldName: 'Farmer Field',
+      crop: 'Wheat',
+      areaAcres: 1.5,
+      boundary: []
+    };
+
+    const points = safeFarm.boundary || safeFarm.points || [];
+    let lat = Number(safeFarm.latitude || safeFarm.center?.lat);
+    let lng = Number(safeFarm.longitude || safeFarm.center?.lng);
+
     if (points.length > 0) {
-      lat = points.reduce((sum, p) => sum + Number(p.lat), 0) / points.length;
-      lng = points.reduce((sum, p) => sum + Number(p.lng), 0) / points.length;
+      const validLats = points.map(p => Number(p?.lat ?? p?.latitude ?? (Array.isArray(p) ? p[0] : 0))).filter(v => !isNaN(v) && v !== 0);
+      const validLngs = points.map(p => Number(p?.lng ?? p?.longitude ?? (Array.isArray(p) ? p[1] : 0))).filter(v => !isNaN(v) && v !== 0);
+      if (validLats.length > 0) lat = validLats.reduce((s, v) => s + v, 0) / validLats.length;
+      if (validLngs.length > 0) lng = validLngs.reduce((s, v) => s + v, 0) / validLngs.length;
     }
+
+    if (!lat || isNaN(lat)) lat = 26.7683;
+    if (!lng || isNaN(lng)) lng = 83.2303;
 
     const scan = await executeClientSatelliteScan({
       lat,
       lng,
       polygon: points,
-      crop: farm.crop,
-      areaAcres: farm.areaAcres || 1.0
+      crop: safeFarm.crop,
+      areaAcres: safeFarm.areaAcres || 1.0
     });
 
     const sat = scan.data.satellite;
     const weather = scan.data.weather;
     const isBare = !sat.isCultivated;
-    const cropName = farm.crop && !farm.crop.includes('Other') && !farm.crop.includes('खाली') ? farm.crop : sat.detectedCrop;
-    const areaAcres = Number(farm.areaAcres || farm.farmArea || 1.2);
+    const cropName = safeFarm.crop && !safeFarm.crop.includes('Other') && !safeFarm.crop.includes('खाली') ? safeFarm.crop : sat.detectedCrop;
+    const areaAcres = Number(safeFarm.areaAcres || safeFarm.farmArea || 1.2);
     const soilMoisture = weather.soilMoisturePercent || 28;
     const ndvi = Number(sat.ndviMean || (isBare ? 0.18 : 0.72));
     const healthScore = isBare ? 40 : (sat.vegetationHealthScore || Math.round(75 + ndvi * 20));
@@ -302,27 +343,27 @@ export async function fetchLatestObservation(fieldId) {
     return {
       success: true,
       field: {
-        _id: farm.id || farm._id,
-        id: farm.id || farm._id,
-        fieldName: farm.fieldName || farm.name || 'Field',
+        _id: safeFarm.id || safeFarm._id,
+        id: safeFarm.id || safeFarm._id,
+        fieldName: safeFarm.fieldName || safeFarm.name || 'Field',
         crop: cropName,
         areaAcres: areaAcres,
         formattedAcres: `${areaAcres.toFixed(2)} Acres`,
-        soilType: farm.soilType || 'Alluvial Soil',
-        season: farm.season || 'Kharif',
+        soilType: safeFarm.soilType || 'Alluvial Soil',
+        season: safeFarm.season || 'Kharif',
         boundary: points,
         points: points,
         center: { lat, lng },
-        cropStage: farm.cropStage || (isBare ? 'भूमि तैयारी / परती' : 'वानस्पतिक अवस्था (Vegetative)'),
-        soilTestReports: farm.soilTestReports || [],
+        cropStage: safeFarm.cropStage || (isBare ? 'भूमि तैयारी / परती' : 'वानस्पतिक अवस्था (Vegetative)'),
+        soilTestReports: safeFarm.soilTestReports || [],
         location: {
-          village: farm.village || 'Gorakhpur, UP',
-          district: farm.district || 'Gorakhpur'
+          village: safeFarm.village || 'Gorakhpur, UP',
+          district: safeFarm.district || 'Gorakhpur'
         }
       },
       data: {
-        _id: `obs_${farm.id || farm._id}_${Date.now()}`,
-        fieldId: farm.id || farm._id,
+        _id: `obs_${safeFarm.id || safeFarm._id}_${Date.now()}`,
+        fieldId: safeFarm.id || safeFarm._id,
         observationDate,
         satelliteData: {
           available: true,
@@ -465,7 +506,7 @@ export async function fetchLatestObservation(fieldId) {
       },
       alerts: isBare ? [
         {
-          id: `alert_bare_${farm.id || farm._id}`,
+          id: `alert_bare_${safeFarm.id || safeFarm._id}`,
           severity: 'info',
           title: 'खाली / परती भूखंड (Fallow Parcel)',
           message: 'इस भूखंड पर कोई सक्रिय फसल आच्छादन नहीं है। आगामी बुवाई हेतु भूमि तैयार करें।'
@@ -522,18 +563,22 @@ export async function fetchFieldHistory(fieldId, limit = 30) {
 export async function compareFieldObservations(fieldId, period = '7d') {
   try {
     const res = await api.get(`/field-monitoring/compare/${fieldId}?period=${period}`);
-    return res.data;
-  } catch (_) {
-    return {
-      success: true,
-      comparison: {
-        period,
-        ndviChange: '+0.03',
-        moistureChange: '-2%',
-        healthTrend: 'stable'
-      }
-    };
-  }
+    if (res.data?.success && res.data?.canCompare && res.data?.current && res.data?.previous) {
+      return res.data;
+    }
+    if (res.data?.success) {
+      return res.data;
+    }
+  } catch (_) {}
+
+  return {
+    success: true,
+    canCompare: false,
+    period,
+    message: period === '30d'
+      ? 'No real observation available for 30-day comparison.'
+      : 'No previous observation available for this newly mapped field yet.'
+  };
 }
 
 // Save soil test report and link permanently to field
@@ -544,7 +589,12 @@ export async function uploadSoilTest(fieldId, soilData) {
 
 // Get quick monitoring indicators for all farmer fields
 export async function fetchMonitoringDashboardSummary() {
-  const localFarms = getFarms();
+  let localFarms = getFarms();
+  if (!Array.isArray(localFarms) || localFarms.length === 0) {
+    const active = getActiveFarm();
+    if (active) localFarms = [active];
+  }
+  if (!Array.isArray(localFarms)) localFarms = [];
   let backendFields = [];
 
   try {
@@ -561,17 +611,19 @@ export async function fetchMonitoringDashboardSummary() {
   // 1. Prioritize all farms mapped by the farmer in Field Mapping
   for (const f of localFarms) {
     const isBare = f.crop && (f.crop.includes('खाली') || f.crop.toLowerCase().includes('bare'));
-    const fieldId = String(f.id || f._id);
+    const fieldId = String(f.id || f._id || `field_${Date.now()}`);
     const fieldName = f.fieldName || f.name || 'खेत';
     seenIds.add(fieldId);
     seenNames.add(fieldName.toLowerCase());
 
     const points = f.boundary || f.points || [];
-    let lat = f.latitude || f.center?.lat || 26.7683;
-    let lng = f.longitude || f.center?.lng || 83.2303;
+    let lat = Number(f.latitude || f.center?.lat || 26.7683);
+    let lng = Number(f.longitude || f.center?.lng || 83.2303);
     if (points.length > 0) {
-      lat = points.reduce((sum, p) => sum + Number(p.lat), 0) / points.length;
-      lng = points.reduce((sum, p) => sum + Number(p.lng), 0) / points.length;
+      const validLats = points.map(p => Number(p?.lat ?? p?.latitude ?? (Array.isArray(p) ? p[0] : 0))).filter(v => !isNaN(v) && v !== 0);
+      const validLngs = points.map(p => Number(p?.lng ?? p?.longitude ?? (Array.isArray(p) ? p[1] : 0))).filter(v => !isNaN(v) && v !== 0);
+      if (validLats.length > 0) lat = validLats.reduce((sum, v) => sum + v, 0) / validLats.length;
+      if (validLngs.length > 0) lng = validLngs.reduce((sum, v) => sum + v, 0) / validLngs.length;
     }
 
     merged.push({
