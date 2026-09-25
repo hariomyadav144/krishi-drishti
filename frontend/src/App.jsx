@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { AlertProvider } from './context/AlertContext';
@@ -13,30 +13,28 @@ import PresentationToolbar from './components/PresentationToolbar';
 import PhoneFrameContainer from './components/PhoneFrameContainer';
 import InAppUpdateModal from './components/InAppUpdateModal';
 
-// Keep critical initial path components statically loaded
+// Direct static imports for all pages — eliminates dynamic chunk fetching failures on GitHub Pages & delivers instant 0ms tab navigation
 import Login from './pages/Login';
 import FarmerDashboard from './pages/FarmerDashboard';
-
-// Lazy-load secondary tabs to minimize initial bundle size and ensure instant opening
-const Register = lazy(() => import('./pages/Register'));
-const Onboarding = lazy(() => import('./pages/Onboarding'));
-const FieldMappingPage = lazy(() => import('./pages/FieldMappingPage'));
-const ScanCrop = lazy(() => import('./pages/ScanCrop'));
-const AiAdvisor = lazy(() => import('./pages/AiAdvisor'));
-const MandiPrices = lazy(() => import('./pages/MandiPrices'));
-const FertilizerCalculator = lazy(() => import('./pages/FertilizerCalculator'));
-const SatelliteRadar = lazy(() => import('./pages/SatelliteRadar'));
-const GovtSchemes = lazy(() => import('./pages/GovtSchemes'));
-const OutbreakRadar = lazy(() => import('./pages/OutbreakRadar'));
-const ActionPlansPage = lazy(() => import('./pages/ActionPlansPage'));
-const WeatherPage = lazy(() => import('./pages/WeatherPage'));
-const AlertsPage = lazy(() => import('./pages/AlertsPage'));
-const FarmProfile = lazy(() => import('./pages/FarmProfile'));
-const FarmInsights = lazy(() => import('./pages/FarmInsights'));
-const ExpertDashboard = lazy(() => import('./pages/ExpertDashboard'));
-const AdminDashboard = lazy(() => import('./pages/AdminDashboard'));
-const CropHistory = lazy(() => import('./pages/CropHistory'));
-const FieldMonitoringPage = lazy(() => import('./pages/FieldMonitoringPage'));
+import Register from './pages/Register';
+import Onboarding from './pages/Onboarding';
+import FieldMappingPage from './pages/FieldMappingPage';
+import ScanCrop from './pages/ScanCrop';
+import AiAdvisor from './pages/AiAdvisor';
+import MandiPrices from './pages/MandiPrices';
+import FertilizerCalculator from './pages/FertilizerCalculator';
+import SatelliteRadar from './pages/SatelliteRadar';
+import GovtSchemes from './pages/GovtSchemes';
+import OutbreakRadar from './pages/OutbreakRadar';
+import ActionPlansPage from './pages/ActionPlansPage';
+import WeatherPage from './pages/WeatherPage';
+import AlertsPage from './pages/AlertsPage';
+import FarmProfile from './pages/FarmProfile';
+import FarmInsights from './pages/FarmInsights';
+import ExpertDashboard from './pages/ExpertDashboard';
+import AdminDashboard from './pages/AdminDashboard';
+import CropHistory from './pages/CropHistory';
+import FieldMonitoringPage from './pages/FieldMonitoringPage';
 
 const VALID_TABS = [
   'home', 'field-monitoring', 'monitoring', 'field-mapping', 'mapping', 'diagnose', 'history', 'advice', 'mandi', 'fertilizer', 

@@ -32,6 +32,9 @@ jobs:
 
       - name: Build Frontend for Production
         working-directory: frontend
+        env:
+          GITHUB_PAGES: 'true'
+          VITE_BASE_PATH: '/krishi-drishti/'
         run: npm run build
 
       - name: Create 404.html & .nojekyll for GitHub Pages SPA

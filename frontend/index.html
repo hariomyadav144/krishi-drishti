@@ -72,6 +72,30 @@
           }
         });
 
+        // Global handler for dynamic chunk loading error (auto recovery)
+        window.addEventListener('error', function(e) {
+          if (e && e.message && /Failed to fetch dynamically imported module/i.test(e.message)) {
+            var lastChunkReload = sessionStorage.getItem('__chunk_reload');
+            var now = Date.now();
+            if (!lastChunkReload || (now - parseInt(lastChunkReload, 10)) > 6000) {
+              sessionStorage.setItem('__chunk_reload', String(now));
+              window.location.reload();
+            }
+          }
+        });
+
+        // GitHub Pages SPA route redirect: If opened at /krishi-drishti/field-monitoring instead of /krishi-drishti/#/field-monitoring
+        (function() {
+          var path = window.location.pathname;
+          var repo = '/krishi-drishti';
+          if (path.indexOf(repo) === 0) {
+            var sub = path.substring(repo.length).replace(/^\/+/, '');
+            if (sub && sub !== 'index.html' && !sub.startsWith('assets/')) {
+              window.location.replace(repo + '/#/' + sub + window.location.search);
+            }
+          }
+        })();
+
         // Watchdog timeout: If app doesn't mount in 7 seconds, display recovery UI
         setTimeout(function() {
           if (!window.__fasalDrishtiMounted) {
