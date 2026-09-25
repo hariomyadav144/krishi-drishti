@@ -323,6 +323,97 @@ export const MOCK_OUTBREAKS = {
   ]
 };
 
+export function getDynamicSatelliteNDVI() {
+  let farms = [];
+  try {
+    const raw = localStorage.getItem('farms_data') || localStorage.getItem('krishi_saved_fields');
+    if (raw) farms = JSON.parse(raw);
+  } catch (_) {}
+
+  let activeFarm = null;
+  try {
+    const rawActive = localStorage.getItem('krishi_active_field');
+    if (rawActive) activeFarm = JSON.parse(rawActive);
+  } catch (_) {}
+
+  const primaryFarm = activeFarm || (Array.isArray(farms) && farms.length > 0 ? farms[0] : null);
+  const isBare = primaryFarm?.crop && (primaryFarm.crop.includes('खाली') || primaryFarm.crop.toLowerCase().includes('bare'));
+  const cropName = primaryFarm?.crop || 'Paddy (धान)';
+  const farmName = primaryFarm?.fieldName || primaryFarm?.name || 'खेत - मुख्य प्लाट';
+  const area = primaryFarm?.areaAcres || primaryFarm?.farmArea || 1.5;
+
+  if (isBare) {
+    return {
+      success: true,
+      data: {
+        satellite: 'Sentinel-2B Multispectral MSI (ESA Copernicus)',
+        lastPassDate: 'Today, Live Observation',
+        nextPassDate: 'After 3 days',
+        resolution: '10m Ground Resolution',
+        overallNDVIScore: 0.18,
+        healthStatus: 'Bare Soil / Fallow Land',
+        healthStatusHi: 'खाली / परती जमीन (कोई फसल नहीं)',
+        cloudCover: '1.5%',
+        fieldSectors: [
+          {
+            sectorId: `${farmName} (${area} Ac)`,
+            name: `${farmName} (${area} Ac)`,
+            crop: 'खाली / परती जमीन (Bare Soil)',
+            ndvi: 0.18,
+            status: 'Fallow / Uncultivated',
+            statusHi: 'परती जमीन',
+            statusColor: '#F59E0B',
+            moistureIndex: '24% Residual Moisture',
+            stressWarning: 'No Vegetation',
+            recommendedAction: 'भूमि परती है। अगली बुवाई हेतु गहरी जुताई व खाद प्रबंधन करें।'
+          }
+        ],
+        historicalNDVI: [
+          { date: '15 Days ago', score: 0.19 },
+          { date: '10 Days ago', score: 0.18 },
+          { date: '5 Days ago', score: 0.17 },
+          { date: 'Today', score: 0.18 }
+        ]
+      }
+    };
+  }
+
+  const ndvi = primaryFarm ? 0.76 : 0.74;
+  return {
+    success: true,
+    data: {
+      satellite: 'Sentinel-2B Multispectral MSI (ESA Copernicus)',
+      lastPassDate: 'Today, Live Observation',
+      nextPassDate: 'After 3 days',
+      resolution: '10m Ground Resolution',
+      overallNDVIScore: ndvi,
+      healthStatus: 'Optimal Canopy Vigour',
+      healthStatusHi: 'उत्कृष्ट वानस्पतिक स्वास्थ्य (स्वस्थ फसल)',
+      cloudCover: '3.1%',
+      fieldSectors: [
+        {
+          sectorId: `${farmName} (${area} Ac)`,
+          name: `${farmName} (${area} Ac)`,
+          crop: cropName,
+          ndvi: ndvi,
+          status: 'Optimal Health',
+          statusHi: 'उत्कृष्ट स्वास्थ्य',
+          statusColor: '#10B981',
+          moistureIndex: '36% Adequate',
+          stressWarning: 'None',
+          recommendedAction: `स्वस्थ ${cropName} फसल। वर्तमान पोषण व सिंचाई स्तर बनाए रखें।`
+        }
+      ],
+      historicalNDVI: [
+        { date: '15 Days ago', score: 0.62 },
+        { date: '10 Days ago', score: 0.68 },
+        { date: '5 Days ago', score: 0.72 },
+        { date: 'Today', score: ndvi }
+      ]
+    }
+  };
+}
+
 export const MOCK_SATELLITE_NDVI = {
   success: true,
   data: {

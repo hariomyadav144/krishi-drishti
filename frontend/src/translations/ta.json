@@ -91,7 +91,10 @@
     "totalScans": "மொத்த ஸ்கேன்கள்",
     "activeCrops": "செயலில் உள்ள பயிர்கள்",
     "healthyCrops": "ஆரோக்கியமான பயிர்கள்",
-    "needsCare": "கவனம் தேவை"
+    "needsCare": "கவனம் தேவை",
+    "tapForDetails": "விவரங்களுக்கு தட்டவும்",
+    "confidence": "நம்பகத்தன்மை:",
+    "updated": "புதுப்பிக்கப்பட்டது:"
   },
   "diagnose": {
     "title": "AI दृष्टि से फसल की जांच करें",
@@ -349,7 +352,11 @@
     "tryAgain": "மீண்டும் முயற்சிக்கவும்",
     "viewField": "நிலத்தை பார்க்க",
     "markDone": "வேலை முடிந்தது ✓",
-    "markIrrigationDone": "பாசனம் முடிந்தது ✓"
+    "markIrrigationDone": "பாசனம் முடிந்தது ✓",
+    "realData": "உண்மையான பண்ணை தரவு",
+    "high": "அதிகம்",
+    "medium": "நடுத்தரம்",
+    "low": "குறைவு"
   },
   "farm": {
     "activeContext": "செயலில் உள்ள பண்ணை சூழல் (Active Farm Context)",

@@ -116,6 +116,13 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.warn('Silent user session refresh:', error.message);
+        // Only if the server explicitly confirms token invalidation
+        if (error.response?.status === 401 && !isDemoSession) {
+          console.warn('[AuthContext] Session invalid or expired on server.');
+          if (isMounted) {
+            logout();
+          }
+        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -172,7 +179,7 @@ export const AuthProvider = ({ children }) => {
         setUser(newUser);
         
         console.log('[AUTH:LOGIN] 5. Loading user profile, farm, and crops for UID:', newUser?.id || newUser?._id);
-        await refreshUser();
+        refreshUser().catch(err => console.warn('[AUTH:LOGIN] Background hydration:', err.message));
         console.log('[AUTH:LOGIN] 6. Dashboard initialized for UID:', newUser?.id || newUser?._id);
         return { success: true, user: newUser };
       }
@@ -218,7 +225,7 @@ export const AuthProvider = ({ children }) => {
         setUser(newUser);
         
         console.log('[AUTH:REGISTER] 5. Initializing profile and farm for UID:', newUser?.id || newUser?._id);
-        await refreshUser();
+        refreshUser().catch(err => console.warn('[AUTH:REGISTER] Background hydration:', err.message));
         console.log('[AUTH:REGISTER] 6. Registration completed successfully.');
         return { success: true, user: newUser };
       }

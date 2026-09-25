@@ -1,0 +1,376 @@
+{
+  "users": [
+    {
+      "_id": "usr_farmer_demo_01",
+      "id": "usr_farmer_demo_01",
+      "name": "Rameshwar Patil (रामेश्वर पाटिल)",
+      "phone": "9876543210",
+      "email": "rameshwar.patil@krishidrishti.in",
+      "password": "",
+      "role": "farmer",
+      "isOnboarded": true,
+      "languagePreference": "hi",
+      "isDemo": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "_id": "usr_expert_demo_01",
+      "id": "usr_expert_demo_01",
+      "name": "Dr. Ananya Sharma (KVK Scientist)",
+      "phone": "9876500001",
+      "email": "dr.ananya@kvk-agri.gov.in",
+      "password": "",
+      "role": "expert",
+      "isOnboarded": true,
+      "languagePreference": "en",
+      "isDemo": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "_id": "usr_admin_demo_01",
+      "id": "usr_admin_demo_01",
+      "name": "Fasal Drishti Admin Officer",
+      "phone": "9876599999",
+      "email": "admin@fasaldrishti.in",
+      "password": "",
+      "role": "admin",
+      "isOnboarded": true,
+      "languagePreference": "en",
+      "isDemo": true,
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    },
+    {
+      "_id": "usr_1790134692839_smcua3",
+      "id": "usr_1790134692839_smcua3",
+      "name": "Farmer Alpha",
+      "phone": "9111111111",
+      "email": "alpha@farm.in",
+      "password": "$2a$10$J7cvw4o9jtrWDoHROO7IrOgiLxAJQafPrZpEKWgFF1VJTzAfn/Z6y",
+      "role": "farmer",
+      "isOnboarded": false,
+      "languagePreference": "hi",
+      "isDemo": false,
+      "createdAt": "2026-09-23T03:38:12.839Z"
+    },
+    {
+      "_id": "usr_1790134692902_x4xbl1",
+      "id": "usr_1790134692902_x4xbl1",
+      "name": "Farmer Beta",
+      "phone": "9222222222",
+      "email": "beta@farm.in",
+      "password": "$2a$10$36m3LDuF2v6xo9ir4UmsYed.f8BxSqoSS4yp7aq7/y6uQNNlgMflK",
+      "role": "farmer",
+      "isOnboarded": false,
+      "languagePreference": "hi",
+      "isDemo": false,
+      "createdAt": "2026-09-23T03:38:12.902Z"
+    },
+    {
+      "_id": "usr_1790134693150_tar75l",
+      "id": "usr_1790134693150_tar75l",
+      "name": "Brand New Farmer",
+      "phone": "9444444444",
+      "email": "",
+      "password": "$2a$10$plKHwPaz5rxIFKolrsi6UubUdGeoAix7dUZwyPA6NGChpOgERHOCO",
+      "role": "farmer",
+      "isOnboarded": false,
+      "languagePreference": "hi",
+      "isDemo": false,
+      "createdAt": "2026-09-23T03:38:13.150Z"
+    }
+  ],
+  "profiles": {
+    "usr_farmer_demo_01": {
+      "userId": "usr_farmer_demo_01",
+      "state": "Maharashtra",
+      "district": "Nashik",
+      "village": "Pimpalgaon Baswant",
+      "pincode": "422209",
+      "location": "Pimpalgaon Baswant, Nashik, Maharashtra",
+      "experienceYears": 14
+    },
+    "usr_1790134649979_uiefcv": {
+      "userId": "usr_1790134649979_uiefcv",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1790134650043_djm80z": {
+      "userId": "usr_1790134650043_djm80z",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1790134650357_jeyr5m": {
+      "userId": "usr_1790134650357_jeyr5m",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1790134692839_smcua3": {
+      "userId": "usr_1790134692839_smcua3",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1790134692902_x4xbl1": {
+      "userId": "usr_1790134692902_x4xbl1",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1790134693150_tar75l": {
+      "userId": "usr_1790134693150_tar75l",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    }
+  },
+  "farms": {
+    "usr_farmer_demo_01": {
+      "_id": "farm_demo_01",
+      "farmerId": "usr_farmer_demo_01",
+      "farmName": "Shri Ganesha Krishi Farm",
+      "farmSize": 5.5,
+      "landUnit": "Acres",
+      "soilType": "Black Soil / Regur",
+      "irrigationMethod": "Drip Irrigation",
+      "soilPh": 6.9,
+      "organicMatter": "Medium (0.75%)"
+    },
+    "usr_1790134649979_uiefcv": {
+      "_id": "farm_usr_1790134649979_uiefcv",
+      "farmerId": "usr_1790134649979_uiefcv",
+      "farmName": "Farmer Alpha's Farm",
+      "farmSize": 7.5,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1790134650043_djm80z": {
+      "_id": "farm_usr_1790134650043_djm80z",
+      "farmerId": "usr_1790134650043_djm80z",
+      "farmName": "Farmer Beta's Farm",
+      "farmSize": 3,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1790134650357_jeyr5m": {
+      "_id": "farm_usr_1790134650357_jeyr5m",
+      "farmerId": "usr_1790134650357_jeyr5m",
+      "farmName": "Brand New Farmer's Farm",
+      "farmSize": 0,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1790134692839_smcua3": {
+      "_id": "farm_usr_1790134692839_smcua3",
+      "farmerId": "usr_1790134692839_smcua3",
+      "farmName": "Farmer Alpha's Farm",
+      "farmSize": 7.5,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1790134692902_x4xbl1": {
+      "_id": "farm_usr_1790134692902_x4xbl1",
+      "farmerId": "usr_1790134692902_x4xbl1",
+      "farmName": "Farmer Beta's Farm",
+      "farmSize": 3,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1790134693150_tar75l": {
+      "_id": "farm_usr_1790134693150_tar75l",
+      "farmerId": "usr_1790134693150_tar75l",
+      "farmName": "Brand New Farmer's Farm",
+      "farmSize": 0,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    }
+  },
+  "crops": {
+    "usr_farmer_demo_01": [
+      {
+        "_id": "crop_demo_01",
+        "farmId": "farm_demo_01",
+        "farmerId": "usr_farmer_demo_01",
+        "cropName": "Tomato",
+        "variety": "Abhinav Hybrid (Syngenta)",
+        "cropStage": "Flowering Stage",
+        "plantingDate": "2026-08-16T03:37:29.764Z",
+        "healthStatus": "Good",
+        "healthScore": 91,
+        "areaAllocated": 3.5,
+        "isCurrent": true
+      },
+      {
+        "_id": "crop_demo_02",
+        "farmId": "farm_demo_01",
+        "farmerId": "usr_farmer_demo_01",
+        "cropName": "Onion",
+        "variety": "Fursungi Red",
+        "cropStage": "Vegetative Stage",
+        "plantingDate": "2026-09-01T03:37:29.765Z",
+        "healthStatus": "Excellent",
+        "healthScore": 95,
+        "areaAllocated": 2,
+        "isCurrent": false
+      }
+    ],
+    "usr_1790134649979_uiefcv": [
+      {
+        "_id": "crop_usr_1790134649979_uiefcv_01",
+        "farmId": "farm_usr_1790134649979_uiefcv",
+        "farmerId": "usr_1790134649979_uiefcv",
+        "cropName": "Wheat",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 7.5,
+        "isCurrent": true,
+        "createdAt": "2026-09-23T03:37:29.979Z"
+      }
+    ],
+    "usr_1790134650043_djm80z": [
+      {
+        "_id": "crop_usr_1790134650043_djm80z_01",
+        "farmId": "farm_usr_1790134650043_djm80z",
+        "farmerId": "usr_1790134650043_djm80z",
+        "cropName": "Rice",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 3,
+        "isCurrent": true,
+        "createdAt": "2026-09-23T03:37:30.043Z"
+      }
+    ],
+    "usr_1790134650357_jeyr5m": [],
+    "usr_1790134692839_smcua3": [
+      {
+        "_id": "crop_usr_1790134692839_smcua3_01",
+        "farmId": "farm_usr_1790134692839_smcua3",
+        "farmerId": "usr_1790134692839_smcua3",
+        "cropName": "Wheat",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 7.5,
+        "isCurrent": true,
+        "createdAt": "2026-09-23T03:38:12.839Z"
+      }
+    ],
+    "usr_1790134692902_x4xbl1": [
+      {
+        "_id": "crop_usr_1790134692902_x4xbl1_01",
+        "farmId": "farm_usr_1790134692902_x4xbl1",
+        "farmerId": "usr_1790134692902_x4xbl1",
+        "cropName": "Rice",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 3,
+        "isCurrent": true,
+        "createdAt": "2026-09-23T03:38:12.902Z"
+      }
+    ],
+    "usr_1790134693150_tar75l": []
+  },
+  "actionPlans": [],
+  "alerts": [
+    {
+      "_id": "alert_1790134693150_6up9",
+      "userId": "usr_1790134693150_tar75l",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-09-23T03:38:13.150Z"
+    },
+    {
+      "_id": "alert_1790134692902_se19",
+      "userId": "usr_1790134692902_x4xbl1",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-09-23T03:38:12.902Z"
+    },
+    {
+      "_id": "alert_1790134692839_ds48",
+      "userId": "usr_1790134692839_smcua3",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-09-23T03:38:12.839Z"
+    },
+    {
+      "_id": "alert_1790134650357_1xef",
+      "userId": "usr_1790134650357_jeyr5m",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-09-23T03:37:30.357Z"
+    },
+    {
+      "_id": "alert_1790134650043_mlsi",
+      "userId": "usr_1790134650043_djm80z",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-09-23T03:37:30.043Z"
+    },
+    {
+      "_id": "alert_1790134649979_wsa8",
+      "userId": "usr_1790134649979_uiefcv",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-09-23T03:37:29.979Z"
+    }
+  ],
+  "cropScans": []
+}

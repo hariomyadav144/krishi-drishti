@@ -1,4 +1,5 @@
 import api from './api';
+import { getFarms } from './fieldService';
 
 const safeParse = (key) => {
   if (typeof window === 'undefined') return null;
@@ -22,8 +23,10 @@ const safeSet = (key, val) => {
  * Strictly NO hardcoded or random values.
  */
 export function calculateCropHealth(fieldId = 'default', contextData = {}) {
-  // 1. Get field & crop info
-  const userFields = safeParse('krishi_farm_fields') || safeParse('krishi_fields') || [];
+  // 1. Get field & crop info - prioritizing farmer mapped farms
+  const mappedFarms = typeof window !== 'undefined' ? getFarms() : [];
+  const legacyFields = safeParse('krishi_farm_fields') || safeParse('krishi_fields') || [];
+  const userFields = [...mappedFarms, ...legacyFields];
   const farm = contextData.farm || safeParse('krishi_farm') || {};
   const currentCrop = contextData.currentCrop || safeParse('krishi_current_crop') || {};
   const profile = contextData.profile || safeParse('krishi_profile') || {};
@@ -321,19 +324,48 @@ export async function fetchLatestCropHealth(fieldId = 'default', contextData = {
  * Fetch multi-field crop health summaries
  */
 export async function fetchCropHealthSummary() {
+  const localFarms = typeof window !== 'undefined' ? getFarms() : [];
+  let backendSummaries = [];
+
   try {
     const res = await api.get('/crop-health/summary');
     if (res?.data?.success && Array.isArray(res.data.data)) {
-      return res.data.data;
+      backendSummaries = res.data.data;
     }
   } catch (err) {
     console.warn('[cropHealthService] Summary fetch note:', err.message);
   }
 
-  // Synthesize multi-field summaries from user's registered fields
-  const userFields = safeParse('krishi_farm_fields') || safeParse('krishi_fields') || [];
-  if (Array.isArray(userFields) && userFields.length > 0) {
-    return userFields.map(f => {
+  // Synthesize multi-field summaries from user's registered mapped fields
+  const localSummaries = localFarms.map((f, idx) => {
+    const h = calculateCropHealth(f.id || f._id, { targetField: f });
+    return {
+      fieldId: f.id || f._id,
+      fieldName: f.fieldName || f.name || `Farm ${idx + 1}`,
+      crop: f.crop || 'Wheat',
+      healthScore: h.healthScore,
+      status: h.status,
+      confidence: h.confidence,
+      calculatedAt: h.calculatedAt,
+      reasons: h.reasons,
+      reasonsHi: h.reasonsHi
+    };
+  });
+
+  if (localSummaries.length > 0) {
+    const localIds = new Set(localSummaries.map(s => String(s.fieldId)));
+    const uniqueBackend = backendSummaries.filter(b => !localIds.has(String(b.fieldId || b.id || b._id)));
+    return [...localSummaries, ...uniqueBackend];
+  }
+
+  if (backendSummaries.length > 0) {
+    return backendSummaries;
+  }
+
+  // Fallback to legacy fields
+  const legacyFields = safeParse('krishi_farm_fields') || safeParse('krishi_fields') || [];
+  if (Array.isArray(legacyFields) && legacyFields.length > 0) {
+    return legacyFields.map(f => {
       const h = calculateCropHealth(f.id || f._id, { targetField: f });
       return {
         fieldId: f.id || f._id,

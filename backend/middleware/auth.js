@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const persistentStore = require('../utils/persistentStore');
 const { isDbConnected, getStatelessUserById, getStatelessUserByRole } = require('../utils/statelessStore');
 
 const protect = async (req, res, next) => {
@@ -36,12 +37,12 @@ const protect = async (req, res, next) => {
       }
     }
 
-    // Stateless fallback: lookup authenticated user by ID from decoded token
-    const statelessUser = getStatelessUserById(decoded.id);
-    if (!statelessUser) {
+    // Persistent store lookup by ID from decoded token
+    const storeUser = persistentStore.getUserById(decoded.id) || getStatelessUserById(decoded.id);
+    if (!storeUser) {
       return res.status(401).json({ success: false, message: 'User account not found or session expired.' });
     }
-    req.user = statelessUser;
+    req.user = storeUser;
     next();
   } catch (err) {
     // If token verification fails, check if it's an explicit demo token
@@ -89,11 +90,15 @@ const optionalProtect = async (req, res, next) => {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'krishi_drishti_secret_key_2026_smart_farming');
     if (isDbConnected()) {
-      const user = await User.findById(decoded.id).select('-password');
-      if (user) req.user = user;
-    } else {
-      req.user = getStatelessUserById(decoded.id);
+      try {
+        const user = await User.findById(decoded.id).select('-password');
+        if (user) {
+          req.user = user;
+          return next();
+        }
+      } catch (_) {}
     }
+    req.user = persistentStore.getUserById(decoded.id) || getStatelessUserById(decoded.id);
   } catch (err) {
     // Gracefully continue for demo tokens or unverified guests
     if (token && token.includes('demo')) {
@@ -104,3 +109,4 @@ const optionalProtect = async (req, res, next) => {
 };
 
 module.exports = { protect, optionalProtect, authorize };
+

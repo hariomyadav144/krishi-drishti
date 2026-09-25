@@ -91,7 +91,10 @@
     "totalScans": "Total Scans",
     "activeCrops": "Active Crops",
     "healthyCrops": "Healthy Crops",
-    "needsCare": "Needs Care"
+    "needsCare": "Needs Care",
+    "tapForDetails": "Tap for details",
+    "confidence": "Confidence:",
+    "updated": "Updated:"
   },
   "diagnose": {
     "title": "Scan Your Crop with AI Vision",
@@ -110,6 +113,7 @@
     "importantNote": "Important Note",
     "unclearImageMsg": "I couldn't confidently identify the crop from this image. Please upload a clear photo of the plant or affected leaf.",
     "autoCropBanner": "✨ AI automatically identifies the crop and diagnoses health issues from your photo",
+    "autoCropSubtext": "Upload or capture any crop photo (Wheat, Rice, Tomato, Potato, Cotton, etc.) — AI will detect it automatically.",
     "cropType": "Crop Identified Automatically",
     "describeProblem": "Describe symptoms (Optional)",
     "describePlaceholder": "E.g., Yellow curling leaves, dark spots on stem...",
@@ -349,7 +353,11 @@
     "tryAgain": "Try Again",
     "viewField": "View Field",
     "markDone": "Mark Done ✓",
-    "markIrrigationDone": "Mark Irrigation Done ✓"
+    "markIrrigationDone": "Mark Irrigation Done ✓",
+    "realData": "Real Farm Data",
+    "high": "High",
+    "medium": "Medium",
+    "low": "Low"
   },
   "farm": {
     "activeContext": "Active Farm Intelligence Context",

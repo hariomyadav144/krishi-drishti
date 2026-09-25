@@ -91,7 +91,10 @@
     "totalScans": "ମୋଟ ସ୍କାନ୍",
     "activeCrops": "ସକ୍ରିୟ ଫସଲ",
     "healthyCrops": "ସୁସ୍ଥ ଫସଲ",
-    "needsCare": "ଧ୍ୟାନ ଆବଶ୍ୟକ"
+    "needsCare": "ଧ୍ୟାନ ଆବଶ୍ୟକ",
+    "tapForDetails": "ବିବରଣୀ ପାଇଁ ଟ୍ୟାପ୍ କରନ୍ତୁ",
+    "confidence": "ବିଶ୍ୱାସନୀୟତା:",
+    "updated": "ଅପଡେଟ୍:"
   },
   "diagnose": {
     "title": "AI दृष्टि से फसल की जांच करें",
@@ -349,7 +352,11 @@
     "tryAgain": "ପୁନଃ ଚେଷ୍ଟା କରନ୍ତୁ",
     "viewField": "ଜମି ଦେଖନ୍ତୁ",
     "markDone": "କାର୍ଯ୍ୟ ସମ୍ପନ୍ନ ✓",
-    "markIrrigationDone": "ଜଳସେଚନ ସମ୍ପନ୍ନ ✓"
+    "markIrrigationDone": "ଜଳସେଚନ ସମ୍ପନ୍ନ ✓",
+    "realData": "ପ୍ରକୃତ କୃଷି ତଥ୍ୟ",
+    "high": "ଅଧିକ",
+    "medium": "ମଧ୍ୟମ",
+    "low": "କମ୍"
   },
   "farm": {
     "activeContext": "ସକ୍ରିୟ କୃଷି ପ୍ରସଙ୍ଗ (Active Farm Context)",

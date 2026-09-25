@@ -88,29 +88,79 @@ export const LanguageProvider = ({ children }) => {
 
   const currentLanguageObj = availableLanguages.find(l => l.code === lang) || availableLanguages[0];
 
+  // Key aliases map for legacy, capitalized, or debug keys
+  const KEY_ALIASES = {
+    'common.realdata': 'common.realData',
+    'dashboard.tapfordetails': 'dashboard.tapForDetails',
+    'dashboard.confidence': 'dashboard.confidence',
+    'dashboard.updated': 'dashboard.updated',
+  };
+
   // Nested key translation helper: t('nav.home')
   const t = (path, fallback = '') => {
     if (!path) return fallback;
-    const keys = path.split('.');
+    const normalizedPath = KEY_ALIASES[path.toLowerCase()] || path;
+    const keys = normalizedPath.split('.');
     let current = translations[lang] || translations.hi || translations.en;
 
+    let found = true;
     for (const key of keys) {
       if (current && current[key] !== undefined) {
         current = current[key];
       } else {
-        // Fallback to Hindi or English
-        let fallbackDict = translations.hi || translations.en;
-        for (const fKey of keys) {
-          if (fallbackDict && fallbackDict[fKey] !== undefined) {
-            fallbackDict = fallbackDict[fKey];
-          } else {
-            return fallback || path;
-          }
-        }
-        return fallbackDict;
+        found = false;
+        break;
       }
     }
-    return current;
+    if (found && current !== undefined && typeof current === 'string') {
+      return current;
+    }
+
+    // Fallback to Hindi dictionary
+    if (translations.hi) {
+      let hiCurrent = translations.hi;
+      let hiFound = true;
+      for (const fKey of keys) {
+        if (hiCurrent && hiCurrent[fKey] !== undefined) {
+          hiCurrent = hiCurrent[fKey];
+        } else {
+          hiFound = false;
+          break;
+        }
+      }
+      if (hiFound && hiCurrent !== undefined && typeof hiCurrent === 'string') {
+        return hiCurrent;
+      }
+    }
+
+    // Fallback to English dictionary
+    if (translations.en) {
+      let enCurrent = translations.en;
+      let enFound = true;
+      for (const fKey of keys) {
+        if (enCurrent && enCurrent[fKey] !== undefined) {
+          enCurrent = enCurrent[fKey];
+        } else {
+          enFound = false;
+          break;
+        }
+      }
+      if (enFound && enCurrent !== undefined && typeof enCurrent === 'string') {
+        return enCurrent;
+      }
+    }
+
+    // If key not in dictionary, return provided fallback
+    if (fallback) return fallback;
+
+    // Guaranteed farmer-friendly fallback for critical keys
+    const lower = normalizedPath.toLowerCase();
+    if (lower.includes('realdata')) return lang === 'hi' ? 'सामान्य वास्तविक डेटा' : 'Real Farm Data';
+    if (lower.includes('tapfordetails')) return lang === 'hi' ? 'विस्तृत जानकारी के लिए टैप करें' : 'Tap for details';
+    if (lower.includes('confidence')) return lang === 'hi' ? 'विश्वसनीयता:' : 'Confidence:';
+    if (lower.includes('updated')) return lang === 'hi' ? 'अपडेट:' : 'Updated:';
+
+    return path;
   };
 
   // Dynamic farm data translation helpers

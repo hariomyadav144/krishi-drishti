@@ -10,12 +10,16 @@ const {
   markAlertRead,
   getFieldActions,
   updateActionStatus,
-  ingestFieldTelemetry
+  ingestFieldTelemetry,
+  scanLand
 } = require('../controllers/fieldMonitoringController');
 const { protect } = require('../middleware/auth');
 
 // Preflight handler
 router.options('*', (req, res) => res.sendStatus(204));
+
+// Real-time satellite land parcel scan & crop detection
+router.post('/scan-land', scanLand);
 
 // Dashboard summary of all farmer fields
 router.get('/dashboard-summary', protect, getMonitoringDashboardSummary);

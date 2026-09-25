@@ -9,6 +9,8 @@ import BottomNav from './components/BottomNav';
 import TabErrorBoundary from './components/TabErrorBoundary';
 import SwarAssistant from './components/SwarAssistant';
 import LanguageSelectionModal from './components/LanguageSelectionModal';
+import PresentationToolbar from './components/PresentationToolbar';
+import PhoneFrameContainer from './components/PhoneFrameContainer';
 
 // Keep critical initial path components statically loaded
 import Login from './pages/Login';
@@ -64,6 +66,35 @@ function MainApp() {
   const { t } = useLanguage();
   const [authView, setAuthView] = useState('login'); // 'login' | 'register'
   const [activeTab, setActiveTabState] = useState(() => getTabFromHash());
+
+  // VIP Presentation View Mode: 'phone' (realistic smartphone mockup) | 'desktop' (wide screen dashboard)
+  const [viewMode, setViewModeState] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('krishi_view_mode');
+      if (saved === 'phone' || saved === 'desktop') return saved;
+      // Default to phone mockup so on large laptop/projector screens it presents the mobile app immediately!
+      return 'phone';
+    }
+    return 'phone';
+  });
+
+  const setViewMode = useCallback((mode) => {
+    setViewModeState(mode);
+    try {
+      localStorage.setItem('krishi_view_mode', mode);
+    } catch (_) {}
+  }, []);
+
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+      setIsFullscreen(true);
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+      setIsFullscreen(false);
+    }
+  }, []);
 
   const setActiveTab = useCallback((tab) => {
     setActiveTabState(tab);
@@ -148,39 +179,70 @@ function MainApp() {
 
   // If not authenticated, render Login / Register
   if (!isAuthenticated) {
-    if (authView === 'register') {
-      return (
-        <Suspense fallback={<TabLoadingSkeleton />}>
-          <Register
-            onNavigateLogin={() => setAuthView('login')}
-            onRegistered={() => setActiveTab('home')}
-          />
-        </Suspense>
-      );
-    }
-    return (
+    const authContent = authView === 'register' ? (
+      <Suspense fallback={<TabLoadingSkeleton />}>
+        <Register
+          onNavigateLogin={() => setAuthView('login')}
+          onRegistered={() => setActiveTab('home')}
+        />
+      </Suspense>
+    ) : (
       <Login
         onNavigateRegister={() => setAuthView('register')}
       />
+    );
+
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col font-sans w-full max-w-full overflow-x-hidden relative">
+        <PresentationToolbar 
+          viewMode={viewMode} 
+          setViewMode={setViewMode} 
+          isFullscreen={isFullscreen} 
+          toggleFullscreen={toggleFullscreen} 
+        />
+        <PhoneFrameContainer viewMode={viewMode}>
+          {authContent}
+        </PhoneFrameContainer>
+      </div>
     );
   }
 
   // If authenticated but needs onboarding
   if (user && !user.isOnboarded && activeTab !== 'onboarding') {
     return (
-      <Suspense fallback={<TabLoadingSkeleton />}>
-        <Onboarding onComplete={() => setActiveTab('home')} />
-      </Suspense>
+      <div className="min-h-screen bg-slate-950 flex flex-col font-sans w-full max-w-full overflow-x-hidden relative">
+        <PresentationToolbar 
+          viewMode={viewMode} 
+          setViewMode={setViewMode} 
+          isFullscreen={isFullscreen} 
+          toggleFullscreen={toggleFullscreen} 
+        />
+        <PhoneFrameContainer viewMode={viewMode}>
+          <Suspense fallback={<TabLoadingSkeleton />}>
+            <Onboarding onComplete={() => setActiveTab('home')} />
+          </Suspense>
+        </PhoneFrameContainer>
+      </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+    <div className="min-h-screen bg-slate-950 flex flex-col font-sans w-full max-w-full overflow-x-hidden relative">
+      <PresentationToolbar 
+        viewMode={viewMode} 
+        setViewMode={setViewMode} 
+        isFullscreen={isFullscreen} 
+        toggleFullscreen={toggleFullscreen} 
+      />
 
-      {/* Horizontal Quick Shortcut Strip for Tablets/Desktops */}
-      <div className="hidden sm:block bg-white border-b border-slate-200 py-2 px-4 shadow-xs sticky top-16 z-30">
-        <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto gap-2 text-xs font-bold scrollbar-none">
+      <PhoneFrameContainer viewMode={viewMode}>
+        <div className={`flex flex-col font-sans w-full max-w-full relative ${viewMode === 'phone' ? 'min-h-full bg-[#F4F7F4]' : 'min-h-screen bg-[#F4F7F4]'}`}>
+          <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
+
+          {/* Horizontal Quick Shortcut Strip for Tablets/Desktops (Only in full desktop mode) */}
+          {viewMode === 'desktop' && (
+            <div className="hidden sm:block bg-white border-b border-slate-200 py-2 px-4 shadow-xs sticky top-16 z-30">
+              <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto gap-2 text-xs font-bold scrollbar-none">
           <div className="flex items-center gap-1.5 flex-nowrap">
             <button
               onClick={() => setActiveTab('home')}
@@ -381,49 +443,52 @@ function MainApp() {
           </div>
         </div>
       </div>
+    )}
 
-      {/* Main Content Area */}
-      <main className="flex-1">
-        <TabErrorBoundary tabKey={activeTab} onNavigateHome={() => setActiveTab('home')}>
-          <Suspense fallback={<TabLoadingSkeleton />}>
-            {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
-            {(activeTab === 'field-monitoring' || activeTab === 'monitoring') && (
-              <FieldMonitoringPage setActiveTab={setActiveTab} />
-            )}
-            {(activeTab === 'field-mapping' || activeTab === 'mapping') && (
-              <FieldMappingPage setActiveTab={setActiveTab} />
-            )}
-            {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
-            {activeTab === 'history' && <CropHistory setActiveTab={setActiveTab} />}
-            {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
-            {activeTab === 'mandi' && <MandiPrices />}
-            {activeTab === 'fertilizer' && <FertilizerCalculator />}
-            {activeTab === 'satellite' && <SatelliteRadar />}
-            {activeTab === 'schemes' && <GovtSchemes />}
-            {activeTab === 'outbreak' && <OutbreakRadar />}
-            {activeTab === 'plans' && <ActionPlansPage />}
-            {activeTab === 'weather' && <WeatherPage />}
-            {activeTab === 'alerts' && <AlertsPage />}
-            {activeTab === 'profile' && <FarmProfile />}
-            {activeTab === 'insights' && <FarmInsights />}
-            {activeTab === 'expert' && <ExpertDashboard />}
-            {activeTab === 'admin' && <AdminDashboard />}
-          </Suspense>
-        </TabErrorBoundary>
-      </main>
+          {/* Main Content Area */}
+          <main className={`flex-1 w-full max-w-full overflow-x-hidden ${viewMode === 'phone' ? 'pb-20' : 'pb-16'}`}>
+            <TabErrorBoundary tabKey={activeTab} onNavigateHome={() => setActiveTab('home')}>
+              <Suspense fallback={<TabLoadingSkeleton />}>
+                {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
+                {(activeTab === 'field-monitoring' || activeTab === 'monitoring') && (
+                  <FieldMonitoringPage setActiveTab={setActiveTab} />
+                )}
+                {(activeTab === 'field-mapping' || activeTab === 'mapping') && (
+                  <FieldMappingPage setActiveTab={setActiveTab} />
+                )}
+                {activeTab === 'diagnose' && <ScanCrop setActiveTab={setActiveTab} />}
+                {activeTab === 'history' && <CropHistory setActiveTab={setActiveTab} />}
+                {activeTab === 'advice' && <AiAdvisor setActiveTab={setActiveTab} />}
+                {activeTab === 'mandi' && <MandiPrices />}
+                {activeTab === 'fertilizer' && <FertilizerCalculator />}
+                {activeTab === 'satellite' && <SatelliteRadar />}
+                {activeTab === 'schemes' && <GovtSchemes />}
+                {activeTab === 'outbreak' && <OutbreakRadar />}
+                {activeTab === 'plans' && <ActionPlansPage />}
+                {activeTab === 'weather' && <WeatherPage />}
+                {activeTab === 'alerts' && <AlertsPage />}
+                {activeTab === 'profile' && <FarmProfile />}
+                {activeTab === 'insights' && <FarmInsights />}
+                {activeTab === 'expert' && <ExpertDashboard />}
+                {activeTab === 'admin' && <AdminDashboard />}
+              </Suspense>
+            </TabErrorBoundary>
+          </main>
 
-        {/* Mobile Sticky Bottom Navigation */}
-        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+          {/* Bottom Navigation */}
+          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} isPhoneFrame={viewMode === 'phone'} />
 
-        {/* Global Floating SWAR AI & Voice Assistant (Available on every page) */}
-        <SwarAssistant />
+          {/* Global Floating SWAR AI & Voice Assistant */}
+          <SwarAssistant isPhoneFrame={viewMode === 'phone'} />
 
-        {/* First Launch Language Selector Modal */}
-        <LanguageSelectionModal
-          isOpen={!localStorage.getItem('krishi_lang_selected_once')}
-          onClose={() => localStorage.setItem('krishi_lang_selected_once', 'true')}
-        />
-      </div>
+          {/* First Launch Language Selector Modal */}
+          <LanguageSelectionModal
+            isOpen={!localStorage.getItem('krishi_lang_selected_once')}
+            onClose={() => localStorage.setItem('krishi_lang_selected_once', 'true')}
+          />
+        </div>
+      </PhoneFrameContainer>
+    </div>
   );
 }
 

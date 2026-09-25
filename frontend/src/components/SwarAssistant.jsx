@@ -16,7 +16,7 @@ import {
   Settings
 } from 'lucide-react';
 
-export default function SwarAssistant() {
+export default function SwarAssistant({ isPhoneFrame = false }) {
   const { 
     isOpen, 
     setIsOpen, 
@@ -49,7 +49,9 @@ export default function SwarAssistant() {
   return (
     <>
       {/* Floating Circular SWAR Trigger Button (Visible on every screen) */}
-      <div className="fixed bottom-20 sm:bottom-8 right-4 sm:right-6 z-40 flex flex-col items-end gap-2">
+      <div className={isPhoneFrame 
+        ? "absolute bottom-20 right-4 z-40 flex flex-col items-end gap-2" 
+        : "fixed bottom-20 sm:bottom-8 right-4 sm:right-6 z-40 flex flex-col items-end gap-2"}>
         <button
           id="btn-swar-floating"
           onClick={() => setIsOpen(!isOpen)}
@@ -73,7 +75,9 @@ export default function SwarAssistant() {
 
       {/* SWAR Conversational Voice Dialog */}
       {isOpen && (
-        <div className="fixed inset-0 sm:inset-auto sm:bottom-28 sm:right-6 sm:w-96 sm:max-w-md z-50 flex flex-col bg-white sm:rounded-3xl shadow-2xl border border-emerald-200 overflow-hidden animate-in fade-in slide-in-from-bottom-5">
+        <div className={isPhoneFrame 
+          ? "absolute inset-0 z-50 flex flex-col bg-white rounded-3xl shadow-2xl border border-emerald-200 overflow-hidden animate-in fade-in" 
+          : "fixed inset-0 sm:inset-auto sm:bottom-28 sm:right-6 sm:w-96 sm:max-w-md z-50 flex flex-col bg-white sm:rounded-3xl shadow-2xl border border-emerald-200 overflow-hidden animate-in fade-in slide-in-from-bottom-5"}>
           
           {/* Header */}
           <div className="p-4 bg-gradient-to-r from-[#12381F] to-emerald-900 text-white flex items-center justify-between">

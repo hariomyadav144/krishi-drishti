@@ -61,6 +61,21 @@ async function runTests() {
   console.log('FASAL DRISHTI - AUTHENTICATION & USER DATA ISOLATION TESTS');
   console.log('====================================================\n');
 
+  const fs = require('fs');
+  const path = require('path');
+  const persistentStore = require('./utils/persistentStore');
+  // Reset test accounts from persistent store so test suite can run repeatedly
+  const dbFile = path.join(__dirname, 'data', 'fasal_drishti_persistent_db.json');
+  if (fs.existsSync(dbFile)) {
+    try {
+      const data = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+      const testPhones = ['9111111111', '9222222222', '9333333333', '9444444444'];
+      data.users = (data.users || []).filter(u => !testPhones.includes(u.phone));
+      fs.writeFileSync(dbFile, JSON.stringify(data, null, 2), 'utf8');
+      persistentStore.reload();
+    } catch (_) {}
+  }
+
   const server = http.createServer(app);
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
 
@@ -281,11 +296,97 @@ async function runTests() {
     assert(dashResA2.body.data.farmer.name === 'Farmer Alpha', 'Farmer A data remained completely isolated after demo run');
     assert(dashResA2.body.data.currentCrop.cropName === 'Wheat', 'Farmer A crop remains Wheat');
 
+    // ---------------------------------------------------------
+    // TEST 9: Phone Number Normalization in Login
+    // ---------------------------------------------------------
+    console.log('\n--- TEST 9: Phone Number Normalization in Login ---');
+    const normLoginRes = await makeRequest(server, {
+      method: 'POST',
+      path: '/api/auth/login',
+    }, {
+      phone: '+91 91111 11111', // Formatted phone with +91 and spaces
+      password: 'Password@123',
+    });
+    assert(normLoginRes.status === 200, `Login with +91 format returns 200 (got ${normLoginRes.status})`);
+    assert(normLoginRes.body.user && normLoginRes.body.user.phone === '9111111111', 'User phone properly resolved to normalized 10-digit number');
+
+    // Close first server
+    await new Promise((resolve) => server.close(resolve));
+
+    // ---------------------------------------------------------
+    // TEST 10: SIMULATED SERVER RESTART & DISK PERSISTENCE
+    // ---------------------------------------------------------
+    console.log('\n--- TEST 10: Simulated Server Restart & Disk Persistence ---');
+    console.log('Simulating server shutdown, process restart, and re-reading database from disk...');
+    
+    // Force reload from persistent disk store
+    const persistentStore = require('./utils/persistentStore');
+    persistentStore.reload();
+
+    // Launch a fresh server instance
+    const newServer = http.createServer(app);
+    await new Promise((resolve) => newServer.listen(0, '127.0.0.1', resolve));
+
+    try {
+      // 1. Farmer Alpha login after server restart
+      const restartLoginA = await makeRequest(newServer, {
+        method: 'POST',
+        path: '/api/auth/login',
+      }, {
+        phone: '9111111111',
+        password: 'Password@123',
+      });
+      assert(restartLoginA.status === 200, `Farmer Alpha login AFTER server restart returns 200 (got ${restartLoginA.status})`);
+      assert(restartLoginA.body.token, 'Fresh JWT token generated after server restart');
+      assert(restartLoginA.body.user && restartLoginA.body.user.name === 'Farmer Alpha', 'Farmer Alpha account found after server restart');
+
+      const restartDashA = await makeRequest(newServer, {
+        method: 'GET',
+        path: '/api/farmer/dashboard',
+        headers: { Authorization: `Bearer ${restartLoginA.body.token}` },
+      });
+      assert(restartDashA.status === 200, 'Farmer Alpha dashboard accessible after server restart');
+      assert(restartDashA.body.data && restartDashA.body.data.farm.farmSize === 7.5, 'Farmer Alpha farmSize (7.5) preserved across server restart');
+      assert(restartDashA.body.data && restartDashA.body.data.currentCrop.cropName === 'Wheat', 'Farmer Alpha crop (Wheat) preserved across server restart');
+
+      // 2. Farmer Beta login after server restart
+      const restartLoginB = await makeRequest(newServer, {
+        method: 'POST',
+        path: '/api/auth/login',
+      }, {
+        phone: '9222222222',
+        password: 'Password@456',
+      });
+      assert(restartLoginB.status === 200, `Farmer Beta login AFTER server restart returns 200 (got ${restartLoginB.status})`);
+      assert(restartLoginB.body.user && restartLoginB.body.user.name === 'Farmer Beta', 'Farmer Beta account found after server restart');
+
+      const restartDashB = await makeRequest(newServer, {
+        method: 'GET',
+        path: '/api/farmer/dashboard',
+        headers: { Authorization: `Bearer ${restartLoginB.body.token}` },
+      });
+      assert(restartDashB.body.data && restartDashB.body.data.farm.farmSize === 3.0, 'Farmer Beta farmSize (3.0) preserved across server restart');
+      assert(restartDashB.body.data && restartDashB.body.data.currentCrop.cropName === 'Rice', 'Farmer Beta crop (Rice) preserved across server restart');
+
+      // 3. Duplicate check after server restart
+      const dupAfterRestart = await makeRequest(newServer, {
+        method: 'POST',
+        path: '/api/auth/register',
+      }, {
+        name: 'Alpha Clone',
+        phone: '9111111111',
+        password: 'AnyPassword@123',
+      });
+      assert(dupAfterRestart.status === 400, 'Duplicate phone after restart returns 400');
+      assert(dupAfterRestart.body.code === 'PHONE_EXISTS', 'Duplicate phone after restart rejected with PHONE_EXISTS');
+
+    } finally {
+      await new Promise((resolve) => newServer.close(resolve));
+    }
+
   } catch (err) {
     console.error('Test execution error:', err);
     failCount++;
-  } finally {
-    server.close();
   }
 
   console.log('\n====================================================');
@@ -295,3 +396,4 @@ async function runTests() {
 }
 
 runTests();
+

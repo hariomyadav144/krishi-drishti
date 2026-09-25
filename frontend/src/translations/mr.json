@@ -91,7 +91,10 @@
     "totalScans": "एकूण स्कॅन्स",
     "activeCrops": "सक्रिय पिके",
     "healthyCrops": "निरोगी पिके",
-    "needsCare": "लक्ष द्या"
+    "needsCare": "लक्ष द्या",
+    "tapForDetails": "तपशीलांसाठी टॅप करा",
+    "confidence": "विश्वासार्हता:",
+    "updated": "अपडेट:"
   },
   "diagnose": {
     "title": "AI द्वारे पिकाची तपासणी करा",
@@ -349,7 +352,11 @@
     "tryAgain": "पुन्हा प्रयत्न करा",
     "viewField": "शेत पहा",
     "markDone": "काम पूर्ण झाले ✓",
-    "markIrrigationDone": "पाणी देणे पूर्ण झाले ✓"
+    "markIrrigationDone": "पाणी देणे पूर्ण झाले ✓",
+    "realData": "वास्तविक शेती डेटा",
+    "high": "जास्त",
+    "medium": "मध्यम",
+    "low": "कमी"
   },
   "farm": {
     "activeContext": "सक्रिय शेती संदर्भ (Active Farm Context)",

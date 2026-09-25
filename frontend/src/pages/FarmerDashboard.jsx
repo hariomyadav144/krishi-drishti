@@ -366,31 +366,35 @@ export default function FarmerDashboard({ setActiveTab }) {
   const { farmer, profile, farm, currentCrop, pendingTasks, recentAnalyses, recentRecommendations, summary } = dashboardData || {};
 
   return (
-    <div className="max-w-4xl mx-auto p-4 sm:p-6 space-y-5 pb-24 md:pb-10">
+    <div className="w-full max-w-4xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-3.5 sm:space-y-5 pb-28 md:pb-10 overflow-x-hidden">
       
       {/* 1. Brand & Farmer Header Banner */}
-      <div className="bg-gradient-to-r from-[#14532d] via-[#166534] to-[#15803d] text-white p-5 rounded-3xl shadow-md border border-agri-600/30 flex items-center justify-between relative overflow-hidden">
-        <div className="relative z-10 flex items-center gap-3.5 sm:gap-4">
-          <div className="w-12 h-12 rounded-2xl bg-white border border-white/25 flex items-center justify-center p-0.5 shrink-0 shadow-inner overflow-hidden">
+      <div className="bg-gradient-to-r from-[#14532d] via-[#166534] to-[#15803d] text-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl shadow-sm border border-emerald-600/30 flex items-center justify-between gap-2.5 relative overflow-hidden w-full max-w-full">
+        <div className="relative z-10 flex items-center gap-2.5 sm:gap-4 min-w-0 flex-1">
+          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl sm:rounded-2xl bg-white border border-white/25 flex items-center justify-center p-0.5 shrink-0 shadow-inner overflow-hidden">
             <img
               src="./logo.png"
               alt="Fasal Drishti Logo"
-              className="w-full h-full object-contain rounded-xl"
+              className="w-full h-full object-contain rounded-lg sm:rounded-xl"
             />
           </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <span className="font-black text-xs tracking-wider text-emerald-300 uppercase">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
+              <span className="font-extrabold text-[11px] tracking-wider text-emerald-300 uppercase">
                 FASAL DRISHTI
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-sm">
+              <span className="text-[9px] font-extrabold bg-emerald-400 text-slate-950 px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-950 animate-ping"></span>
+                <span>LIVE CONNECTED (ANTIGRAVITY)</span>
+              </span>
+              <span className="text-[9px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs truncate max-w-[170px] sm:max-w-none">
                 📍 {[profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ') || t('auth.farmLocationNotSet', 'Farm location not set yet')}
               </span>
             </div>
-            <h2 className="text-lg sm:text-2xl font-black tracking-tight leading-snug">
+            <h2 className="text-base sm:text-2xl font-black tracking-tight leading-snug truncate">
               {getGreeting()}{farmer?.name || user?.name ? `, ${farmer?.name || user?.name}` : ''}
             </h2>
-            <p className="text-xs text-agri-100/90 mt-0.5 font-medium">
+            <p className="text-[11px] sm:text-xs text-emerald-100/90 font-medium truncate mt-0.5">
               {farm?.farmName || (farm?.farmSize ? `${farmer?.name || user?.name || 'Farmer'}'s Farm` : t('auth.farmNotAddedYet', 'Farm information not added yet.'))}
               {farm?.farmSize ? ` • ${farm.farmSize} ${farm?.landUnit || 'Acres'}` : ''}
               {farm?.soilType ? ` (${farm.soilType})` : ''}
@@ -401,10 +405,10 @@ export default function FarmerDashboard({ setActiveTab }) {
 
         <button
           onClick={fetchDashboard}
-          className="p-2.5 rounded-2xl bg-white/15 hover:bg-white/25 text-white backdrop-blur-md transition active:rotate-180 shrink-0"
-          title="Refresh Data"
+          className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-white/15 hover:bg-white/25 text-white backdrop-blur-xs transition active:rotate-180 flex items-center justify-center shrink-0 shadow-2xs"
+          title={lang === 'hi' ? 'डैशबोर्ड रीफ्रेश करें' : 'Refresh Dashboard'}
         >
-          <RefreshCw className="w-4 h-4" />
+          <RefreshCw className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
       </div>
 
@@ -656,10 +660,10 @@ export default function FarmerDashboard({ setActiveTab }) {
       <div>
         <div className="flex items-center justify-between mb-2.5 px-1">
           <h3 className="font-extrabold text-sm text-slate-900">
-            {t('dashboard.quickActions')} (Fasal Drishti 2.0 Tools)
+            {t('dashboard.quickActions', 'त्वरित सेवाएं')}
           </h3>
-          <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">
-            One-Tap Farming AI
+          <span className="text-[10px] text-emerald-700 font-bold uppercase tracking-wider">
+            {t('appTagline', 'From Space to Soil')}
           </span>
         </div>
         <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">

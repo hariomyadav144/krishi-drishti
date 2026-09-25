@@ -8,7 +8,9 @@
     "build": "node -e \"console.log('Root build passed')\"",
     "dev": "node backend/server.js",
     "backend": "cd backend && npm run dev",
-    "frontend": "cd frontend && npm run dev"
+    "frontend": "cd frontend && npm run dev",
+    "web": "cd frontend && npm run dev",
+    "web:build": "cd frontend && npm run build"
   },
   "engines": {
     "node": ">=18.0.0"

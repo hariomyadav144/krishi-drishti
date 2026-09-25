@@ -20,11 +20,11 @@ import {
   MOCK_PREDEFINED_QUERIES,
   calculateMockFertilizer,
   generateMockScanResult,
+  getDynamicSatelliteNDVI,
 } from './mockFallback.js';
 import { fetchOpenMeteoWeather } from './weatherService.js';
 
 export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
-export const USB_DEV_API_URL = 'http://192.168.1.31:5000/api';
 
 /**
  * Standardize and normalize any user or environment provided backend URL:
@@ -67,25 +67,31 @@ export const isNativeApp = () => {
   }
 };
 
+/**
+ * Normalizes any Indian mobile number to a strict 10-digit clean string
+ */
+export function normalizePhone(phone) {
+  if (!phone) return '';
+  const digits = String(phone).replace(/\D/g, '');
+  if (digits.length === 10) return digits;
+  if (digits.length === 11 && digits.startsWith('0')) return digits.substring(1);
+  if (digits.length === 12 && digits.startsWith('91')) return digits.substring(2);
+  if (digits.length > 10) return digits.slice(-10);
+  return digits;
+}
+
 export const resolveApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
     const custom = localStorage.getItem('krishi_backend_url');
     if (custom && custom.trim()) {
       return normalizeBackendApiUrl(custom.trim());
     }
-    const mode = localStorage.getItem('krishi_server_mode');
-    if (mode === 'cloud') {
-      return DEFAULT_PRODUCTION_API_URL;
-    }
-    if (mode === 'usb' || mode === 'local') {
-      return USB_DEV_API_URL;
-    }
   }
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
     return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
   }
   // On Native Android devices, default to live production cloud backend
-  // so the app works seamlessly whether USB is connected or disconnected, on Wi-Fi, or on mobile data.
+  // so the app works seamlessly anywhere (Wi-Fi, 4G, 5G).
   if (isNativeApp()) {
     return DEFAULT_PRODUCTION_API_URL;
   }
@@ -104,16 +110,6 @@ export function setCustomBackendUrl(url) {
     localStorage.setItem('krishi_backend_url', normalized);
   }
   return normalized;
-}
-
-export function switchServerMode(mode = 'usb') {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('krishi_server_mode', mode);
-    const targetUrl = mode === 'cloud' ? DEFAULT_PRODUCTION_API_URL : USB_DEV_API_URL;
-    api.defaults.baseURL = targetUrl;
-    return targetUrl;
-  }
-  return DEFAULT_PRODUCTION_API_URL;
 }
 
 const api = axios.create({
@@ -156,28 +152,10 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// Interceptor to handle connection failovers between Cloud and Local Dev
+// Response interceptor - pass through responses cleanly
 api.interceptors.response.use(
   (response) => response,
-  async (error) => {
-    const originalRequest = error.config;
-    if (!originalRequest || originalRequest._retryCount) {
-      return Promise.reject(error);
-    }
-
-    const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || error.message?.includes('Network Error');
-    if (isNetworkOrTimeout && (originalRequest.url?.includes('/auth/') || originalRequest.url?.includes('/farmer/'))) {
-      originalRequest._retryCount = 1;
-      const currentBase = originalRequest.baseURL || api.defaults.baseURL;
-      const targetBase = currentBase === DEFAULT_PRODUCTION_API_URL ? USB_DEV_API_URL : DEFAULT_PRODUCTION_API_URL;
-      
-      console.warn(`[API FAILOVER] Request failed on ${currentBase}. Retrying on alternate ${targetBase}...`);
-      originalRequest.baseURL = targetBase;
-      return api(originalRequest);
-    }
-
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
 const safeParseStorage = (key) => {
@@ -357,7 +335,7 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 
   // Satellite NDVI Radar
   if (cleanUrl.startsWith('/tools/satellite-ndvi')) {
-    return MOCK_SATELLITE_NDVI;
+    return getDynamicSatelliteNDVI();
   }
 
   // Outbreaks
@@ -1049,27 +1027,30 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // If unauthorized 401 with an expired session
-    if (error.response && error.response.status === 401) {
-      if (window.location.pathname !== '/login' && window.location.pathname !== '/register') {
-        localStorage.removeItem('krishi_token');
-        localStorage.removeItem('krishi_user');
+    // 0. Automatic failover from unreachable local backend (port 5000) to live Cloud Production API
+    const originalRequest = error.config;
+    const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || error.message?.includes('Network Error');
+    if (isNetworkOrTimeout && originalRequest && !originalRequest._retriedOnCloud) {
+      const currentBase = originalRequest.baseURL || api.defaults.baseURL || '';
+      if (currentBase.includes('localhost:5000') || currentBase.includes('127.0.0.1:5000')) {
+        originalRequest._retriedOnCloud = true;
+        console.warn(`[Fasal Drishti Failover] Local backend on port 5000 unreachable. Seamlessly retrying on Cloud Production API (${DEFAULT_PRODUCTION_API_URL})...`);
+        originalRequest.baseURL = DEFAULT_PRODUCTION_API_URL;
+        api.defaults.baseURL = DEFAULT_PRODUCTION_API_URL;
+        return api(originalRequest);
       }
+    }
+
+    // Do NOT wipe localStorage on 401 errors.
+    // AuthContext is the single source of truth for user authentication and session management.
+    if (error.response && error.response.status === 401) {
       return Promise.reject(error);
     }
 
-    // Real login and register: If local USB endpoint is unreachable, auto-fallback to Cloud (and vice versa)
+    // Auth endpoints (login, register): pass backend response directly to form
     const url = error.config?.url || '';
     const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/register');
     if (isAuthRoute) {
-      if (!error.response && error.config && !error.config._retryAuthAlternate) {
-        error.config._retryAuthAlternate = true;
-        const currentBase = normalizeBackendApiUrl(error.config.baseURL || api.defaults.baseURL);
-        const alternateBase = currentBase.includes('onrender.com') ? USB_DEV_API_URL : DEFAULT_PRODUCTION_API_URL;
-        console.log(`[AUTH:FAILOVER] Network error reaching ${currentBase}. Retrying with alternate backend: ${alternateBase}...`);
-        error.config.baseURL = alternateBase;
-        return api(error.config);
-      }
       return Promise.reject(error);
     }
 

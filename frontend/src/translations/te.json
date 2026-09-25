@@ -91,7 +91,10 @@
     "totalScans": "మొత్తం స్కాన్లు",
     "activeCrops": "చురుకైన పంటలు",
     "healthyCrops": "ఆరోగ్యకరమైన పంటలు",
-    "needsCare": "శ్రద్ధ అవసరం"
+    "needsCare": "శ్రద్ధ అవసరం",
+    "tapForDetails": "వివరాల కోసం నొక్కండి",
+    "confidence": "విశ్వసనీయత:",
+    "updated": "నవీకరించబడింది:"
   },
   "diagnose": {
     "title": "AI दृष्टि से फसल की जांच करें",
@@ -349,7 +352,11 @@
     "tryAgain": "మళ్ళీ ప్రయత్నించండి",
     "viewField": "పొలం చూడండి",
     "markDone": "పని పూర్తయింది ✓",
-    "markIrrigationDone": "నీటిపారుదల పూర్తయింది ✓"
+    "markIrrigationDone": "నీటిపారుదల పూర్తయింది ✓",
+    "realData": "నిజమైన వ్యవసాయ డేటా",
+    "high": "ఎక్కువ",
+    "medium": "మధ్యస్థం",
+    "low": "తక్కువ"
   },
   "farm": {
     "activeContext": "క్రియాశీల వ్యవసాయ సందర్భం (Active Farm Context)",

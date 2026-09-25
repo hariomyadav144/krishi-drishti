@@ -2,7 +2,7 @@ const Field = require('../models/Field');
 const FieldMonitoringObservation = require('../models/FieldMonitoringObservation');
 const FieldAlert = require('../models/FieldAlert');
 const FieldActionItem = require('../models/FieldActionItem');
-const { runFieldMonitoringPipeline } = require('../services/fieldMonitoringService');
+const { runFieldMonitoringPipeline, scanLandParcelSatellite } = require('../services/fieldMonitoringService');
 const {
   isDbConnected,
   getStatelessFields,
@@ -35,19 +35,64 @@ async function getFarmerField(fieldId, userId) {
   return field;
 }
 
+// @desc    Real-time satellite scan of GPS land parcel to detect crop vs bare/fallow land
+// @route   POST /api/field-monitoring/scan-land
+// @access  Public / Private
+exports.scanLand = async (req, res) => {
+  try {
+    const { center, points, crop, areaAcres, fieldName } = req.body || {};
+    let lat = center?.lat;
+    let lng = center?.lng;
+
+    if ((!lat || !lng) && Array.isArray(points) && points.length > 0) {
+      const validPoints = points.filter(p => p && !isNaN(Number(p.lat)) && !isNaN(Number(p.lng)));
+      if (validPoints.length > 0) {
+        lat = validPoints.reduce((sum, p) => sum + Number(p.lat), 0) / validPoints.length;
+        lng = validPoints.reduce((sum, p) => sum + Number(p.lng), 0) / validPoints.length;
+      }
+    }
+
+    if (!lat || !lng) {
+      lat = 26.76;
+      lng = 83.37;
+    }
+
+    const scanResult = await scanLandParcelSatellite({
+      lat: Number(lat),
+      lng: Number(lng),
+      polygon: points,
+      crop,
+      areaAcres,
+      fieldName
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: scanResult
+    });
+  } catch (err) {
+    console.error('[FieldMonitoringController] scanLand error:', err.message);
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to complete satellite land scan.',
+      error: err.message
+    });
+  }
+};
+
 // @desc    Get latest field monitoring observation (auto-runs if none exists)
 // @route   GET /api/field-monitoring/latest/:fieldId
 // @access  Private (Farmer)
 exports.getLatestObservation = async (req, res) => {
   try {
     const { fieldId } = req.params;
+    const userId = req.user?._id;
 
-    if (!isDbConnected()) {
-      const obs = getStatelessLatestObservation(fieldId);
-      return res.status(200).json(obs);
+    let field = await getFarmerField(fieldId, userId);
+    if (!field) {
+      const fields = getStatelessFields(userId);
+      field = fields.find(f => f._id === fieldId || f.id === fieldId);
     }
-
-    const field = await getFarmerField(fieldId, req.user._id);
 
     if (!field) {
       return res.status(404).json({
@@ -57,34 +102,32 @@ exports.getLatestObservation = async (req, res) => {
     }
 
     // Try finding latest observation
-    let observation = await FieldMonitoringObservation.findOne({ fieldId })
-      .sort({ observationDate: -1 });
+    let observation = null;
+    if (isDbConnected()) {
+      observation = await FieldMonitoringObservation.findOne({ fieldId })
+        .sort({ observationDate: -1 });
+    }
 
     // If no observation exists or older than 24 hours, run pipeline automatically
     const isStale = observation && (Date.now() - new Date(observation.observationDate).getTime() > 24 * 60 * 60 * 1000);
     if (!observation || isStale) {
       try {
-        observation = await runFieldMonitoringPipeline(fieldId, req.user._id);
+        observation = await runFieldMonitoringPipeline(fieldId, userId);
       } catch (pipelineErr) {
         console.error('[FieldMonitoringController] Automatic run error:', pipelineErr.message);
-        // If pipeline error occurred but an older observation exists, fall back gracefully
-        if (!observation) {
-          return res.status(500).json({
-            success: false,
-            message: 'Unable to process field monitoring telemetry. Please try again shortly.',
-            error: pipelineErr.message
-          });
-        }
       }
     }
 
     // Fetch unread field alerts
-    const alerts = await FieldAlert.find({ fieldId, isRead: false }).sort({ createdAt: -1 }).limit(5);
+    let alerts = [];
+    if (isDbConnected()) {
+      alerts = await FieldAlert.find({ fieldId, isRead: false }).sort({ createdAt: -1 }).limit(5);
+    }
 
     return res.status(200).json({
       success: true,
       field,
-      data: observation,
+      data: observation || (getStatelessLatestObservation(fieldId)?.data),
       alerts
     });
   } catch (err) {

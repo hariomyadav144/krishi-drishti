@@ -1,21 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { User, Phone, Mail, Lock, ArrowRight } from 'lucide-react';
-import { switchServerMode } from '../services/api';
+import { User, Phone, Mail, Lock, ArrowRight, LogIn } from 'lucide-react';
+import { normalizePhone } from '../services/api';
 
 export default function Register({ onNavigateLogin, onRegistered }) {
   const { register } = useAuth();
   const { t, lang, setLanguage, toggleHindiEnglish } = useLanguage();
-  const [serverMode, setServerMode] = useState(() => {
-    return (typeof window !== 'undefined' && localStorage.getItem('krishi_server_mode')) || 'usb';
-  });
-
-  const toggleServer = () => {
-    const next = serverMode === 'usb' ? 'cloud' : 'usb';
-    setServerMode(next);
-    switchServerMode(next);
-  };
 
   const [formData, setFormData] = useState({
     name: '',
@@ -25,6 +16,7 @@ export default function Register({ onNavigateLogin, onRegistered }) {
     role: 'farmer',
   });
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleChange = (e) => {
@@ -34,9 +26,10 @@ export default function Register({ onNavigateLogin, onRegistered }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setErrorCode('');
 
     const cleanName = (formData.name || '').trim();
-    const cleanPhone = (formData.phone || '').trim();
+    const cleanPhone = normalizePhone(formData.phone);
     const cleanPassword = (formData.password || '').trim();
 
     if (!cleanName || !cleanPhone || !cleanPassword) {
@@ -44,7 +37,7 @@ export default function Register({ onNavigateLogin, onRegistered }) {
       return;
     }
 
-    if (cleanPhone.length < 10) {
+    if (cleanPhone.length !== 10) {
       setError(t('auth.enterValidPhone', 'Please enter a valid 10-digit mobile number.'));
       return;
     }
@@ -63,6 +56,7 @@ export default function Register({ onNavigateLogin, onRegistered }) {
     });
     setLoading(false);
     if (!res.success) {
+      setErrorCode(res.code || '');
       if (res.code === 'PHONE_EXISTS') {
         setError(t('auth.phoneAlreadyRegistered', 'This mobile number is already registered. Please login.'));
       } else if (res.code === 'EMAIL_EXISTS') {
@@ -70,7 +64,7 @@ export default function Register({ onNavigateLogin, onRegistered }) {
       } else if (res.message?.includes('bufferCommands') || res.message?.includes('findOne') || res.message?.includes('initial connection')) {
         setError(t('auth.unableToCreateAccount', 'Unable to create your account right now. Please try again.'));
       } else if (res.message?.includes('network') || res.message?.includes('Network')) {
-        setError(t('auth.networkError', 'Network error. Please check your internet connection.'));
+        setError(t('auth.networkError', 'Network connection unavailable. Please try again.'));
       } else if (res.message?.includes('timed out') || res.message?.includes('timeout')) {
         setError(t('auth.timeoutError', 'Server response timed out. The server may be waking up, please try again.'));
       } else {
@@ -132,19 +126,6 @@ export default function Register({ onNavigateLogin, onRegistered }) {
           <p className="text-xs text-agri-200 mt-1">
             {t('auth.joinSubtitle', 'Register for AI-Powered Smart Farming')}
           </p>
-          <div className="flex items-center justify-center mt-2">
-            <button
-              type="button"
-              id="register-server-mode-btn"
-              onClick={toggleServer}
-              className="inline-flex items-center gap-1.5 px-3 py-1 bg-black/40 hover:bg-black/60 border border-white/20 rounded-full text-[11px] text-emerald-300 transition-all active:scale-95 shadow-sm"
-              title="Click to toggle between Laptop USB and Cloud server"
-            >
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>{serverMode === 'cloud' ? '☁️ Cloud (Render)' : '💻 Laptop USB (192.168.1.31)'}</span>
-              <span className="text-white/40 text-[10px]">⇄ Switch</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -156,7 +137,17 @@ export default function Register({ onNavigateLogin, onRegistered }) {
               id="register-error-message"
               className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl font-medium"
             >
-              {error}
+              <p>{error}</p>
+              {errorCode === 'PHONE_EXISTS' && onNavigateLogin && (
+                <button
+                  type="button"
+                  onClick={onNavigateLogin}
+                  className="mt-2 w-full py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg flex items-center justify-center gap-1.5 transition shadow-sm"
+                >
+                  <LogIn className="w-3.5 h-3.5" />
+                  <span>{lang === 'hi' ? 'लॉगिन पेज पर जाएं (Go to Login)' : 'Go to Login'}</span>
+                </button>
+              )}
             </div>
           )}
 

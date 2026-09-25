@@ -91,7 +91,10 @@
     "totalScans": "ਕੁੱਲ ਸਕੈਨ",
     "activeCrops": "ਸਰਗਰਮ ਫ਼ਸਲਾਂ",
     "healthyCrops": "ਸਿਹਤਮੰਦ ਫ਼ਸਲਾਂ",
-    "needsCare": "ਧਿਆਨ ਦੀ ਲੋੜ"
+    "needsCare": "ਧਿਆਨ ਦੀ ਲੋੜ",
+    "tapForDetails": "ਵੇਰਵਿਆਂ ਲਈ ਟੈਪ ਕਰੋ",
+    "confidence": "ਭਰੋਸੇਯੋਗਤਾ:",
+    "updated": "ਅਪਡੇਟ:"
   },
   "diagnose": {
     "title": "AI ਦੁਆਰਾ ਫਸਲ ਦੀ ਜਾਂਚ ਕਰੋ",
@@ -349,7 +352,11 @@
     "tryAgain": "ਮੁੜ ਕੋਸ਼ਿਸ਼ ਕਰੋ",
     "viewField": "ਖੇਤ ਵੇਖੋ",
     "markDone": "ਕੰਮ ਪੂਰਾ ਹੋਇਆ ✓",
-    "markIrrigationDone": "ਸਿੰਚਾਈ ਪੂਰੀ ਹੋਈ ✓"
+    "markIrrigationDone": "ਸਿੰਚਾਈ ਪੂਰੀ ਹੋਈ ✓",
+    "realData": "ਅਸਲ ਖੇਤੀ ਡਾਟਾ",
+    "high": "ਵੱਧ",
+    "medium": "ਦਰਮਿਆਨਾ",
+    "low": "ਘੱਟ"
   },
   "farm": {
     "activeContext": "ਸਰਗਰਮ ਖੇਤੀ ਸੰਦਰਭ (Active Farm Context)",

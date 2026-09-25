@@ -91,7 +91,10 @@
     "totalScans": "ಒಟ್ಟು ಸ್ಕ್ಯಾನ್‌ಗಳು",
     "activeCrops": "ಸಕ್ರಿಯ ಬೆಳೆಗಳು",
     "healthyCrops": "ಆರೋಗ್ಯಕರ ಬೆಳೆಗಳು",
-    "needsCare": "ಗಮನ ಬೇಕು"
+    "needsCare": "ಗಮನ ಬೇಕು",
+    "tapForDetails": "ವಿವರಗಳಿಗಾಗಿ ಟ್ಯಾಪ್ ಮಾಡಿ",
+    "confidence": "ವಿಶ್ವಾಸಾರ್ಹತೆ:",
+    "updated": "ನವೀಕರಿಸಲಾಗಿದೆ:"
   },
   "diagnose": {
     "title": "AI दृष्टि से फसल की जांच करें",
@@ -349,7 +352,11 @@
     "tryAgain": "ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ",
     "viewField": "ಜಮೀನು ವೀಕ್ಷಿಸಿ",
     "markDone": "ಕೆಲಸ ಮುಗಿದಿದೆ ✓",
-    "markIrrigationDone": "ನೀರಾವರಿ ಮುಗಿದಿದೆ ✓"
+    "markIrrigationDone": "ನೀರಾವರಿ ಮುಗಿದಿದೆ ✓",
+    "realData": "ನೈಜ ಕೃಷಿ ಡೇಟಾ",
+    "high": "ಹೆಚ್ಚು",
+    "medium": "ಮಧ್ಯಮ",
+    "low": "ಕಡಿಮೆ"
   },
   "farm": {
     "activeContext": "ಸಕ್ರಿಯ ಕೃಷಿ ಸಂದರ್ಭ (Active Farm Context)",

@@ -37,13 +37,12 @@ export default function CropHealthCircle({
     }
 
     let start = 0;
-    const duration = 1000;
+    const duration = 800;
     const startTime = performance.now();
 
     function step(currentTime) {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
-      // Ease out cubic
       const easeProgress = 1 - Math.pow(1 - progress, 3);
       const current = Math.round(easeProgress * targetScore);
       setAnimatedScore(current);
@@ -59,70 +58,64 @@ export default function CropHealthCircle({
   // If farmer has NOT added a field/crop yet:
   if (!hasValidData && fieldsSummary.length === 0) {
     return (
-      <div className="agri-card p-6 sm:p-8 bg-gradient-to-br from-emerald-50/90 via-white to-agri-50/90 border-2 border-dashed border-emerald-300 text-center rounded-3xl shadow-sm space-y-4 animate-in fade-in duration-300">
-        <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-white flex items-center justify-center mx-auto text-3xl shadow-md">
-          <Sprout className="w-8 h-8" />
+      <div className="agri-card p-5 sm:p-7 bg-gradient-to-br from-emerald-50/90 via-white to-agri-50/90 border-2 border-dashed border-emerald-300 text-center rounded-2xl sm:rounded-3xl shadow-xs space-y-3.5 w-full max-w-full overflow-hidden">
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-white flex items-center justify-center mx-auto text-2xl shadow-sm">
+          <Sprout className="w-7 h-7" />
         </div>
         <div>
-          <h3 className="text-xl font-black text-slate-900 tracking-tight">
-            🌱 {t('dashboard.cropHealth') || 'Crop Health'}
+          <h3 className="text-lg font-black text-slate-900 tracking-tight">
+            🌱 {t('dashboard.cropHealth', 'फसल स्वास्थ्य')}
           </h3>
-          <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mt-1.5 leading-relaxed font-medium">
-            {t('dashboard.addInfoPrompt') || (lang === 'hi'
-              ? 'फसल स्वास्थ्य निगरानी शुरू करने के लिए अपने खेत और फसल की जानकारी जोड़ें।'
-              : 'Add your field and crop information to start crop health monitoring.')}
+          <p className="text-xs text-slate-600 max-w-md mx-auto mt-1 leading-relaxed font-medium">
+            {t('dashboard.addInfoPrompt', 'फसल स्वास्थ्य निगरानी शुरू करने के लिए अपने खेत और फसल की जानकारी जोड़ें।')}
           </p>
         </div>
         <button
           onClick={onAddField || (() => { window.location.hash = '#/field-mapping'; })}
-          className="px-6 py-3 rounded-2xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs shadow-md transition transform active:scale-95 inline-flex items-center gap-2"
+          className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs shadow-xs transition transform active:scale-95 inline-flex items-center gap-2"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>{t('farm.addField') || (lang === 'hi' ? 'खेत जोड़ें' : 'Add Field')}</span>
+          <span>{t('farm.addField', 'खेत जोड़ें')}</span>
         </button>
       </div>
     );
   }
 
-  // Color & Theme Mapping based on prompt specifications
+  // Theme Mapping based on health score
   const getTheme = (score) => {
     if (score >= 80) {
       return {
         stroke: '#10B981', // emerald-500
-        bgGradient: 'from-emerald-500/15 via-emerald-500/5 to-white',
+        bgGradient: 'from-emerald-500/10 via-emerald-500/5 to-white',
         borderColor: 'border-emerald-300',
         badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
         textColor: 'text-emerald-700',
-        glow: 'shadow-emerald-500/20',
       };
     }
     if (score >= 60) {
       return {
         stroke: '#EAB308', // yellow-500
-        bgGradient: 'from-amber-500/15 via-amber-500/5 to-white',
+        bgGradient: 'from-amber-500/10 via-amber-500/5 to-white',
         borderColor: 'border-amber-300',
         badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
         textColor: 'text-amber-700',
-        glow: 'shadow-amber-500/20',
       };
     }
     if (score >= 40) {
       return {
         stroke: '#F97316', // orange-500
-        bgGradient: 'from-orange-500/15 via-orange-500/5 to-white',
+        bgGradient: 'from-orange-500/10 via-orange-500/5 to-white',
         borderColor: 'border-orange-300',
         badgeBg: 'bg-orange-100 text-orange-900 border-orange-300',
         textColor: 'text-orange-700',
-        glow: 'shadow-orange-500/20',
       };
     }
     return {
       stroke: '#EF4444', // red-500
-      bgGradient: 'from-rose-500/15 via-rose-500/5 to-white',
+      bgGradient: 'from-rose-500/10 via-rose-500/5 to-white',
       borderColor: 'border-rose-300',
       badgeBg: 'bg-rose-100 text-rose-900 border-rose-300',
       textColor: 'text-rose-700',
-      glow: 'shadow-rose-500/20',
     };
   };
 
@@ -145,30 +138,30 @@ export default function CropHealthCircle({
       ml: 'അപകടത്തിൽ', or: 'ବିପଦରେ', as: 'বিপদাপন্ন'
     },
     critical: {
-      en: 'CRITICAL', hi: 'गंभीर', pa: 'ਨਾਜ਼ੁਕ', mr: 'गंभीर', gu: 'ગંભીર',
+      en: 'CRITICAL', hi: 'गंभीर', pa: 'ਨਾਜ਼ੁਕ', mr: 'गंभीर', gu: 'ਗંભીર',
       bn: 'সঙ্কটজনক', ta: 'ஆபத்தான நிலை', te: 'అత్యవసరం', kn: 'ಗಂಭೀರ',
       ml: 'ഗുരുതരം', or: 'ଗୁରୁତର', as: 'সংকটজনক'
     }
   };
 
   const statusKey = targetScore >= 80 ? 'healthy' : (targetScore >= 60 ? 'attention' : (targetScore >= 40 ? 'risk' : 'critical'));
-  const statusLabel = STATUS_DICT[statusKey]?.[lang] || STATUS_DICT[statusKey]?.en || 'HEALTHY';
+  const statusLabel = STATUS_DICT[statusKey]?.[lang] || STATUS_DICT[statusKey]?.hi || 'स्वस्थ';
 
-  // Large SVG circular gauge dimensions
-  const size = 220;
-  const strokeWidth = 16;
+  // Compact circular gauge dimensions for mobile
+  const size = 140;
+  const strokeWidth = 11;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (animatedScore / 100) * circumference;
 
   // Format real timestamp
   const formatTimestamp = (dateStr) => {
-    if (!dateStr) return t('common.justNow') || 'Just now';
+    if (!dateStr) return t('common.justNow', 'अभी');
     try {
       const d = new Date(dateStr);
       return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } catch (_) {
-      return t('common.today') || 'Today';
+      return t('common.today', 'आज');
     }
   };
 
@@ -179,78 +172,82 @@ export default function CropHealthCircle({
     ? healthData.reasonsHi
     : (healthData?.reasons || []);
 
+  const confidenceValue = healthData?.confidence || 'High';
+  const confidenceLabel = confidenceValue.toLowerCase() === 'high' 
+    ? (lang === 'hi' ? 'अधिक' : 'High')
+    : confidenceValue.toLowerCase() === 'medium'
+    ? (lang === 'hi' ? 'मध्यम' : 'Medium')
+    : (lang === 'hi' ? 'कम' : 'Low');
+
   return (
-    <div className={`agri-card p-6 sm:p-7 bg-gradient-to-br ${theme.bgGradient} ${theme.borderColor} border-2 shadow-md relative overflow-hidden rounded-3xl transition-all duration-300`}>
+    <div className={`agri-card p-4 sm:p-5 bg-gradient-to-br ${theme.bgGradient} ${theme.borderColor} border-2 shadow-sm rounded-2xl sm:rounded-3xl transition-all duration-300 w-full max-w-full overflow-hidden`}>
       
-      {/* 1. Header: Title & Multi-Field Selector */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200/80 pb-3.5 mb-5">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="p-1.5 rounded-xl bg-emerald-100 text-emerald-800">
-              <Sprout className="w-5 h-5" />
-            </span>
-            <h2 className="text-sm sm:text-base font-black uppercase tracking-wider text-slate-900 flex items-center gap-2">
-              <span>🌱 {t('dashboard.yourCropHealth') || 'YOUR CROP HEALTH'}</span>
-              <span className="text-[10px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full">
-                {t('common.realData') || 'Real Data'}
-              </span>
+      {/* 1. Header: Title, Field Info & Refresh Icon Button */}
+      <div className="flex items-start justify-between gap-2 border-b border-slate-200/80 pb-3 mb-3.5">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-1.5 mb-1">
+            <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5 truncate">
+              <span>🌱 {t('dashboard.yourCropHealth', 'आपकी फसल का स्वास्थ्य')}</span>
             </h2>
+            <span className="text-[9px] font-bold bg-emerald-600 text-white px-2 py-0.5 rounded-full shrink-0 shadow-2xs">
+              {t('common.realData', 'वास्तविक डेटा')}
+            </span>
           </div>
-          <p className="text-xs text-slate-600 mt-1 font-semibold flex items-center gap-1.5">
-            <MapPin className="w-3.5 h-3.5 text-emerald-700" />
-            <span>{healthData?.fieldName || 'Plot A'}</span>
+
+          <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-1 truncate">
+            <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+            <span className="truncate">{healthData?.fieldName || 'Plot A'}</span>
             <span>•</span>
             <span className="text-emerald-800 font-bold">{tCrop(healthData?.crop) || healthData?.crop || 'Wheat'}</span>
-            <span>({tStage(healthData?.cropStage) || healthData?.cropStage || 'Vegetative Stage'})</span>
+            <span className="text-slate-500 font-normal">({tStage(healthData?.cropStage) || healthData?.cropStage || 'Vegetative'})</span>
           </p>
         </div>
 
-        {/* Multi-Field Switcher & Force Recalculate Button */}
-        <div className="flex items-center gap-2 self-start sm:self-auto">
+        {/* Multi-Field Switcher & Circular Refresh Button */}
+        <div className="flex items-center gap-1.5 shrink-0">
           {fieldsSummary.length > 1 && (
-            <div className="relative">
-              <select
-                value={selectedFieldId || healthData?.fieldId || ''}
-                onChange={(e) => onSelectField && onSelectField(e.target.value)}
-                className="bg-white text-slate-800 text-xs font-bold py-1.5 px-3 rounded-xl border border-slate-300 shadow-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 cursor-pointer"
-                title="Select Field Plot"
-              >
-                {fieldsSummary.map((f) => (
-                  <option key={f.fieldId} value={f.fieldId}>
-                    {f.fieldName} ({f.crop} - {f.healthScore}%)
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={selectedFieldId || healthData?.fieldId || ''}
+              onChange={(e) => onSelectField && onSelectField(e.target.value)}
+              className="bg-white text-slate-800 text-[11px] font-bold py-1 px-2 rounded-xl border border-slate-300 shadow-2xs focus:outline-none cursor-pointer max-w-[110px] truncate"
+              title="Select Field Plot"
+            >
+              {fieldsSummary.map((f) => (
+                <option key={f.fieldId} value={f.fieldId}>
+                  {f.fieldName} ({f.healthScore}%)
+                </option>
+              ))}
+            </select>
           )}
 
+          {/* Connected Icon Refresh Button with Spinner & Disabled State */}
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className={`p-2.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/80 shadow-xs transition ${
-              isRefreshing ? 'opacity-50 cursor-not-allowed' : 'active:scale-95'
+            className={`w-8 h-8 rounded-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 shadow-2xs flex items-center justify-center transition active:scale-90 ${
+              isRefreshing ? 'opacity-60 cursor-not-allowed bg-emerald-50 text-emerald-700' : ''
             }`}
-            title="Recalculate Crop Health"
+            title={lang === 'hi' ? 'स्वास्थ्य पुनः गणना करें' : 'Recalculate Health'}
           >
-            <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
           </button>
         </div>
       </div>
 
-      {/* 2. Main Hero Layout: Prominent Circular Ring + Diagnostics */}
-      <div className="flex flex-col lg:flex-row items-center justify-between gap-8 my-2">
+      {/* 2. Compact Main Body: Gauge Ring + Status Diagnostics */}
+      <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 my-1">
         
-        {/* LARGE Circular Ring Indicator (Clickable) */}
+        {/* Compact Circular Ring Indicator */}
         <div 
           onClick={onOpenDetails}
-          className="relative cursor-pointer group flex flex-col items-center justify-center p-4 rounded-3xl hover:bg-white/70 transition duration-300 select-none"
-          title="Click to view detailed crop health breakdown"
+          className="relative cursor-pointer group flex flex-col items-center justify-center p-2 rounded-2xl hover:bg-white/60 transition duration-200 select-none shrink-0"
+          title={t('dashboard.tapForDetails', 'विस्तृत जानकारी के लिए टैप करें')}
         >
           <div className="relative flex items-center justify-center">
             <svg
               width={size}
               height={size}
-              className="transform -rotate-90 drop-shadow-md transition-transform duration-300 group-hover:scale-105"
+              className="transform -rotate-90 drop-shadow-xs transition-transform duration-300 group-hover:scale-105"
             >
               {/* Background Track */}
               <circle
@@ -279,98 +276,98 @@ export default function CropHealthCircle({
             </svg>
 
             {/* Content inside the Circle */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
-              <span className="text-4xl sm:text-5xl font-black tracking-tight text-slate-900 leading-none">
+            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
+              <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 leading-none">
                 {animatedScore}%
               </span>
-              <span className={`text-xs font-black uppercase tracking-wider px-3 py-0.5 rounded-full border mt-2 shadow-xs ${theme.badgeBg}`}>
+              <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border mt-1.5 shadow-2xs ${theme.badgeBg}`}>
                 {statusLabel}
               </span>
-              <span className="text-[10px] text-slate-400 font-bold mt-1.5 group-hover:text-emerald-700 flex items-center gap-0.5 transition">
-                {t('dashboard.tapForDetails') || (lang === 'hi' ? 'विवरण हेतु टैप करें' : 'Tap for Details')}
-                <ArrowUpRight className="w-3 h-3" />
+              <span className="text-[9px] text-emerald-700 font-bold mt-1 group-hover:underline flex items-center gap-0.5">
+                <span>{t('dashboard.tapForDetails', 'विवरण देखें')}</span>
+                <ArrowUpRight className="w-2.5 h-2.5" />
               </span>
             </div>
           </div>
-
-          {/* Confidence & Last Updated below Circle */}
-          <div className="flex items-center gap-3 mt-4 text-xs font-bold text-slate-600 bg-white/80 px-3.5 py-1.5 rounded-full border border-slate-200/60 shadow-2xs">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>{t('dashboard.confidence') || (lang === 'hi' ? 'विश्वसनीयता: ' : 'Confidence: ')}</span>
-              <strong className="text-slate-900">{t(`common.${(healthData?.confidence || 'High').toLowerCase()}`, healthData?.confidence || 'High')}</strong>
-            </span>
-            <span className="text-slate-300">•</span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3.5 h-3.5 text-slate-400" />
-              <span>{t('dashboard.updated') || (lang === 'hi' ? 'अपडेट: ' : 'Updated: ')}</span>
-              <strong className="text-slate-900">{lastUpdatedFormatted}</strong>
-            </span>
-          </div>
         </div>
 
-        {/* 3. Right Side: Real Contributing Reasons & Action Alert */}
-        <div className="flex-1 w-full space-y-3.5">
+        {/* 3. Diagnostics & Real Contributing Factors */}
+        <div className="flex-1 min-w-0 w-full space-y-2.5">
+          
+          {/* Metadata Badges: Confidence & Updated */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
+            <div className="flex items-center gap-1 bg-white/90 px-2.5 py-1 rounded-xl border border-slate-200/70 shadow-2xs">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span className="text-[11px] text-slate-500">{t('dashboard.confidence', 'विश्वसनीयता:')}</span>
+              <strong className="text-slate-900 text-[11px] font-bold">{confidenceLabel}</strong>
+            </div>
+
+            <div className="flex items-center gap-1 bg-white/90 px-2.5 py-1 rounded-xl border border-slate-200/70 shadow-2xs">
+              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span className="text-[11px] text-slate-500">{t('dashboard.updated', 'अपडेट:')}</span>
+              <strong className="text-slate-900 text-[11px] font-bold">{lastUpdatedFormatted}</strong>
+            </div>
+          </div>
+
+          {/* Primary Contributing Factors */}
           <div>
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-400 block mb-2">
-              {t('dashboard.primaryFactors') || (lang === 'hi' ? 'वास्तविक कृषि डेटा आधारित मुख्य कारण' : 'PRIMARY FACTORS SHAPING HEALTH')}
+            <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 block mb-1.5">
+              {t('dashboard.primaryFactors', 'मुख्य कारण')}
             </span>
 
             {displayReasons.length > 0 ? (
-              <div className="space-y-2">
-                {displayReasons.slice(0, 3).map((reason, idx) => (
+              <div className="space-y-1.5">
+                {displayReasons.slice(0, 2).map((reason, idx) => (
                   <div 
                     key={idx}
-                    className="flex items-start gap-2.5 text-xs font-bold text-slate-800 bg-white p-3 rounded-2xl border border-slate-200 shadow-2xs"
+                    className="flex items-start gap-2 text-xs font-semibold text-slate-800 bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs"
                   >
-                    <span className="text-emerald-600 font-black shrink-0 text-sm mt-0.5">
+                    <span className="text-emerald-600 font-black shrink-0 text-xs mt-0.5">
                       {reason.startsWith('⚠') ? '⚠️' : '✓'}
                     </span>
-                    <span className="leading-relaxed">{reason.replace(/^[✓⚠\s]+/, '')}</span>
+                    <span className="leading-snug truncate">{reason.replace(/^[✓⚠\s]+/, '')}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="bg-white p-3 rounded-2xl border border-slate-200 text-xs text-slate-600 font-medium">
-                {t('dashboard.allStable') || (lang === 'hi' ? 'फसल की स्थिति सामान्य व स्थिर है।' : 'All monitored crop parameters are in stable range.')}
+              <div className="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 text-xs text-slate-600 font-medium">
+                {t('dashboard.allStable', 'फसल की स्थिति सामान्य व स्थिर है।')}
               </div>
             )}
           </div>
 
-          {/* Actionable Alert Banner for Yellow/Orange/Red */}
+          {/* Action Alert for Low Scores */}
           {targetScore < 80 && (
-            <div className={`p-3.5 rounded-2xl border text-xs flex items-start gap-3 shadow-2xs ${
+            <div className={`p-2.5 rounded-xl border text-xs flex items-start gap-2 shadow-2xs ${
               targetScore < 40 
-                ? 'bg-rose-50 border-rose-300 text-rose-900' 
-                : (targetScore < 60 ? 'bg-orange-50 border-orange-300 text-orange-900' : 'bg-amber-50 border-amber-300 text-amber-900')
+                ? 'bg-rose-50 border-rose-200 text-rose-900' 
+                : (targetScore < 60 ? 'bg-orange-50 border-orange-200 text-orange-900' : 'bg-amber-50 border-amber-200 text-amber-900')
             }`}>
-              <AlertTriangle className="w-5 h-5 shrink-0 text-current mt-0.5" />
-              <div>
-                <strong className="font-black block text-xs tracking-tight">
+              <AlertTriangle className="w-4 h-4 shrink-0 text-current mt-0.5" />
+              <div className="min-w-0">
+                <strong className="font-extrabold block text-xs truncate">
                   {targetScore < 40 
-                    ? (t('dashboard.urgentIntervention') || '🚨 Urgent Intervention Needed')
-                    : (t('dashboard.attentionRecommended') || '⚠️ Attention Recommended')}
+                    ? (t('dashboard.urgentIntervention', '🚨 तत्काल ध्यान आवश्यक'))
+                    : (t('dashboard.attentionRecommended', '⚠️ ध्यान देने की सलाह'))}
                 </strong>
-                <p className="text-[11px] mt-0.5 leading-relaxed font-semibold opacity-95">
-                  {healthData?.recommendations?.[0]?.description || (lang === 'hi' ? 'खेत का निरीक्षण करें व आवश्यक जल प्रबंधन करें।' : 'Inspect field and follow moisture management guidance.')}
+                <p className="text-[11px] leading-tight font-medium opacity-90 truncate mt-0.5">
+                  {healthData?.recommendations?.[0]?.description || (lang === 'hi' ? 'खेत का निरीक्षण करें व जल प्रबंधन करें।' : 'Inspect field and follow moisture management guidance.')}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Action Button to Open Detailed Breakdown Modal */}
-          <div className="pt-1 flex items-center justify-between gap-3">
-            <span className="text-xs text-slate-500 font-semibold hidden sm:inline">
-              {t('dashboard.telemetryNote') || (lang === 'hi' ? '6-घटक पारदर्शी विश्लेषण व स्थायी इतिहास' : 'Deep 6-factor telemetry & permanent history')}
-            </span>
+          {/* Tap to Open Full Breakdown */}
+          <div className="pt-0.5 flex justify-end">
             <button
               onClick={onOpenDetails}
-              className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-black text-xs shadow-sm transition flex items-center justify-center gap-2 ml-auto active:scale-95"
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs shadow-xs transition flex items-center justify-center gap-1.5 active:scale-95"
             >
-              <span>{t('dashboard.viewDetailedHealth') || (lang === 'hi' ? 'विस्तृत स्वास्थ्य देखें' : 'View Detailed Health')}</span>
-              <ChevronRight className="w-4 h-4" />
+              <span>{t('dashboard.viewDetailedHealth', 'विस्तृत स्वास्थ्य देखें')}</span>
+              <ChevronRight className="w-3.5 h-3.5" />
             </button>
           </div>
+
         </div>
 
       </div>

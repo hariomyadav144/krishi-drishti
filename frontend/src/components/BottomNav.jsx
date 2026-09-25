@@ -20,7 +20,7 @@ import {
   History 
 } from 'lucide-react';
 
-export default function BottomNav({ activeTab, setActiveTab }) {
+export default function BottomNav({ activeTab, setActiveTab, isPhoneFrame = false }) {
   const { t } = useLanguage();
   const { unreadCount } = useAlerts();
   const [showMoreMenu, setShowMoreMenu] = useState(false);
@@ -75,7 +75,9 @@ export default function BottomNav({ activeTab, setActiveTab }) {
       {/* More Tools Modal Drawer for Mobile */}
       {showMoreMenu && (
         <div 
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center md:hidden animate-in fade-in"
+          className={isPhoneFrame 
+            ? "absolute inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center animate-in fade-in" 
+            : "fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end justify-center md:hidden animate-in fade-in"}
           onClick={() => setShowMoreMenu(false)}
         >
           <div 
@@ -133,8 +135,10 @@ export default function BottomNav({ activeTab, setActiveTab }) {
       )}
 
       {/* Main Sticky Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white border-t border-slate-200 shadow-nav pb-safe md:hidden">
-        <div className="flex items-center justify-around h-16 px-1">
+      <nav className={isPhoneFrame 
+        ? "sticky bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-nav pb-safe w-full max-w-full overflow-visible" 
+        : "fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-nav pb-safe md:hidden w-full max-w-full overflow-visible"}>
+        <div className="flex items-center justify-around h-16 px-1 max-w-md mx-auto">
           {mainNavItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id || (item.isMoreTrigger && moreTools.some(t => t.id === activeTab));
@@ -143,17 +147,20 @@ export default function BottomNav({ activeTab, setActiveTab }) {
               return (
                 <button
                   key={item.id}
+                  id="bottom-nav-diagnose"
                   onClick={() => setActiveTab(item.id)}
-                  className="flex flex-col items-center justify-center -mt-6 group focus:outline-none"
+                  className="flex flex-col items-center justify-end flex-1 min-w-0 relative -top-3.5 group focus:outline-none"
                 >
-                  <div className={`w-13 h-13 rounded-full flex items-center justify-center shadow-lg border-2 border-white transition-all transform group-active:scale-90 ${
+                  <div className={`w-[52px] h-[52px] rounded-full flex items-center justify-center shadow-lg transition-transform transform active:scale-90 border-[3.5px] border-white ${
                     isActive 
-                      ? 'bg-emerald-600 text-white ring-4 ring-emerald-100' 
-                      : 'bg-gradient-to-tr from-emerald-600 to-agri-600 text-white'
+                      ? 'bg-gradient-to-tr from-emerald-600 to-teal-500 text-white ring-2 ring-emerald-500 shadow-emerald-600/40' 
+                      : 'bg-gradient-to-tr from-emerald-600 to-teal-700 text-white shadow-emerald-900/30'
                   }`}>
-                    <Icon className="w-6 h-6" />
+                    <Icon className="w-6 h-6 text-white stroke-[2.2px]" />
                   </div>
-                  <span className={`text-[10px] font-bold mt-1 ${isActive ? 'text-emerald-700' : 'text-slate-600'}`}>
+                  <span className={`text-[11px] font-bold mt-1 text-center whitespace-nowrap leading-tight transition-colors ${
+                    isActive ? 'text-emerald-700 font-extrabold' : 'text-slate-700'
+                  }`}>
                     {item.label}
                   </span>
                 </button>
@@ -165,8 +172,8 @@ export default function BottomNav({ activeTab, setActiveTab }) {
                 <button
                   key={item.id}
                   onClick={() => setShowMoreMenu(true)}
-                  className={`flex flex-col items-center justify-center flex-1 h-full py-1 relative transition-colors ${
-                    isActive ? 'text-agri-700 font-bold' : 'text-slate-500 hover:text-slate-800'
+                  className={`flex flex-col items-center justify-center flex-1 min-w-0 h-full py-1 relative transition-colors ${
+                    isActive ? 'text-emerald-700 font-bold' : 'text-slate-500 hover:text-slate-800'
                   }`}
                 >
                   <div className="relative">
@@ -177,7 +184,7 @@ export default function BottomNav({ activeTab, setActiveTab }) {
                       </span>
                     )}
                   </div>
-                  <span className="text-[10px] mt-1 tracking-tight truncate max-w-[54px]">
+                  <span className="text-[10px] mt-1 tracking-tight truncate max-w-[58px] leading-tight">
                     {item.label}
                   </span>
                 </button>
@@ -188,18 +195,18 @@ export default function BottomNav({ activeTab, setActiveTab }) {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`flex flex-col items-center justify-center flex-1 h-full py-1 relative transition-colors ${
-                  isActive ? 'text-agri-700 font-bold' : 'text-slate-500 hover:text-slate-800'
+                className={`flex flex-col items-center justify-center flex-1 min-w-0 h-full py-1 relative transition-colors ${
+                  isActive ? 'text-emerald-700 font-bold' : 'text-slate-500 hover:text-slate-800'
                 }`}
               >
                 <div className="relative">
                   <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px]' : 'stroke-2'}`} />
                 </div>
-                <span className="text-[10px] mt-1 tracking-tight truncate max-w-[54px]">
+                <span className="text-[10px] mt-1 tracking-tight truncate max-w-[58px] leading-tight">
                   {item.label}
                 </span>
                 {isActive && (
-                  <div className="w-4 h-0.5 bg-agri-600 rounded-full mt-0.5 animate-in fade-in"></div>
+                  <div className="w-4 h-0.5 bg-emerald-600 rounded-full mt-1 animate-in fade-in"></div>
                 )}
               </button>
             );

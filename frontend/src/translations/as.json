@@ -91,7 +91,10 @@
     "totalScans": "মুঠ স্কেন",
     "activeCrops": "সক্ৰিয় শস্য",
     "healthyCrops": "সুস্থ শস্য",
-    "needsCare": "মনোযোগৰ প্ৰয়োজন"
+    "needsCare": "মনোযোগৰ প্ৰয়োজন",
+    "tapForDetails": "বিৱৰণৰ বাবে টেপ কৰক",
+    "confidence": "নিৰ্ভৰযোগ্যতা:",
+    "updated": "আপডেট:"
   },
   "diagnose": {
     "title": "AI दृष्टि से फसल की जांच करें",
@@ -349,7 +352,11 @@
     "tryAgain": "পুনৰ চেষ্টা কৰক",
     "viewField": "পথাৰ চাওক",
     "markDone": "কাম সম্পূৰ্ণ হ'ল ✓",
-    "markIrrigationDone": "জলসিঞ্চন সম্পূৰ্ণ হ'ল ✓"
+    "markIrrigationDone": "জলসিঞ্চন সম্পূৰ্ণ হ'ল ✓",
+    "realData": "প্ৰকৃত কৃষি তথ্য",
+    "high": "অধিক",
+    "medium": "মধ্যম",
+    "low": "কম"
   },
   "farm": {
     "activeContext": "সক্ৰিয় কৃষি প্ৰসংগ (Active Farm Context)",
