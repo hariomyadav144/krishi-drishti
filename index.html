@@ -13,11 +13,11 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+Devanagari:wght@400;600;700&family=Noto+Sans+Gurmukhi:wght@400;600;700&family=Noto+Sans+Gujarati:wght@400;600;700&family=Noto+Sans+Bengali:wght@400;600;700&family=Noto+Sans+Tamil:wght@400;600;700&family=Noto+Sans+Telugu:wght@400;600;700&family=Noto+Sans+Kannada:wght@400;600;700&family=Noto+Sans+Malayalam:wght@400;600;700&family=Noto+Sans+Oriya:wght@400;600;700&display=swap" rel="stylesheet">
-    <script type="module" crossorigin src="./assets/index-D8uDc7t2.js"></script>
-    <link rel="modulepreload" crossorigin href="./assets/vendor-icons-Ce0h3w_O.js">
-    <link rel="modulepreload" crossorigin href="./assets/vendor-react-CTs30dyy.js">
-    <link rel="modulepreload" crossorigin href="./assets/vendor-axios-BCn5QfZZ.js">
-    <link rel="stylesheet" crossorigin href="./assets/index-BN85M3WN.css">
+    <script type="module" crossorigin src="/krishi-drishti/assets/index-DkPYNxWp.js"></script>
+    <link rel="modulepreload" crossorigin href="/krishi-drishti/assets/vendor-icons-DgicPa4o.js">
+    <link rel="modulepreload" crossorigin href="/krishi-drishti/assets/vendor-react-BB7pEBo6.js">
+    <link rel="modulepreload" crossorigin href="/krishi-drishti/assets/vendor-axios-BCn5QfZZ.js">
+    <link rel="stylesheet" crossorigin href="/krishi-drishti/assets/index-DWK41_o1.css">
   </head>
   <body class="bg-[#F4F7F4] text-slate-800 font-sans antialiased selection:bg-emerald-200 selection:text-emerald-900 overflow-x-hidden w-full max-w-full m-0 p-0">
     <div id="root">
@@ -76,6 +76,30 @@
             renderRecoveryUI('लोडिंग के दौरान त्रुटि हुई। कृपया रीलोड करें।');
           }
         });
+
+        // Global handler for dynamic chunk loading error (auto recovery)
+        window.addEventListener('error', function(e) {
+          if (e && e.message && /Failed to fetch dynamically imported module/i.test(e.message)) {
+            var lastChunkReload = sessionStorage.getItem('__chunk_reload');
+            var now = Date.now();
+            if (!lastChunkReload || (now - parseInt(lastChunkReload, 10)) > 6000) {
+              sessionStorage.setItem('__chunk_reload', String(now));
+              window.location.reload();
+            }
+          }
+        });
+
+        // GitHub Pages SPA route redirect: If opened at /krishi-drishti/field-monitoring instead of /krishi-drishti/#/field-monitoring
+        (function() {
+          var path = window.location.pathname;
+          var repo = '/krishi-drishti';
+          if (path.indexOf(repo) === 0) {
+            var sub = path.substring(repo.length).replace(/^\/+/, '');
+            if (sub && sub !== 'index.html' && !sub.startsWith('assets/')) {
+              window.location.replace(repo + '/#/' + sub + window.location.search);
+            }
+          }
+        })();
 
         // Watchdog timeout: If app doesn't mount in 7 seconds, display recovery UI
         setTimeout(function() {
