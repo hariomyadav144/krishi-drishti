@@ -9,17 +9,16 @@ export default defineConfig(({ command, mode }) => {
     process.env.npm_lifecycle_event === 'cap:build' ||
     process.env.npm_lifecycle_event === 'cap:sync';
 
-  let base = '/krishi-drishti/';
+  let base = './';
   if (command === 'serve') {
     // In local dev server (npm run dev), serve from root '/' for clean localhost:5173
     base = '/';
-  } else if (isCapacitor) {
-    // In Capacitor Android WebView, relative paths './' are required
-    base = './';
+  } else if (process.env.VITE_BASE_PATH) {
+    base = process.env.VITE_BASE_PATH;
   } else {
-    // In production build for GitHub Pages and web hosting
-    // Can be overridden via VITE_BASE_PATH env var
-    base = process.env.VITE_BASE_PATH || '/krishi-drishti/';
+    // Relative paths ensure 100% compatibility across Capacitor Android (https://localhost/),
+    // custom domains, and GitHub Pages (/krishi-drishti/)
+    base = './';
   }
 
   return {

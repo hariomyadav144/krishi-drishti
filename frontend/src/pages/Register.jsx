@@ -13,6 +13,7 @@ export default function Register({ onNavigateLogin, onRegistered }) {
     phone: '',
     email: '',
     password: '',
+    confirmPassword: '',
     role: 'farmer',
   });
   const [error, setError] = useState('');
@@ -29,8 +30,9 @@ export default function Register({ onNavigateLogin, onRegistered }) {
     setErrorCode('');
 
     const cleanName = (formData.name || '').trim();
-    const cleanPhone = normalizePhone(formData.phone);
+    const cleanPhone = String(formData.phone).replace(/\D/g, '').slice(-10);
     const cleanPassword = (formData.password || '').trim();
+    const cleanConfirmPassword = (formData.confirmPassword || '').trim();
 
     if (!cleanName || !cleanPhone || !cleanPassword) {
       setError(t('auth.fillRequiredFields', 'Please fill in all required fields.'));
@@ -46,6 +48,16 @@ export default function Register({ onNavigateLogin, onRegistered }) {
       setError(t('auth.passwordMinLength', 'Password must be at least 6 characters long.'));
       return;
     }
+
+    if (cleanPassword !== cleanConfirmPassword) {
+      setError(lang === 'hi' ? 'दोनों पासवर्ड मेल नहीं खाते।' : 'Passwords do not match.');
+      return;
+    }
+
+    try {
+      localStorage.setItem('krishi_remember_phone', cleanPhone);
+      localStorage.setItem('krishi_remember_me', 'true');
+    } catch (_) {}
 
     setLoading(true);
     const res = await register({
@@ -242,6 +254,30 @@ export default function Register({ onNavigateLogin, onRegistered }) {
                   value={formData.password}
                   onChange={handleChange}
                   placeholder={t('auth.passwordPlaceholder', 'Enter your password')}
+                  className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-agri-600 focus:outline-none transition"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label 
+                htmlFor="register-confirm-password"
+                className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1"
+              >
+                {lang === 'hi' ? 'पासवर्ड की पुष्टि करें (Confirm Password) *' : 'Confirm Password *'}
+              </label>
+              <div className="relative rounded-xl shadow-xs">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <input
+                  id="register-confirm-password"
+                  type="password"
+                  name="confirmPassword"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder={lang === 'hi' ? 'पासवर्ड दोबारा दर्ज करें' : 'Re-enter your password'}
                   className="block w-full pl-10 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:bg-white focus:ring-2 focus:ring-agri-600 focus:outline-none transition"
                 />
               </div>

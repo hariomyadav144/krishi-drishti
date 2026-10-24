@@ -3,11 +3,11 @@
  * Real HTML5 GPS tracking with fallback error diagnostics and testing controls.
  */
 
-// Configurable Desktop / Laptop Demo Location (Pimpalgaon Baswant Farm Cluster, Nashik, Maharashtra)
+// Configurable Desktop / Laptop Demo Location (Sahajanwa, Gorakhpur, Uttar Pradesh, India)
 export const DEFAULT_DEMO_COORDINATE = {
-  lat: 20.1738,
-  lng: 73.9856,
-  name: 'Pimpalgaon Baswant Agri-Plot #4 (Nashik)',
+  lat: 26.7684,
+  lng: 83.2305,
+  name: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
   accuracy: 12,
   isDemo: true
 };

@@ -42,9 +42,9 @@ const createFarmIcon = () => {
 };
 
 export default function FarmLocationMap({ 
-  initialLat = 20.00, 
-  initialLng = 73.78, 
-  initialName = 'Nashik, Maharashtra',
+  initialLat = 26.7684, 
+  initialLng = 83.2305, 
+  initialName = 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
   activeCoords = null,
   onLocationSelect 
 }) {

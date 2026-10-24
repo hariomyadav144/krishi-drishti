@@ -41,7 +41,13 @@ export default function WeatherWidget({ weatherData, onSeeFullForecast }) {
             Open-Meteo
           </span>
           <span className="text-[11px] font-semibold text-sky-800 bg-sky-100/80 px-2 py-0.5 rounded-full">
-            📍 {typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra')}
+            📍 {(() => {
+              const locStr = typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || '');
+              if (!locStr || locStr.toLowerCase().includes('nashik') || locStr.toLowerCase().includes('pimpalgaon')) {
+                return 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
+              }
+              return locStr;
+            })()}
           </span>
         </div>
       </div>

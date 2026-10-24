@@ -13,7 +13,7 @@ const {
   ingestFieldTelemetry,
   scanLand
 } = require('../controllers/fieldMonitoringController');
-const { protect } = require('../middleware/auth');
+const { protect, optionalProtect } = require('../middleware/auth');
 
 // Preflight handler
 router.options('*', (req, res) => res.sendStatus(204));
@@ -22,19 +22,20 @@ router.options('*', (req, res) => res.sendStatus(204));
 router.post('/scan-land', scanLand);
 
 // Dashboard summary of all farmer fields
-router.get('/dashboard-summary', protect, getMonitoringDashboardSummary);
+router.get('/dashboard-summary', optionalProtect, getMonitoringDashboardSummary);
 
 // Latest monitoring observation for a field (runs automatically if none exists)
-router.get('/latest/:fieldId', protect, getLatestObservation);
+router.get('/latest/:fieldId', optionalProtect, getLatestObservation);
 
 // Force refresh or run pipeline for a field
-router.post('/run/:fieldId', protect, triggerMonitoringRun);
+router.post('/run/:fieldId', optionalProtect, triggerMonitoringRun);
 
 // Multi-temporal history for graphs
-router.get('/history/:fieldId', protect, getFieldHistory);
+router.get('/history/:fieldId', optionalProtect, getFieldHistory);
 
-// Comparison (Today vs 7d / 15d / 30d / previous)
-router.get('/compare/:fieldId', protect, compareFieldObservations);
+// Comparison (Today vs 7d / 15d / 30d / previous) - supports GET & POST
+router.get('/compare/:fieldId', optionalProtect, compareFieldObservations);
+router.post('/compare/:fieldId', optionalProtect, compareFieldObservations);
 
 // Permanent soil test linkage
 router.post('/soil-test/:fieldId', protect, uploadSoilTest);

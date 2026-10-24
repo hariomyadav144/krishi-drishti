@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
 import FieldIntelligenceHero from '../components/FieldMapping/FieldIntelligenceHero';
 import FieldMap from '../components/FieldMapping/FieldMap';
@@ -12,11 +13,14 @@ import {
   activateFarm,
   getActiveFarm,
   deleteFarm,
+  fetchSavedFields,
   purgeLegacyMockStorage
 } from '../services/fieldService';
 import { Plus, RotateCcw } from 'lucide-react';
 
 export default function FieldMappingPage({ setActiveTab }) {
+  const { user } = useAuth();
+  const uid = user?.id || user?._id;
   const { lang, t } = useLanguage();
 
   // Section 3: New Farm Flow vs Edit Existing Farm Flow (createNew flag)
@@ -28,7 +32,14 @@ export default function FieldMappingPage({ setActiveTab }) {
 
   // Boundary points strictly initialized to [] for new farms
   const [boundaryPoints, setBoundaryPoints] = useState(() => []);
-  const [selectedCrop, setSelectedCrop] = useState('Wheat');
+  const [selectedCrop, setSelectedCrop] = useState(() => {
+    try {
+      const active = getActiveFarm();
+      return active?.crop || 'Paddy';
+    } catch (_) {
+      return 'Paddy';
+    }
+  });
   
   // GPS State
   const [gpsPosition, setGpsPosition] = useState(null);
@@ -46,7 +57,7 @@ export default function FieldMappingPage({ setActiveTab }) {
     }
   }, []);
 
-  // One-time self-healing auto-data purge on mount + Load Clean Saved Farms Catalog
+  // Load Clean Saved Farms Catalog with user isolation and auto-backend sync
   useEffect(() => {
     purgeLegacyMockStorage();
 
@@ -59,14 +70,27 @@ export default function FieldMappingPage({ setActiveTab }) {
       } catch (_) {}
     }
 
-    // Load saved farms and active farm
-    const farms = getFarms();
+    // Load saved farms and active farm for this user
+    const farms = getFarms(uid);
     setSavedFields(farms);
 
-    const currentActive = getActiveFarm();
+    const currentActive = getActiveFarm(uid);
     if (currentActive) {
       setActiveFieldState(currentActive);
+      if (currentActive.crop) setSelectedCrop(currentActive.crop);
     }
+
+    // Proactively sync from permanent backend database
+    fetchSavedFields(uid).then((serverFarms) => {
+      if (serverFarms && serverFarms.length > 0) {
+        setSavedFields(serverFarms);
+        const active = getActiveFarm(uid);
+        if (active) {
+          setActiveFieldState(active);
+          if (active.crop) setSelectedCrop(active.crop);
+        }
+      }
+    }).catch((err) => console.warn('[FieldMappingPage] Silent sync note:', err.message));
 
     // Default to clean empty mapping session (Point 1 ready)
     setCreateNew(true);
@@ -74,7 +98,7 @@ export default function FieldMappingPage({ setActiveTab }) {
     setBoundaryPoints([]);
     setEditingField(null);
     setIsDemoLocationState(false);
-  }, []);
+  }, [uid]);
 
   // Live Area Calculation
   const areaCalc = useMemo(() => {
@@ -96,7 +120,7 @@ export default function FieldMappingPage({ setActiveTab }) {
     setMappingMode('new');
     setEditingField(null);
     setBoundaryPoints([]); // Section 33: CRITICAL NEW-FARM BUG FIX: _points = []
-    setSelectedCrop('Wheat');
+    setSelectedCrop(activeField?.crop || 'Paddy');
     setIsDemoLocationState(false);
     window.scrollTo({ top: 100, behavior: 'smooth' });
   }, []);
@@ -122,10 +146,10 @@ export default function FieldMappingPage({ setActiveTab }) {
         notes: formData.notes,
         boundary: boundaryPoints,
         gpsAccuracy: gpsAccuracy || (isDemoLocation ? 12 : 20)
-      }, createNew);
+      }, createNew, uid);
 
-      // Refresh saved farms list
-      const updatedFarms = getFarms();
+      // Refresh user-scoped saved farms list
+      const updatedFarms = getFarms(uid);
       setSavedFields(updatedFarms);
       setActiveFieldState(saved);
       setEditingField(saved);
@@ -138,13 +162,13 @@ export default function FieldMappingPage({ setActiveTab }) {
 
   // Section 20 & 21: Farm Switching (Only changes active context; preserves every farm's data)
   const handleActivateFarm = useCallback((farmId) => {
-    const activated = activateFarm(farmId);
+    const activated = activateFarm(farmId, uid);
     if (activated) {
       setActiveFieldState(activated);
-      const updatedFarms = getFarms();
+      const updatedFarms = getFarms(uid);
       setSavedFields(updatedFarms);
     }
-  }, []);
+  }, [uid]);
 
   // Section 22: Update Existing Farm (createNew = false, loads existing boundary)
   const handleEditField = useCallback((farm) => {
@@ -166,10 +190,10 @@ export default function FieldMappingPage({ setActiveTab }) {
     }
 
     // Activate the farm being updated
-    activateFarm(farm.id);
+    activateFarm(farm.id, uid);
 
     window.scrollTo({ top: 120, behavior: 'smooth' });
-  }, []);
+  }, [uid]);
 
   // View Field from List
   const handleViewField = useCallback((farm) => {
@@ -178,17 +202,14 @@ export default function FieldMappingPage({ setActiveTab }) {
 
   // Delete Farm
   const handleDeleteField = async (farmId) => {
-    const remaining = deleteFarm(farmId);
+    const remaining = await deleteFarm(farmId, uid);
     setSavedFields(remaining);
 
-    const currentActive = getActiveFarm();
+    const currentActive = getActiveFarm(uid);
     setActiveFieldState(currentActive);
 
     if (editingField?.id === farmId) {
-      setCreateNew(true);
-      setEditingField(null);
-      setBoundaryPoints([]);
-      setMappingMode('new');
+      handleCreateNewField();
     }
   };
 

@@ -1,5 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import api from '../services/api';
+import axios from 'axios';
+import api, { normalizeToE164, to10DigitPhone, DEFAULT_PRODUCTION_API_URL } from '../services/api';
+import { fetchSavedFields } from '../services/fieldService';
 import {
   MOCK_FARMER_USER,
   MOCK_EXPERT_USER,
@@ -8,6 +10,7 @@ import {
   MOCK_FARM,
   MOCK_CURRENT_CROP,
 } from '../services/mockFallback';
+import { FeatureRecoveryStrategy, RecoveryManager, LogLevel } from '../selfHealing/index.js';
 
 const AuthContext = createContext();
 
@@ -32,76 +35,218 @@ const safeSet = (key, val) => {
   } catch (_) {}
 };
 
-export const AuthProvider = ({ children }) => {
-  const [token, setToken] = useState(() => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('krishi_token') || null;
-  });
-  const [user, setUserState] = useState(() => safeParse('krishi_user'));
-  const [profile, setProfileState] = useState(() => safeParse('krishi_profile'));
-  const [farm, setFarmState] = useState(() => safeParse('krishi_farm'));
-  const [currentCrop, setCurrentCropState] = useState(() => safeParse('krishi_current_crop'));
+/**
+ * Normalizes any Indian mobile number into strict 10 digits
+ */
+const sanitize10DigitPhone = (phone) => {
+  if (!phone) return '';
+  return String(phone).replace(/\D/g, '').slice(-10);
+};
 
-  // If token and user are already cached, or if there is no token, NO blocking loading screen!
+/**
+ * 1. Checks and restores permanent session from localStorage ('fasal_user_session' or legacy 'krishi_*')
+ * Auto-login on app launch with NO auto-expiration TTL.
+ */
+const loadInitialSession = () => {
+  if (typeof window === 'undefined') return null;
+  try {
+    // 1. Primary permanent session
+    const rawFasal = localStorage.getItem('fasal_user_session');
+    if (rawFasal) {
+      const parsed = JSON.parse(rawFasal);
+      if (parsed && (parsed.token || parsed.user || parsed.refreshToken)) {
+        console.log('[AuthContext] Restored permanent session from fasal_user_session for:', parsed.user?.phone || parsed.user?.name);
+        return {
+          ...parsed,
+          farm: parsed.farm || safeParse('krishi_active_field') || safeParse('krishi_farm') || safeParse('farm_data'),
+          profile: parsed.profile || safeParse('krishi_profile'),
+          currentCrop: parsed.currentCrop || safeParse('krishi_current_crop'),
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('[AuthContext] Error reading fasal_user_session:', e);
+  }
+
+  // 2. Legacy fallback
+  try {
+    const legacyToken = localStorage.getItem('krishi_token');
+    const legacyRefresh = localStorage.getItem('fasal_refresh_token');
+    const legacyUser = safeParse('krishi_user');
+    if (legacyToken || legacyUser || legacyRefresh) {
+      return {
+        token: legacyToken || null,
+        refreshToken: legacyRefresh || null,
+        user: legacyUser || null,
+        profile: safeParse('krishi_profile'),
+        farm: safeParse('krishi_active_field') || safeParse('krishi_farm') || safeParse('farm_data'),
+        currentCrop: safeParse('krishi_current_crop'),
+      };
+    }
+  } catch (_) {}
+
+  return null;
+};
+
+/**
+ * 2. Save session permanently to both fasal_user_session and legacy krishi_* keys
+ * IMPORTANT: Logout only clears auth session credentials; NEVER deletes farmer data!
+ */
+const persistSession = (token, user, profile, farm, currentCrop, refreshToken = null) => {
+  if (typeof window === 'undefined') return;
+  try {
+    if (!token && !user) {
+      // Clear ONLY authentication credentials
+      localStorage.removeItem('fasal_user_session');
+      localStorage.removeItem('krishi_token');
+      localStorage.removeItem('fasal_refresh_token');
+      localStorage.removeItem('krishi_user');
+      localStorage.removeItem('krishi_demo_role');
+      // DO NOT delete krishi_farm, krishi_current_crop, krishi_profile, or farm boundary records!
+      return;
+    }
+
+    const existingSession = safeParse('fasal_user_session') || {};
+    const effectiveRefreshToken = refreshToken !== null ? refreshToken : (localStorage.getItem('fasal_refresh_token') || existingSession.refreshToken || null);
+
+    const payload = {
+      token: token || null,
+      refreshToken: effectiveRefreshToken,
+      user: user || null,
+      profile: profile || null,
+      farm: farm || null,
+      currentCrop: currentCrop || null,
+      savedAt: new Date().toISOString(),
+    };
+
+    localStorage.setItem('fasal_user_session', JSON.stringify(payload));
+    if (token) localStorage.setItem('krishi_token', token);
+    if (effectiveRefreshToken) localStorage.setItem('fasal_refresh_token', effectiveRefreshToken);
+    if (user) safeSet('krishi_user', user);
+    if (profile) safeSet('krishi_profile', profile);
+    if (farm) safeSet('krishi_farm', farm);
+    if (currentCrop) safeSet('krishi_current_crop', currentCrop);
+  } catch (err) {
+    console.warn('[AuthContext] Error persisting session:', err);
+  }
+};
+
+/**
+ * 3. Permanent Client-Side Registered Users Registry
+ * Ensures registered users are NEVER lost even across server restarts or reloads.
+ */
+const saveRegisteredUserLocally = (userData, token = '') => {
+  if (typeof window === 'undefined' || !userData) return;
+  try {
+    const cleanPhone = sanitize10DigitPhone(userData.phone);
+    if (!cleanPhone || cleanPhone.length !== 10) return;
+    const raw = localStorage.getItem('fasal_registered_users');
+    let users = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(users)) users = [];
+    const idx = users.findIndex(u => sanitize10DigitPhone(u.phone) === cleanPhone);
+    const entry = {
+      ...userData,
+      phone: cleanPhone,
+      token: token || userData.token || '',
+      updatedAt: new Date().toISOString()
+    };
+    if (idx >= 0) {
+      users[idx] = { ...users[idx], ...entry };
+    } else {
+      users.push(entry);
+    }
+    localStorage.setItem('fasal_registered_users', JSON.stringify(users));
+  } catch (e) {
+    console.warn('[AuthContext] Failed to save registered user locally:', e);
+  }
+};
+
+const findRegisteredUserLocally = (phone) => {
+  if (typeof window === 'undefined' || !phone) return null;
+  try {
+    const cleanPhone = sanitize10DigitPhone(phone);
+    const raw = localStorage.getItem('fasal_registered_users');
+    if (!raw) return null;
+    const users = JSON.parse(raw);
+    if (!Array.isArray(users)) return null;
+    return users.find(u => sanitize10DigitPhone(u.phone) === cleanPhone) || null;
+  } catch (_) {
+    return null;
+  }
+};
+
+export const AuthProvider = ({ children }) => {
+  const initialSession = loadInitialSession();
+
+  const [token, setToken] = useState(() => initialSession?.token || null);
+  const [user, setUserState] = useState(() => initialSession?.user || null);
+  const [profile, setProfileState] = useState(() => initialSession?.profile || null);
+  const [farm, setFarmState] = useState(() => initialSession?.farm || null);
+  const [currentCrop, setCurrentCropState] = useState(() => initialSession?.currentCrop || null);
+
+  // If initial session exists, immediately boot to dashboard without blocking loading screen!
   const [isLoading, setIsLoading] = useState(() => {
     if (typeof window === 'undefined') return false;
-    const savedToken = localStorage.getItem('krishi_token');
+    if (initialSession && initialSession.user) return false;
+    const savedToken = localStorage.getItem('krishi_token') || safeParse('fasal_user_session')?.token;
+    const savedRefresh = localStorage.getItem('fasal_refresh_token') || safeParse('fasal_user_session')?.refreshToken;
     const cachedUser = safeParse('krishi_user');
-    return Boolean(savedToken && !cachedUser);
+    return Boolean((savedToken || savedRefresh) && !cachedUser);
   });
 
   const setUser = (u) => {
     setUserState(u);
-    safeSet('krishi_user', u);
+    persistSession(token, u, profile, farm, currentCrop);
   };
 
   const setProfile = (p) => {
     setProfileState(p);
-    safeSet('krishi_profile', p);
+    persistSession(token, user, p, farm, currentCrop);
   };
 
   const setFarm = (f) => {
     setFarmState(f);
-    safeSet('krishi_farm', f);
+    persistSession(token, user, profile, f, currentCrop);
   };
 
   const setCurrentCrop = (c) => {
     setCurrentCropState(c);
-    safeSet('krishi_current_crop', c);
+    persistSession(token, user, profile, farm, c);
   };
 
-  // Safe watchdog: Never let isLoading remain true for more than 2.5 seconds
+  // Safe watchdog: Never let isLoading remain true for more than 2 seconds
   useEffect(() => {
     if (!isLoading) return;
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2500);
+    }, 2000);
     return () => clearTimeout(timer);
   }, [isLoading]);
 
-  // Revalidate or restore user session
+  // Revalidate or restore user session in background
   useEffect(() => {
     let isMounted = true;
 
     const fetchUser = async () => {
-      const savedToken = localStorage.getItem('krishi_token');
-      if (!savedToken) {
+      const activeToken = token || localStorage.getItem('krishi_token');
+      const activeRefresh = localStorage.getItem('fasal_refresh_token') || safeParse('fasal_user_session')?.refreshToken;
+      if (!activeToken && !activeRefresh) {
         if (isMounted) setIsLoading(false);
         return;
       }
 
-      // If we don't have a cached user, only activate fallback if explicitly a demo session
-      const cachedUser = safeParse('krishi_user');
-      const isDemoSession = savedToken && (savedToken.startsWith('krishi_demo_jwt_token_') || !!localStorage.getItem('krishi_demo_role'));
+      const cachedUser = user || safeParse('krishi_user');
+      const isDemoSession = activeToken && (activeToken.startsWith('krishi_demo_jwt_token_') || !!localStorage.getItem('krishi_demo_role'));
 
       if (!cachedUser && isDemoSession) {
         const role = localStorage.getItem('krishi_demo_role') || 'farmer';
         const fallbackUser = role === 'admin' ? MOCK_ADMIN_USER : (role === 'expert' ? MOCK_EXPERT_USER : MOCK_FARMER_USER);
         if (isMounted) {
-          setUser(fallbackUser);
-          setProfile(MOCK_PROFILE);
-          setFarm(MOCK_FARM);
-          setCurrentCrop(MOCK_CURRENT_CROP);
+          setUserState(fallbackUser);
+          setProfileState(MOCK_PROFILE);
+          setFarmState(MOCK_FARM);
+          setCurrentCropState(MOCK_CURRENT_CROP);
+          persistSession(activeToken, fallbackUser, MOCK_PROFILE, MOCK_FARM, MOCK_CURRENT_CROP);
           setIsLoading(false);
         }
       }
@@ -109,20 +254,36 @@ export const AuthProvider = ({ children }) => {
       try {
         const res = await api.get('/auth/me');
         if (isMounted && res.data?.success) {
-          if (res.data.user) setUser(res.data.user);
-          setProfile(res.data.profile || null);
-          setFarm(res.data.farm || null);
-          setCurrentCrop(res.data.currentCrop || null);
+          const freshToken = localStorage.getItem('krishi_token') || activeToken;
+          if (res.data.user) {
+            setUserState(res.data.user);
+            const uid = res.data.user.id || res.data.user._id;
+            fetchSavedFields(uid).catch(() => {});
+          }
+          if (res.data.profile) setProfileState(res.data.profile);
+          if (res.data.farm) setFarmState(res.data.farm);
+          if (res.data.currentCrop) setCurrentCropState(res.data.currentCrop);
+
+          persistSession(
+            freshToken,
+            res.data.user || user,
+            res.data.profile || profile,
+            res.data.farm || farm,
+            res.data.currentCrop || currentCrop
+          );
         }
       } catch (error) {
-        console.warn('Silent user session refresh:', error.message);
-        // Only if the server explicitly confirms token invalidation
-        if (error.response?.status === 401 && !isDemoSession) {
-          console.warn('[AuthContext] Session invalid or expired on server.');
-          if (isMounted) {
-            logout();
-          }
-        }
+        // PERMANENT LOGIN RULE:
+        // Do NOT automatically log out the farmer on network error or background 401.
+        // The farmer session stays active indefinitely until explicit logout.
+        console.warn('[AuthContext] Background session check note:', error.message);
+        RecoveryManager.logDiagnostic({
+          level: LogLevel.WARNING,
+          module: 'Authentication',
+          errorType: 'SESSION_BACKGROUND_CHECK',
+          message: error.message || 'Background session note',
+          status: 'PRESERVED_OFFLINE',
+        });
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -135,58 +296,96 @@ export const AuthProvider = ({ children }) => {
     };
   }, []);
 
-  const clearSessionStorage = () => {
-    localStorage.removeItem('krishi_demo_role');
-    localStorage.removeItem('krishi_user');
-    localStorage.removeItem('krishi_profile');
-    localStorage.removeItem('krishi_farm');
-    localStorage.removeItem('krishi_current_crop');
-    localStorage.removeItem('krishi_dash_cache');
-    localStorage.removeItem('krishi_active_field');
-    localStorage.removeItem('farm_data');
-    localStorage.removeItem('krishi_saved_fields');
-    localStorage.removeItem('krishi_crop_health_cache');
-    localStorage.removeItem('krishi_farm_coords');
-    localStorage.removeItem('krishi_outbreak_cache');
-
-    try {
-      const keysToRemove = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (key.startsWith('krishi_dash_cache_') || key.startsWith('farmer_profile_') || key.startsWith('farm_data_'))) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach((k) => localStorage.removeItem(k));
-    } catch (_) {}
-  };
-
-  const login = async (phone, password) => {
-    console.log('[AUTH:LOGIN] 1. Login attempt started for phone:', phone);
+  const login = async (phone, password, rememberMe = true) => {
+    const cleanPhone = sanitize10DigitPhone(phone);
+    console.log('[AUTH:LOGIN] 1. Login attempt started for phone:', cleanPhone);
     try {
       console.log('[AUTH:LOGIN] 2. Sending authentication request to:', api.defaults.baseURL);
-      const res = await api.post('/auth/login', { phone, password });
+      let res;
+      try {
+        res = await api.post('/auth/login', { phone: cleanPhone, password, rememberMe });
+      } catch (primaryErr) {
+        // If primary backend fails, try candidate backend
+        const isPrimaryLocal = (api.defaults.baseURL || '').includes('localhost');
+        const candidateUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api';
+        
+        console.warn(`[AUTH:LOGIN] Primary attempt to ${api.defaults.baseURL} failed (${primaryErr.response?.status || primaryErr.code}). Trying candidate: ${candidateUrl}`);
+        try {
+          const candidateAxios = axios.create({ timeout: 12000, headers: { 'Content-Type': 'application/json' } });
+          const altRes = await candidateAxios.post(`${candidateUrl}/auth/login`, { phone: cleanPhone, password, rememberMe });
+          if (altRes.data?.success) {
+            console.log('[AUTH:LOGIN] Candidate backend succeeded! Updating active baseURL to:', candidateUrl);
+            api.defaults.baseURL = candidateUrl;
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('krishi_backend_url', candidateUrl);
+            }
+            res = altRes;
+          } else {
+            throw primaryErr;
+          }
+        } catch (_) {
+          throw primaryErr;
+        }
+      }
+
       console.log('[AUTH:LOGIN] 3. Authentication response received:', res.data?.success);
 
       if (res.data.success) {
-        const { token: newToken, user: newUser } = res.data;
-        console.log('[AUTH:LOGIN] 4. Authentication successful. UID:', newUser?.id || newUser?._id);
-        
-        // Purge previous user/demo cache before storing new identity
-        clearSessionStorage();
-        localStorage.setItem('krishi_token', newToken);
+        const newToken = res.data.accessToken || res.data.token;
+        const newRefreshToken = res.data.refreshToken || null;
+        const newUser = res.data.user;
+        const uid = newUser?.id || newUser?._id;
+        console.log('[AUTH:LOGIN] 4. Authentication successful. UID:', uid);
+
+        let restoredProfile = res.data.profile || profile || safeParse('krishi_profile');
+        let restoredFarm = res.data.farm || farm || safeParse('krishi_farm') || safeParse('krishi_active_field') || safeParse('farm_data');
+        let restoredCrop = res.data.currentCrop || currentCrop || safeParse('krishi_current_crop');
+
         setToken(newToken);
-        setUser(newUser);
-        
-        console.log('[AUTH:LOGIN] 5. Loading user profile, farm, and crops for UID:', newUser?.id || newUser?._id);
+        setUserState(newUser);
+        if (restoredProfile) setProfileState(restoredProfile);
+        if (restoredCrop) setCurrentCropState(restoredCrop);
+        saveRegisteredUserLocally(newUser, newToken);
+
+        // Restore user's permanent farms and profile from backend
+        console.log('[AUTH:LOGIN] 5. Restoring permanent farm mapping and profile for UID:', uid);
+        try {
+          const userFields = await fetchSavedFields(uid);
+          if (Array.isArray(userFields) && userFields.length > 0) {
+            const activeId = localStorage.getItem('active_farm_id');
+            const targetFarm = (activeId && userFields.find(f => f.id === activeId || f._id === activeId)) || userFields[0];
+            activateFarm(targetFarm.id, uid);
+            restoredFarm = targetFarm;
+          }
+        } catch (err) {
+          console.warn('[AUTH:LOGIN] Field fetch note:', err.message);
+        }
+
+        if (restoredFarm) {
+          setFarmState(restoredFarm);
+        }
+
+        persistSession(newToken, newUser, restoredProfile, restoredFarm, restoredCrop, newRefreshToken);
         refreshUser().catch(err => console.warn('[AUTH:LOGIN] Background hydration:', err.message));
-        console.log('[AUTH:LOGIN] 6. Dashboard initialized for UID:', newUser?.id || newUser?._id);
         return { success: true, user: newUser };
       }
       return { success: false, message: res.data.message || 'Login failed' };
     } catch (error) {
       console.error('[AUTH:LOGIN] ERROR during authentication:', error);
+
+      // Check if user was registered on this device in persistent fallback
+      const localUser = findRegisteredUserLocally(cleanPhone);
+      if (localUser && (error.code === 'ECONNABORTED' || error.message?.includes('Network Error') || !error.response)) {
+        console.log('[AUTH:LOGIN] Offline/Network fallback: Restoring registered local session for:', cleanPhone);
+        const fallbackToken = localUser.token || `krishi_persistent_token_${Date.now()}`;
+        setToken(fallbackToken);
+        setUserState(localUser);
+        persistSession(fallbackToken, localUser, profile, farm, currentCrop);
+        return { success: true, user: localUser };
+      }
+
       let errMsg = '';
+      const respCode = error.response?.data?.code || error.code || 'UNKNOWN_ERROR';
       if (error.response?.data?.message) {
         errMsg = error.response.data.message;
         if (errMsg.includes('bufferCommands') || errMsg.includes('findOne') || errMsg.includes('initial connection')) {
@@ -197,42 +396,94 @@ export const AuthProvider = ({ children }) => {
       } else if (error.message?.includes('Network Error') || !error.response) {
         errMsg = 'Network error. Please check your internet connection.';
       } else {
-        errMsg = error.message || 'Invalid mobile number or password.';
+        errMsg = 'Phone number or password is incorrect.';
       }
       return {
         success: false,
-        code: error.response?.data?.code || error.code || 'UNKNOWN_ERROR',
+        code: respCode,
         message: errMsg,
       };
     }
   };
 
   const register = async (formData) => {
-    console.log('[AUTH:REGISTER] 1. Registration started for:', formData?.name, formData?.phone);
+    const cleanPhone = sanitize10DigitPhone(formData?.phone);
+    console.log('[AUTH:REGISTER] 1. Registration started for:', formData?.name, cleanPhone);
+    const regPayload = { ...formData, phone: cleanPhone };
+
     try {
-      console.log('[AUTH:REGISTER] 2. Sending registration request to backend...');
-      const res = await api.post('/auth/register', formData);
+      console.log('[AUTH:REGISTER] 2. Sending registration request to backend:', api.defaults.baseURL);
+      let res;
+      try {
+        res = await api.post('/auth/register', regPayload);
+      } catch (primaryErr) {
+        const isPrimaryLocal = (api.defaults.baseURL || '').includes('localhost');
+        const altUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api';
+        try {
+          const candidateAxios = axios.create({ timeout: 12000, headers: { 'Content-Type': 'application/json' } });
+          const altRes = await candidateAxios.post(`${altUrl}/auth/register`, regPayload);
+          if (altRes.data?.success) {
+            api.defaults.baseURL = altUrl;
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('krishi_backend_url', altUrl);
+            }
+            res = altRes;
+          } else {
+            throw primaryErr;
+          }
+        } catch (_) {
+          throw primaryErr;
+        }
+      }
+
       console.log('[AUTH:REGISTER] 3. Registration response received:', res.data?.success);
 
       if (res.data.success) {
-        const { token: newToken, user: newUser } = res.data;
-        console.log('[AUTH:REGISTER] 4. Account created successfully. UID:', newUser?.id || newUser?._id);
-        
-        // Purge previous user/demo cache before storing new identity
-        clearSessionStorage();
-        localStorage.setItem('krishi_token', newToken);
+        const newToken = res.data.accessToken || res.data.token;
+        const newRefreshToken = res.data.refreshToken || null;
+        const newUser = res.data.user;
+        const uid = newUser?.id || newUser?._id;
+        console.log('[AUTH:REGISTER] 4. Account created successfully. UID:', uid);
+
+        let restoredProfile = res.data.profile || profile || safeParse('krishi_profile');
+        let restoredFarm = res.data.farm || farm || safeParse('krishi_farm') || safeParse('krishi_active_field') || safeParse('farm_data');
+        let restoredCrop = res.data.currentCrop || currentCrop || safeParse('krishi_current_crop');
+
         setToken(newToken);
-        setUser(newUser);
-        
-        console.log('[AUTH:REGISTER] 5. Initializing profile and farm for UID:', newUser?.id || newUser?._id);
+        setUserState(newUser);
+        if (restoredProfile) setProfileState(restoredProfile);
+        if (restoredCrop) setCurrentCropState(restoredCrop);
+        saveRegisteredUserLocally(newUser, newToken);
+
+        // Background mirror to alternate server if reachable so account exists everywhere
+        const isPrimaryLocal = (api.defaults.baseURL || '').includes('localhost');
+        const altUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api';
+        axios.post(`${altUrl}/auth/register`, regPayload, { timeout: 8000 }).catch(() => {});
+
+        try {
+          const userFields = await fetchSavedFields(uid);
+          if (Array.isArray(userFields) && userFields.length > 0) {
+            const targetFarm = userFields[0];
+            activateFarm(targetFarm.id, uid);
+            restoredFarm = targetFarm;
+          }
+        } catch (err) {
+          console.warn('[AUTH:REGISTER] Field fetch note:', err.message);
+        }
+
+        if (restoredFarm) {
+          setFarmState(restoredFarm);
+        }
+
+        persistSession(newToken, newUser, restoredProfile, restoredFarm, restoredCrop, newRefreshToken);
         refreshUser().catch(err => console.warn('[AUTH:REGISTER] Background hydration:', err.message));
-        console.log('[AUTH:REGISTER] 6. Registration completed successfully.');
         return { success: true, user: newUser };
       }
       return { success: false, message: res.data.message || 'Registration failed' };
     } catch (error) {
       console.error('[AUTH:REGISTER] ERROR during registration:', error);
       let errMsg = '';
+      const respCode = error.response?.data?.code || error.code || 'UNKNOWN_ERROR';
       if (error.response?.data?.message) {
         errMsg = error.response.data.message;
         if (errMsg.includes('bufferCommands') || errMsg.includes('findOne') || errMsg.includes('initial connection')) {
@@ -247,36 +498,36 @@ export const AuthProvider = ({ children }) => {
       }
       return {
         success: false,
-        code: error.response?.data?.code || error.code || 'UNKNOWN_ERROR',
+        code: respCode,
         message: errMsg,
       };
     }
   };
 
   const demoLogin = async (role = 'farmer') => {
-    clearSessionStorage();
-
     // 1. Instant local session hydration for 0ms lag
     let demoUser = MOCK_FARMER_USER;
     if (role === 'expert') demoUser = MOCK_EXPERT_USER;
     if (role === 'admin') demoUser = MOCK_ADMIN_USER;
 
     const demoToken = `krishi_demo_jwt_token_${role}_2026`;
-    localStorage.setItem('krishi_token', demoToken);
     localStorage.setItem('krishi_demo_role', role);
 
     setToken(demoToken);
-    setUser(demoUser);
-    setProfile(MOCK_PROFILE);
-    setFarm(MOCK_FARM);
-    setCurrentCrop(MOCK_CURRENT_CROP);
+    setUserState(demoUser);
+    setProfileState(MOCK_PROFILE);
+    setFarmState(MOCK_FARM);
+    setCurrentCropState(MOCK_CURRENT_CROP);
     setIsLoading(false);
+
+    persistSession(demoToken, demoUser, MOCK_PROFILE, MOCK_FARM, MOCK_CURRENT_CROP);
 
     // 2. Asynchronously notify backend without blocking UI navigation
     try {
       api.post('/auth/demo-login', { role }).then((res) => {
         if (res.data?.success && res.data.user) {
-          setUser(res.data.user);
+          setUserState(res.data.user);
+          persistSession(demoToken, res.data.user, MOCK_PROFILE, MOCK_FARM, MOCK_CURRENT_CROP);
         }
       }).catch(() => {});
     } catch (_) {}
@@ -284,25 +535,51 @@ export const AuthProvider = ({ children }) => {
     return { success: true, user: demoUser };
   };
 
-  const logout = () => {
-    clearSessionStorage();
-    localStorage.removeItem('krishi_token');
+  /**
+   * Explicit Logout: Only triggered when the farmer explicitly taps the "Logout" button.
+   * Clears session credentials on server and client, but NEVER deletes user accounts or farm data!
+   */
+  const logout = async () => {
+    console.log('[AuthContext] Explicit logout requested by user');
+    const refreshToken = localStorage.getItem('fasal_refresh_token') || safeParse('fasal_user_session')?.refreshToken;
+    try {
+      if (refreshToken) {
+        const activeBase = normalizeBackendApiUrl(api.defaults.baseURL || DEFAULT_PRODUCTION_API_URL);
+        await axios.post(
+          `${activeBase}/auth/logout`,
+          { refreshToken },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 6000 }
+        );
+      }
+    } catch (e) {
+      console.warn('[AuthContext] Backend logout notification note:', e.message);
+    }
+
+    persistSession(null, null, null, null, null, null);
 
     setToken(null);
     setUserState(null);
     setProfileState(null);
-    setFarmState(null);
-    setCurrentCropState(null);
+    // CRITICAL: NEVER delete or clear farm state/storage on logout!
   };
 
   const refreshUser = async () => {
     try {
       const res = await api.get('/auth/me');
       if (res.data.success) {
-        if (res.data.user) setUser(res.data.user);
-        if (res.data.profile) setProfile(res.data.profile);
-        if (res.data.farm) setFarm(res.data.farm);
-        if (res.data.currentCrop) setCurrentCrop(res.data.currentCrop);
+        if (res.data.user) setUserState(res.data.user);
+        if (res.data.profile) setProfileState(res.data.profile);
+        if (res.data.farm) setFarmState(res.data.farm);
+        if (res.data.currentCrop) setCurrentCropState(res.data.currentCrop);
+
+        const currentToken = localStorage.getItem('krishi_token') || token;
+        persistSession(
+          currentToken,
+          res.data.user || user,
+          res.data.profile || profile,
+          res.data.farm || farm,
+          res.data.currentCrop || currentCrop
+        );
       }
     } catch (e) {
       console.warn('Error refreshing user details:', e.message);

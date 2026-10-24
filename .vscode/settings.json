@@ -1,0 +1,23 @@
+{
+  "java.jdt.ls.java.home": "C:\\Users\\ASUS\\.jdk\\jdk-21.0.12.1+1",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-21",
+      "path": "C:\\Users\\ASUS\\.jdk\\jdk-21.0.12.1+1",
+      "default": true
+    }
+  ],
+  "java.errors.incompleteClasspath.severity": "ignore",
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.import.gradle.enabled": false,
+  "java.project.resourceFilters": [
+    "**/node_modules",
+    "**/android",
+    "**/dist",
+    "**/scratch"
+  ],
+  "python.analysis.diagnosticSeverityOverrides": {
+    "reportPrivateUsage": "none",
+    "reportUnknownMemberType": "none"
+  }
+}

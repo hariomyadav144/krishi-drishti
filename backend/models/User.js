@@ -40,7 +40,28 @@ const userSchema = new mongoose.Schema({
     type: Boolean,
     default: false,
   },
+  accountStatus: {
+    type: String,
+    enum: ['active', 'suspended', 'inactive'],
+    default: 'active',
+  },
+  lastLoginAt: {
+    type: Date,
+    default: Date.now,
+  },
+  refreshTokens: [
+    {
+      token: { type: String, required: true },
+      expiresAt: { type: Date, required: true },
+      rememberMe: { type: Boolean, default: true },
+      createdAt: { type: Date, default: Date.now }
+    }
+  ],
   createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
     type: Date,
     default: Date.now,
   },

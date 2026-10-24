@@ -7,6 +7,7 @@ import FeedbackModal from '../components/FeedbackModal';
 import FarmerActionDashboard from '../components/FarmerActionDashboard';
 import { assembleClientFarmContext } from '../services/farmIntelligenceService';
 import { generateStandardStructuredAdvice } from '../services/universalCropEngine';
+import { RecoveryManager, LogLevel, FeatureRecoveryStrategy, ValidationManager } from '../selfHealing/index.js';
 import { 
   Sparkles, 
   Send, 
@@ -365,28 +366,40 @@ export default function AiAdvisor({ setActiveTab }) {
       }
     } catch (err) {
       console.warn('Advisor query notice:', err.message || err);
-      // Offline / network fallback: dynamically generate structured advice
+
+      RecoveryManager.logDiagnostic({
+        level: LogLevel.WARNING,
+        module: 'AiAdvisor',
+        errorType: 'AI_QUERY_EXCEPTION',
+        message: err.message || 'AI Advice query error',
+        status: 'AUTO_RECOVERY_TRIGGERED',
+        recoveryResult: { query, crop: activeFarmContext?.crop },
+      });
+
+      // Self-Healing Strategy: Universal Crop Engine with strict crop validation
       const targetCrop = activeFarmContext?.crop || currentCrop?.cropName || 'Field Crop';
-      const fallbackStructured = generateStandardStructuredAdvice({
+      const recoveryOutcome = FeatureRecoveryStrategy.ai.recoverCropAdvice({
         query,
         crop: targetCrop,
         farmContext: activeFarmContext,
-        language: lang || 'hi'
+        language: lang || 'hi',
       });
-      const fallbackAnswer = fallbackStructured.what_to_do_now[0]?.instruction || (lang === 'en' ? 'AI advice is temporarily busy.' : 'अभी सलाह सेवा थोड़ी व्यस्त है।');
+
+      const fallbackStructured = recoveryOutcome.data;
+      const fallbackAnswer = recoveryOutcome.answer;
 
       setAdvisoryResult({
         answer: fallbackAnswer,
         queryText: query,
-        cropName: fallbackStructured.crop_name,
-        crop_name: fallbackStructured.crop_name,
-        detected_issue: fallbackStructured.detected_issue,
-        severity: fallbackStructured.severity,
-        health_score: fallbackStructured.health_score,
-        what_needs_attention: fallbackStructured.what_needs_attention,
-        what_to_do_now: fallbackStructured.what_to_do_now,
-        why_is_this_happening: fallbackStructured.why_is_this_happening,
-        action_timeline: fallbackStructured.action_timeline,
+        cropName: fallbackStructured?.crop_name || targetCrop,
+        crop_name: fallbackStructured?.crop_name || targetCrop,
+        detected_issue: fallbackStructured?.detected_issue,
+        severity: fallbackStructured?.severity,
+        health_score: fallbackStructured?.health_score,
+        what_needs_attention: fallbackStructured?.what_needs_attention,
+        what_to_do_now: fallbackStructured?.what_to_do_now,
+        why_is_this_happening: fallbackStructured?.why_is_this_happening,
+        action_timeline: fallbackStructured?.action_timeline,
         structuredAdvice: fallbackStructured,
         isIdentifiable: true,
         isPlant: true,
@@ -401,6 +414,13 @@ export default function AiAdvisor({ setActiveTab }) {
       ]);
       setQueryText('');
       removeImage();
+
+      RecoveryManager.notify({
+        state: 'RESOLVED',
+        module: 'AiAdvisor',
+        messageHi: 'फसल सलाह सुरक्षित रूप से तैयार की गई।',
+        messageEn: 'Crop advice successfully generated via resilient engine.',
+      });
     } finally {
       setLoading(false);
       isSubmittingRef.current = false;

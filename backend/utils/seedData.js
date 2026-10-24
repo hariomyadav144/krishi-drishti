@@ -89,11 +89,11 @@ async function seedDatabase() {
   await FarmerProfile.create([
     {
       userId: farmer1._id,
-      state: 'Maharashtra',
-      district: 'Nashik',
-      village: 'Pimpalgaon Baswant',
-      pincode: '422209',
-      location: 'Pimpalgaon Baswant, Nashik, Maharashtra',
+      state: 'Uttar Pradesh',
+      district: 'Gorakhpur',
+      village: 'Sahajanwa',
+      pincode: '273209',
+      location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
       experienceYears: 12,
     },
     {

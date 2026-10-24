@@ -23,6 +23,7 @@ import {
   getDynamicSatelliteNDVI,
 } from './mockFallback.js';
 import { fetchOpenMeteoWeather } from './weatherService.js';
+import { RecoveryManager, LogLevel } from '../selfHealing/index.js';
 
 export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
 
@@ -68,17 +69,24 @@ export const isNativeApp = () => {
 };
 
 /**
- * Normalizes any Indian mobile number to a strict 10-digit clean string
+ * Normalizes any Indian mobile number to E.164 standard format (+91XXXXXXXXXX)
  */
-export function normalizePhone(phone) {
+export function normalizeToE164(phone) {
   if (!phone) return '';
   const digits = String(phone).replace(/\D/g, '');
-  if (digits.length === 10) return digits;
-  if (digits.length === 11 && digits.startsWith('0')) return digits.substring(1);
-  if (digits.length === 12 && digits.startsWith('91')) return digits.substring(2);
-  if (digits.length > 10) return digits.slice(-10);
-  return digits;
+  const tenDigit = digits.length >= 10 ? digits.slice(-10) : digits;
+  return tenDigit.length === 10 ? `+91${tenDigit}` : (phone.startsWith('+') ? phone : `+${digits}`);
 }
+
+/**
+ * Normalizes any Indian mobile number to a strict 10-digit clean string
+ */
+export function to10DigitPhone(phone) {
+  if (!phone) return '';
+  return String(phone).replace(/\D/g, '').slice(-10);
+}
+
+export const normalizePhone = to10DigitPhone;
 
 export const resolveApiBaseUrl = () => {
   if (typeof window !== 'undefined') {
@@ -90,15 +98,9 @@ export const resolveApiBaseUrl = () => {
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
     return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
   }
-  // On Native Android devices, default to live production cloud backend
-  // so the app works seamlessly anywhere (Wi-Fi, 4G, 5G).
-  if (isNativeApp()) {
-    return DEFAULT_PRODUCTION_API_URL;
-  }
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    return 'http://localhost:5000/api';
-  }
-  return DEFAULT_PRODUCTION_API_URL;
+  // Connect to local backend first (works seamlessly on desktop and on Android device via USB adb reverse);
+  // the response interceptor automatically fails over to DEFAULT_PRODUCTION_API_URL if localhost:5000 is unreachable.
+  return 'http://localhost:5000/api';
 };
 
 export const API_BASE_URL = resolveApiBaseUrl();
@@ -143,7 +145,7 @@ api.interceptors.request.use((config) => {
                     url.includes('/analysis/scan');
   config.timeout = isAiRoute ? 45000 : 25000;
 
-  const token = localStorage.getItem('krishi_token');
+  const token = localStorage.getItem('krishi_token') || safeParseStorage('fasal_user_session')?.token;
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -152,11 +154,19 @@ api.interceptors.request.use((config) => {
   return Promise.reject(error);
 });
 
-// Response interceptor - pass through responses cleanly
-api.interceptors.response.use(
-  (response) => response,
-  (error) => Promise.reject(error)
-);
+let isRefreshing = false;
+let failedQueue = [];
+
+const processQueue = (error, token = null) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 const safeParseStorage = (key) => {
   if (typeof window === 'undefined') return null;
@@ -208,6 +218,17 @@ function handleFallbackResponse(url, method = 'get', data = null) {
       };
     }
 
+    const fasalSession = safeParseStorage('fasal_user_session');
+    if (fasalSession && fasalSession.user) {
+      return {
+        success: true,
+        user: fasalSession.user,
+        profile: fasalSession.profile || safeParseStorage('krishi_profile') || null,
+        farm: fasalSession.farm || safeParseStorage('krishi_farm') || null,
+        currentCrop: fasalSession.currentCrop || safeParseStorage('krishi_current_crop') || null,
+      };
+    }
+
     const cachedUser = safeParseStorage('krishi_user');
     if (cachedUser) {
       return {
@@ -222,6 +243,47 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     return {
       success: false,
       message: 'No active session'
+    };
+  }
+
+  if (cleanUrl.startsWith('/auth/refresh')) {
+    const isDemoRole = localStorage.getItem('krishi_demo_role');
+    if (isDemoRole) {
+      let user = MOCK_FARMER_USER;
+      if (isDemoRole === 'expert') user = MOCK_EXPERT_USER;
+      if (isDemoRole === 'admin') user = MOCK_ADMIN_USER;
+      const demoToken = `krishi_demo_jwt_token_${isDemoRole}_2026`;
+      return {
+        success: true,
+        accessToken: demoToken,
+        token: demoToken,
+        refreshToken: `krishi_demo_refresh_${Date.now()}`,
+        user,
+      };
+    }
+
+    const fasalSession = safeParseStorage('fasal_user_session');
+    if (fasalSession && fasalSession.user) {
+      return {
+        success: true,
+        accessToken: fasalSession.token || `krishi_offline_token_${Date.now()}`,
+        token: fasalSession.token || `krishi_offline_token_${Date.now()}`,
+        refreshToken: fasalSession.refreshToken || `fasal_offline_refresh_${Date.now()}`,
+        user: fasalSession.user,
+      };
+    }
+
+    return {
+      success: false,
+      code: 'REFRESH_TOKEN_INVALID',
+      message: 'No active session found for refresh.',
+    };
+  }
+
+  if (cleanUrl.startsWith('/auth/logout')) {
+    return {
+      success: true,
+      message: 'Logged out successfully (offline fallback). Farm data preserved.',
     };
   }
 
@@ -455,23 +517,80 @@ function handleFallbackResponse(url, method = 'get', data = null) {
   // Fields (Field Mapping)
   if (cleanUrl.startsWith('/farmer/fields')) {
     let storedFields = [];
+    const defaultKipm = {
+      _id: 'field_kipm_paddy_01',
+      id: 'field_kipm_paddy_01',
+      farmerId: 'usr_farmer_demo_01',
+      fieldName: 'KIPM Paddy Farm',
+      name: 'KIPM Paddy Farm',
+      farmerName: 'Farmer Rameshwar (KIPM Campus Block)',
+      points: [
+        { lat: 26.76920, lng: 83.22950 },
+        { lat: 26.76950, lng: 83.23120 },
+        { lat: 26.76780, lng: 83.23160 },
+        { lat: 26.76740, lng: 83.22980 }
+      ],
+      boundary: [
+        { lat: 26.76920, lng: 83.22950 },
+        { lat: 26.76950, lng: 83.23120 },
+        { lat: 26.76780, lng: 83.23160 },
+        { lat: 26.76740, lng: 83.22980 }
+      ],
+      cornersCount: 4,
+      farmArea: '3.85',
+      areaAcres: 3.85,
+      areaHectares: 1.56,
+      areaSqMeters: 15580,
+      formattedAcres: '3.85 acres',
+      formattedHectares: '1.56 hectares',
+      perimeterMeters: 685,
+      formattedPerimeter: '685 meters',
+      center: { lat: 26.76830, lng: 83.23030 },
+      latitude: 26.76830,
+      longitude: 83.23030,
+      crop: 'Paddy',
+      cropVariety: 'Pusa Basmati 1509',
+      cropStage: 'Tillering Stage',
+      season: 'Kharif',
+      soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+      irrigationMethod: 'Tube Well & Canal',
+      notes: 'KIPM Technical Campus GIDA Gorakhpur Paddy Block - Live Satellite Monitoring Active',
+      gpsStatus: 'GPS Connected & Verified',
+      gpsAccuracy: 6,
+      createdAt: '2026-10-02T10:00:00.000Z',
+      updatedAt: new Date().toISOString()
+    };
+
     try {
-      const raw = localStorage.getItem('krishi_saved_fields');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-          storedFields = parsed.filter(f => {
-            if (!f) return false;
-            if (f.id === 'field_demo_maize_01' || f.id === 'field_demo_01') return false;
-            if (f._id === 'field_demo_maize_01' || f._id === 'field_demo_01') return false;
-            if (f.fieldName && (f.fieldName.includes('North Plot') || f.fieldName.includes('field_demo'))) return false;
-            if (Array.isArray(f.points) && f.points.length === 7) return false;
-            if (Array.isArray(f.points) && f.points.some(p => Math.abs(p.lat - 20.174) < 0.05 && Math.abs(p.lng - 73.985) < 0.05)) return false;
-            return true;
-          });
+      const keys = ['krishi_saved_fields', 'farms_data', 'krishi_farms_v2'];
+      if (typeof localStorage !== 'undefined') {
+        for (let i = 0; i < localStorage.length; i++) {
+          const k = localStorage.key(i);
+          if (k && k.startsWith('farms_data_usr_')) keys.unshift(k);
+        }
+      }
+      for (const k of keys) {
+        if (storedFields.length > 0) break;
+        const raw = localStorage.getItem(k);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            storedFields = parsed.filter(f => {
+              if (!f) return false;
+              if (f.id === 'field_demo_maize_01' || f.id === 'field_demo_01') return false;
+              if (f._id === 'field_demo_maize_01' || f._id === 'field_demo_01') return false;
+              return true;
+            });
+          }
         }
       }
     } catch (_) {}
+
+    // Multi-key guarantee: Always ensure KIPM Paddy Farm is included
+    if (!storedFields.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'))) {
+      storedFields.unshift(defaultKipm);
+    }
+
     return {
       success: true,
       data: storedFields
@@ -674,76 +793,126 @@ function handleFallbackResponse(url, method = 'get', data = null) {
   // Field Monitoring Fallback
   if (cleanUrl.startsWith('/field-monitoring')) {
     const defaultField = {
-      _id: 'field_demo_01',
-      id: 'field_demo_01',
-      fieldName: 'North Plot - Wheat & Maize Block',
-      crop: 'Wheat',
-      cropStage: 'Flowering Stage',
-      areaAcres: 8.95,
-      soilType: 'Black Soil / Regur',
-      irrigationMethod: 'Drip Irrigation',
-      center: { lat: 20.17404, lng: 73.98591 }
+      _id: 'field_kipm_paddy_01',
+      id: 'field_kipm_paddy_01',
+      farmerId: 'usr_farmer_demo_01',
+      fieldName: 'KIPM Paddy Farm',
+      name: 'KIPM Paddy Farm',
+      farmerName: 'Farmer Rameshwar (KIPM Campus Block)',
+      crop: 'Paddy',
+      cropVariety: 'Pusa Basmati 1509',
+      cropStage: 'Tillering Stage',
+      areaAcres: 3.85,
+      areaHectares: 1.56,
+      areaSqMeters: 15580,
+      soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+      irrigationMethod: 'Tube Well & Canal',
+      center: { lat: 26.76830, lng: 83.23030 },
+      latitude: 26.76830,
+      longitude: 83.23030,
+      points: [
+        { lat: 26.76920, lng: 83.22950 },
+        { lat: 26.76950, lng: 83.23120 },
+        { lat: 26.76780, lng: 83.23160 },
+        { lat: 26.76740, lng: 83.22980 }
+      ],
+      boundary: [
+        { lat: 26.76920, lng: 83.22950 },
+        { lat: 26.76950, lng: 83.23120 },
+        { lat: 26.76780, lng: 83.23160 },
+        { lat: 26.76740, lng: 83.22980 }
+      ]
     };
 
     const mockObservation = {
-      _id: 'obs_demo_01',
-      fieldId: 'field_demo_01',
-      cropName: 'Wheat',
-      cropStage: 'Flowering Stage',
+      _id: 'obs_kipm_paddy_01',
+      fieldId: 'field_kipm_paddy_01',
+      cropName: 'Paddy (धान)',
+      cropStage: 'Tillering Stage (कल्ले फूटने की अवस्था)',
       observationDate: new Date().toISOString(),
       satelliteData: {
         available: true,
         source: 'Sentinel-2B (ESA Copernicus MSI)',
         resolution: '10m Multispectral Ground Resolution',
-        cloudCoverage: 4.2,
-        lastObservationDate: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-        ndviMean: 0.78,
-        healthCategory: 'Healthy & Vigorous',
-        healthScore: 92,
-        status: 'Latest Available'
+        cloudCoverage: 1.8,
+        lastObservationDate: new Date().toLocaleDateString('hi-IN'),
+        ndviMean: 0.82,
+        healthCategory: 'उत्कृष्ट व स्वस्थ (Healthy & Vigorous)',
+        healthScore: 94,
+        status: 'Latest Available (Sentinel-2 L2A)',
+        spatialZones: [
+          {
+            zoneId: 'z1',
+            name: 'North Sector (KIPM Campus Block)',
+            areaAcres: 1.95,
+            ndvi: 0.84,
+            status: 'Healthy',
+            color: '#10B981',
+            healthScore: 96,
+            moistureStatus: 'Adequate Moisture',
+            stressLevel: 'None',
+            observation: 'Dense vegetative tiller formation with high chlorophyll index'
+          },
+          {
+            zoneId: 'z2',
+            name: 'South Sector (Canal Side Block)',
+            areaAcres: 1.90,
+            ndvi: 0.80,
+            status: 'Optimal',
+            color: '#34D399',
+            healthScore: 92,
+            moistureStatus: 'Adequate Moisture',
+            stressLevel: 'Low',
+            observation: 'Uniform water retention and steady tillering growth'
+          }
+        ]
       },
       weatherData: {
-        temperatureC: 27,
-        humidityPercent: 62,
+        temperatureC: 29,
+        humidityPercent: 74,
         precipitationMm: 0,
         precipitationForecast24h: 0,
-        precipitationForecast48h: 1.5,
+        precipitationForecast48h: 1.2,
         precipitationProbability: 15,
-        et0Fao: 4.1,
-        condition: 'Partly Cloudy'
+        et0Fao: 4.2,
+        condition: 'Partly Sunny / Ideal Growing'
       },
       moistureStatus: {
-        status: 'Adequate Moisture',
-        statusHi: 'पर्याप्त नमी',
-        moistureScore: 68,
-        deficitMm: 5.2,
-        recommendation: 'Soil moisture is optimal. Drip irrigation can proceed on regular scheduled intervals.'
+        status: 'Optimal Water Ponding (3-5 cm)',
+        statusHi: 'पर्याप्त नमी व जल भराव (3-5 सेमी)',
+        moistureScore: 72,
+        deficitMm: 0,
+        recommendation: 'Standing water layer (3-5 cm) is optimal for Basmati tillering. No extra watering required.',
+        recommendationHi: 'धान में कल्ले फूटने के लिए 3-5 सेमी पानी का भराव उत्तम है। अतिरिक्त सिंचाई की आवश्यकता नहीं है।'
       },
       irrigationAdvisory: {
         actionRequired: false,
         priority: 'Normal',
-        messageEn: 'Adequate soil water reserve present. Hold heavy watering.',
-        messageHi: 'खेत में पर्याप्त नमी उपलब्ध है। भारी सिंचाई की आवश्यकता नहीं है।'
+        urgencyEn: 'Adequate water ponding maintained (3-5 cm)',
+        urgencyHi: 'खेत में पर्याप्त 3-5 सेमी पानी उपलब्ध है',
+        messageEn: 'Paddy tillering stage requires 3-5 cm standing water layer. Current ponding depth is optimal.',
+        messageHi: 'धान में कल्ले फूटने हेतु 3-5 सेमी पानी का भराव आवश्यक है। वर्तमान में जल स्तर उत्तम है।'
       },
       nutrientAdvisory: {
-        status: 'Balanced Nutrition',
-        recommendationEn: 'Apply foliar potassium sulphate (0:0:50) at earhead emergence stage.',
-        recommendationHi: 'बालियां निकलते समय 0:0:50 पोटैशियम सल्फेट का छिड़काव करें।'
+        status: 'Tillering Stage - Top Dressing Window',
+        recommendationEn: 'Apply 2nd split of Urea (25-30 kg/acre) + Zinc Sulphate (5 kg/acre) to maximize productive tillers.',
+        recommendationHi: 'सक्रिय कल्ले फूटने की अवस्था: यूरिया (25-30 किग्रा/एकड़) एवं जिंक सल्फेट (5 किग्रा/एकड़) का भुरकाव करें।'
       },
       diseaseRisk: {
         riskLevel: 'Low',
-        messageEn: 'Dry foliage conditions prevent fungal sporulation.',
-        messageHi: 'पत्तियां सूखी होने से फफूंद का खतरा कम है।'
+        riskScore: 16,
+        messageEn: 'Monitor tillers for stem borer and Brown Plant Hopper (BPH). Microclimate is currently safe.',
+        messageHi: 'पौधों के आधार पर भूरा माहू (BPH) एवं तना छेदक की निगरानी करें। वर्तमान सूक्ष्म जलवायु सुरक्षित है।'
       },
       whatShouldIDoToday: [
-        { id: '1', textEn: 'Maintain light regular drip irrigation in early morning hours.', textHi: 'सुबह के समय हल्की ड्रिप सिंचाई जारी रखें।', category: 'Irrigation' },
-        { id: '2', textEn: 'Inspect border rows for early signs of leaf spot or rust.', textHi: 'खेत की मेड़ों पर पत्तियों पर किसी धब्बे की जांच करें।', category: 'Scouting' },
-        { id: '3', textEn: 'Ensure irrigation filters are clean for optimal fertigation.', textHi: 'ड्रिप फिल्टर साफ रखें ताकि खाद सही से पहुंचे।', category: 'Maintenance' },
-        { id: '4', textEn: 'Prepare micronutrient spray for upcoming grain filling phase.', textHi: 'दाना भराव के लिए सूक्ष्म पोषक तत्वों का छिड़काव तैयार रखें।', category: 'Nutrition' },
-        { id: '5', textEn: 'Check local APMC price trends before planning harvest schedule.', textHi: 'कटाई से पहले नजदीकी मंडी के भाव पर नजर रखें।', category: 'Market' }
+        { id: '1', textEn: 'Maintain 3-5 cm standing water level in paddy parcel.', textHi: 'धान के खेत में 3 से 5 सेमी पानी का स्तर स्थिर बनाए रखें।', category: 'Water' },
+        { id: '2', textEn: 'Apply recommended top-dress Urea (25-30 kg/acre) with Zinc.', textHi: 'यूरिया (25-30 किग्रा/एकड़) के साथ जिंक सल्फेट का छिड़काव/भुरकाव करें।', category: 'Nutrition' },
+        { id: '3', textEn: 'Scout tillers near base of hill for stem borer or brown planthopper.', textHi: 'धान के पौधों के निचले भाग में तना छेदक या भूरे फुदके की जांच करें।', category: 'Scouting' },
+        { id: '4', textEn: 'Inspect and strengthen field perimeter bunds to prevent runoff.', textHi: 'खेत की मेड़ों को मजबूत करें ताकि पानी का रिसाव न हो सके।', category: 'Maintenance' },
+        { id: '5', textEn: 'Review Gorakhpur APMC Basmati paddy arrival prices and weather trends.', textHi: 'गोरखपुर कृषि उपज मंडी में बासमती धान के भाव एवं मौसम का पूर्वानुमान देखें।', category: 'Market' }
       ],
-      aiSummary: 'Field vegetation vigor is strong (NDVI 0.78). Soil moisture is well balanced, and disease risk is minimal.',
-      aiSummaryHi: 'खेत में फसल की हरियाली मजबूत है (NDVI 0.78)। मिट्टी में नमी अनुकूल है और रोग का जोखिम बहुत कम है।'
+      aiSummary: 'KIPM Paddy Farm displays robust vegetative canopy (NDVI 0.82). Soil moisture and standing water are well-balanced for tillering.',
+      aiSummaryHi: 'केआईपीएम धान का खेत अत्यंत स्वस्थ है (NDVI 0.82)। कल्ले फूटने के लिए 3-5 सेमी पानी का भराव उत्तम है और रोग जोखिम कम है।'
     };
 
     if (cleanUrl.includes('/dashboard-summary')) {
@@ -752,28 +921,28 @@ function handleFallbackResponse(url, method = 'get', data = null) {
         count: 1,
         data: [
           {
-            fieldId: 'field_demo_01',
-            fieldName: 'North Plot - Wheat & Maize Block',
-            area: 8.95,
+            fieldId: 'field_kipm_paddy_01',
+            fieldName: 'KIPM Paddy Farm',
+            area: 3.85,
             areaUnit: 'Acres',
-            crop: 'Wheat',
-            cropVariety: 'DBW 187',
-            cropStage: 'Flowering Stage',
-            soilType: 'Black Soil / Regur',
-            irrigationMethod: 'Drip Irrigation',
-            cropHealth: 'Healthy & Vigorous',
-            healthScore: 92,
+            crop: 'Paddy',
+            cropVariety: 'Pusa Basmati 1509',
+            cropStage: 'Tillering Stage',
+            soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+            irrigationMethod: 'Tube Well & Canal',
+            cropHealth: 'उत्कृष्ट व स्वस्थ (Healthy & Vigorous)',
+            healthScore: 94,
             moistureStatus: 'Adequate Moisture',
-            moistureStatusHi: 'पर्याप्त नमी',
-            moistureScore: 68,
+            moistureStatusHi: 'पर्याप्त नमी (3-5 सेमी जल भराव)',
+            moistureScore: 72,
             rainForecast: 0,
             rainProbability: 15,
             irrigationRecommendation: 'Not Required Today',
-            nutrientStatus: 'Balanced Nutrition',
-            nutrientStatusHi: 'संतुलित पोषण',
+            nutrientStatus: 'Tillering Stage - Apply Urea & Zinc',
+            nutrientStatusHi: 'सक्रिय कल्ले फूटने पर यूरिया व जिंक डालें',
             diseaseRisk: 'Low',
-            lastSatelliteObservation: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toLocaleDateString(),
-            ndviMean: 0.78,
+            lastSatelliteObservation: new Date().toLocaleDateString('hi-IN'),
+            ndviMean: 0.82,
             whatShouldIDoToday: mockObservation.whatShouldIDoToday,
             aiSummary: mockObservation.aiSummary,
             aiSummaryHi: mockObservation.aiSummaryHi
@@ -795,17 +964,17 @@ function handleFallbackResponse(url, method = 'get', data = null) {
       const days = [14, 12, 10, 8, 6, 4, 2, 0];
       const chartData = days.map((d, i) => ({
         date: new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString(),
-        ndvi: +(0.70 + (i * 0.012)).toFixed(3),
-        cloudCoverage: 3 + (i % 3),
-        satelliteStatus: 'Latest Available',
-        moistureScore: 65 + (i % 5),
-        moistureStatus: 'Adequate',
-        rainfallMm: d === 6 ? 4.2 : 0,
-        temperatureC: 26 + (i % 3),
-        et0: 4.1,
+        ndvi: +(0.74 + (i * 0.011)).toFixed(3),
+        cloudCoverage: 1.5 + (i % 2),
+        satelliteStatus: 'Latest Available (Sentinel-2)',
+        moistureScore: 70 + (i % 3),
+        moistureStatus: 'Optimal Saturated',
+        rainfallMm: d === 6 ? 2.5 : 0,
+        temperatureC: 28 + (i % 2),
+        et0: 4.2,
         irrigationNeeded: false,
         diseaseRiskLevel: 'Low',
-        healthScore: 84 + i
+        healthScore: 90 + i
       }));
       return {
         success: true,
@@ -817,25 +986,56 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     }
 
     if (cleanUrl.includes('/compare/')) {
+      const period = cleanUrl.includes('15d') ? '15d' : (cleanUrl.includes('30d') ? '30d' : '7d');
+      const prevNdvi = period === '30d' ? 0.58 : (period === '15d' ? 0.71 : 0.77);
+      const prevHealth = period === '30d' ? 76 : (period === '15d' ? 82 : 88);
+      const prevMoist = period === '30d' ? 60 : (period === '15d' ? 65 : 68);
+      const deltaNdvi = +(0.82 - prevNdvi).toFixed(2);
+      const deltaPercent = +((deltaNdvi / prevNdvi) * 100).toFixed(1);
+
       return {
         success: true,
         canCompare: true,
         field: defaultField,
-        period: '7d',
-        daysApart: 7,
+        period,
+        daysApart: period === '30d' ? 30 : (period === '15d' ? 15 : 7),
+        nearestDateNotice: 'Exact pass found from Copernicus Sentinel-2 MSI archive',
         current: mockObservation,
         previous: {
           ...mockObservation,
-          satelliteData: { ...mockObservation.satelliteData, ndviMean: 0.74, healthScore: 86 },
-          moistureStatus: { ...mockObservation.moistureStatus, moistureScore: 62 }
+          observationDate: new Date(Date.now() - (period === '30d' ? 30 : (period === '15d' ? 15 : 7)) * 86400000).toISOString(),
+          satelliteData: {
+            ...mockObservation.satelliteData,
+            ndviMean: prevNdvi,
+            healthScore: prevHealth
+          },
+          moistureStatus: {
+            ...mockObservation.moistureStatus,
+            moistureScore: prevMoist
+          }
         },
         deltas: {
-          ndviDelta: 0.04,
-          ndviDeltaPercent: 5.4,
-          moistureDelta: 6,
-          healthDelta: 6,
-          comparisonNarrativeEn: 'Vegetation vigor has improved by 5.4% over 7 days with balanced moisture.',
-          comparisonNarrativeHi: 'पिछले 7 दिनों में फसल हरियाली में 5.4% का सुधार हुआ है और नमी अनुकूल बनी हुई है।'
+          ndviDelta: deltaNdvi,
+          ndviDeltaPercent: deltaPercent,
+          moistureDelta: 72 - prevMoist,
+          healthDelta: 94 - prevHealth,
+          comparisonNarrativeEn: `KIPM Paddy Farm shows positive vegetative expansion (+${deltaPercent}% NDVI) with robust Basmati tiller density and optimal water depth.`,
+          comparisonNarrativeHi: `केआईपीएम धान के खेत में चयनित अवधि में +${deltaPercent}% हरियाली (NDVI) और कल्ले फूटने में तीव्र वृद्धि दर्ज की गई है। जल भराव स्तर अनुकूल है।`
+        },
+        chartData: [
+          { date: '14 दिन पूर्व', ndvi: 0.74, moisture: 66 },
+          { date: '10 दिन पूर्व', ndvi: 0.76, moisture: 68 },
+          { date: '7 दिन पूर्व', ndvi: 0.77, moisture: 68 },
+          { date: '3 दिन पूर्व', ndvi: 0.80, moisture: 70 },
+          { date: 'आज (Live)', ndvi: 0.82, moisture: 72 }
+        ],
+        sourceTransparency: {
+          fieldId: 'field_kipm_paddy_01',
+          fieldName: 'KIPM Paddy Farm',
+          centroid: { lat: 26.7683, lng: 83.2303 },
+          areaAcres: 3.85,
+          productId: 'CDSE_SENTINEL2_MSIL2A',
+          processing: 'NDVI = (B8 - B4) / (B8 + B4)'
         }
       };
     }
@@ -919,85 +1119,72 @@ function handleFallbackResponse(url, method = 'get', data = null) {
         };
       }
 
-      // Default: North Plot - Wheat
+      // Default: Kipm paddy - Paddy
       return {
-        fieldId: 'field_demo_01',
-        fieldName: 'North Plot - Wheat & Maize Block',
-        crop: 'Wheat',
-        cropVariety: 'DBW 187 (Karan Vandana)',
-        cropStage: 'Earhead / Flowering Stage',
-        healthScore: 91,
+        fieldId: 'field_kipm_paddy_01',
+        fieldName: 'Kipm paddy',
+        crop: 'Paddy',
+        cropVariety: 'Pusa Basmati 1509',
+        cropStage: 'Tillering Stage',
+        healthScore: 88,
         status: 'Healthy',
         confidence: 'High',
         calculatedAt: new Date().toISOString(),
         factors: {
-          cropCondition: { score: 96, status: 'Healthy', detail: 'Clean vigorous flag leaves & spikes' },
+          cropCondition: { score: 92, status: 'Healthy', detail: 'Clean vigorous tillers & foliage' },
           soilMoisture: { score: 88, status: 'Optimal', detail: 'Adequate soil water reserve' },
-          weather: { score: 85, status: 'Optimal', detail: '27°C, 62% humidity, ideal grain filling' },
-          diseaseRisk: { score: 92, status: 'Low Risk', detail: 'Dry canopy prevents fungal sporulation' },
-          irrigation: { score: 86, status: 'On Schedule', detail: 'Drip schedule well-maintained' },
-          nutrients: { score: 88, status: 'Balanced', detail: 'Balanced NPK & micronutrient availability' },
+          weather: { score: 85, status: 'Optimal', detail: '27°C, 62% humidity, ideal growth conditions' },
+          diseaseRisk: { score: 90, status: 'Low Risk', detail: 'Canopy disease-free' },
+          irrigation: { score: 86, status: 'On Schedule', detail: 'Water level well-maintained' },
+          nutrients: { score: 88, status: 'Balanced', detail: 'Balanced nutrient availability' },
         },
         reasons: [
-          '✓ No major disease or rust detected in latest crop scan',
+          '✓ No major disease detected in latest crop scan',
           '✓ Soil moisture is in adequate range with optimal reserve',
-          '✓ Weather conditions are optimal for grain filling'
+          '✓ Weather conditions are optimal for tillering'
         ],
         reasonsHi: [
           '✓ नवीनतम फसल जांच में कोई सक्रिय रोग नहीं मिला',
           '✓ मिट्टी में नमी की मात्रा अनुकूल और पर्याप्त है',
-          '✓ मौसम की स्थिति बालियों में दाना भराव हेतु उत्तम है'
+          '✓ मौसम की स्थिति फसल के विकास हेतु उत्तम है'
         ],
         recommendations: [
           {
             priority: 'Normal',
             category: 'Nutrient Management',
-            title: 'Foliar Potassium Sulphate 0:0:50 Application',
-            titleHi: 'पोटैशियम सल्फेट (0:0:50) का छिड़काव करें',
-            description: 'Apply 0:0:50 @ 5g/L during earhead emergence for bolder, uniform grain weight.',
+            title: 'Maintain Regular Water Level & Inspection',
+            titleHi: 'खेत में पानी का स्तर बनाए रखें',
+            description: 'Maintain adequate moisture and inspect crop canopy.',
             timeline: 'Next 5-7 days'
           }
         ],
         dataSources: [
-          { source: 'Latest Crop Scan', available: true, detail: 'AI leaf scan (Clean Flag Leaf)' },
+          { source: 'Latest Crop Scan', available: true, detail: 'AI leaf scan (Clean Foliage)' },
           { source: 'Soil Moisture Telemetry', available: true, detail: 'Field sensor moisture optimal' },
           { source: 'Weather Radar', available: true, detail: 'Live telemetry: 27°C, 62% humidity' },
-          { source: 'Irrigation Log', available: true, detail: 'Active drip schedule' },
+          { source: 'Irrigation Log', available: true, detail: 'Canal & tube well active' },
           { source: 'Satellite Sentinel-2', available: true, detail: 'NDVI 0.78 (Vigorous Canopy)' }
         ]
       };
     };
 
     if (cleanUrl.includes('/summary')) {
-      const wheatData = calculateFieldHealth('field_demo_01');
-      const tomatoData = calculateFieldHealth('field_demo_02');
+      const paddyData = calculateFieldHealth('field_kipm_paddy_01');
       return {
         success: true,
-        count: 2,
+        count: 1,
         data: [
           {
-            fieldId: wheatData.fieldId,
-            fieldName: wheatData.fieldName,
-            crop: wheatData.crop,
-            cropVariety: wheatData.cropVariety,
-            healthScore: wheatData.healthScore,
-            status: wheatData.status,
-            confidence: wheatData.confidence,
-            calculatedAt: wheatData.calculatedAt,
-            reasons: wheatData.reasons,
-            reasonsHi: wheatData.reasonsHi
-          },
-          {
-            fieldId: tomatoData.fieldId,
-            fieldName: tomatoData.fieldName,
-            crop: tomatoData.crop,
-            cropVariety: tomatoData.cropVariety,
-            healthScore: tomatoData.healthScore,
-            status: tomatoData.status,
-            confidence: tomatoData.confidence,
-            calculatedAt: tomatoData.calculatedAt,
-            reasons: tomatoData.reasons,
-            reasonsHi: tomatoData.reasonsHi
+            fieldId: paddyData.fieldId,
+            fieldName: paddyData.fieldName,
+            crop: paddyData.crop,
+            cropVariety: paddyData.cropVariety,
+            healthScore: paddyData.healthScore,
+            status: paddyData.status,
+            confidence: paddyData.confidence,
+            calculatedAt: paddyData.calculatedAt,
+            reasons: paddyData.reasons,
+            reasonsHi: paddyData.reasonsHi
           }
         ]
       };
@@ -1012,11 +1199,11 @@ function handleFallbackResponse(url, method = 'get', data = null) {
         { date: '14 days ago', time: '11:45 AM', healthScore: 72, status: 'Attention Needed', confidence: 'Medium', crop: 'Tomato', fieldName: 'South Plot - Tomato Patch' },
         { date: '1 month ago', time: '08:20 AM', healthScore: 84, status: 'Healthy', confidence: 'Medium', crop: 'Tomato', fieldName: 'South Plot - Tomato Patch' },
       ] : [
-        { date: 'Today', time: '10:30 AM', healthScore: 91, status: 'Healthy', confidence: 'High', crop: 'Wheat', fieldName: 'North Plot - Wheat & Maize Block' },
-        { date: '7 days ago', time: '09:15 AM', healthScore: 86, status: 'Healthy', confidence: 'High', crop: 'Wheat', fieldName: 'North Plot - Wheat & Maize Block' },
-        { date: '14 days ago', time: '11:45 AM', healthScore: 82, status: 'Healthy', confidence: 'High', crop: 'Wheat', fieldName: 'North Plot - Wheat & Maize Block' },
-        { date: '1 month ago', time: '08:20 AM', healthScore: 78, status: 'Attention Needed', confidence: 'Medium', crop: 'Wheat', fieldName: 'North Plot - Wheat & Maize Block' },
-        { date: '3 months ago', time: '02:10 PM', healthScore: 42, status: 'At Risk', confidence: 'High', crop: 'Wheat', fieldName: 'North Plot - Wheat & Maize Block' },
+        { date: 'Today', time: '10:30 AM', healthScore: 88, status: 'Healthy', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
+        { date: '7 days ago', time: '09:15 AM', healthScore: 84, status: 'Healthy', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
+        { date: '14 days ago', time: '11:45 AM', healthScore: 80, status: 'Healthy', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
+        { date: '1 month ago', time: '08:20 AM', healthScore: 76, status: 'Attention Needed', confidence: 'Medium', crop: 'Paddy', fieldName: 'Kipm paddy' },
+        { date: '3 months ago', time: '02:10 PM', healthScore: 45, status: 'At Risk', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
       ];
       return {
         success: true,
@@ -1046,31 +1233,130 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    // 0. Automatic failover from unreachable local backend (port 5000) to live Cloud Production API
     const originalRequest = error.config;
+    const url = originalRequest?.url || '';
+    const status = error.response?.status;
+
+    // Log diagnostic event in centralized self-healing system
+    RecoveryManager.logDiagnostic({
+      level: status && status < 500 ? LogLevel.WARNING : LogLevel.ERROR,
+      module: 'API',
+      errorType: status ? `HTTP_${status}` : (error.code || 'NETWORK_FAILURE'),
+      message: error.message || 'API request error',
+      stack: error.stack || '',
+      status: 'INTERCEPTED',
+      recoveryResult: { url, status, baseURL: originalRequest?.baseURL },
+    });
+
+    // 0. Automatic failover from unreachable local backend (port 5000) to live Cloud Production API
     const isNetworkOrTimeout = !error.response || error.code === 'ECONNABORTED' || error.message?.includes('Network Error');
     if (isNetworkOrTimeout && originalRequest && !originalRequest._retriedOnCloud) {
       const currentBase = originalRequest.baseURL || api.defaults.baseURL || '';
       if (currentBase.includes('localhost:5000') || currentBase.includes('127.0.0.1:5000')) {
         originalRequest._retriedOnCloud = true;
-        console.warn(`[Fasal Drishti Failover] Local backend on port 5000 unreachable. Seamlessly retrying on Cloud Production API (${DEFAULT_PRODUCTION_API_URL})...`);
+        console.warn(`[Fasal Drishti Failover] Local backend on port 5000 unreachable. Retrying on Cloud Production API (${DEFAULT_PRODUCTION_API_URL})...`);
         originalRequest.baseURL = DEFAULT_PRODUCTION_API_URL;
-        api.defaults.baseURL = DEFAULT_PRODUCTION_API_URL;
         return api(originalRequest);
       }
     }
 
-    // Do NOT wipe localStorage on 401 errors.
-    // AuthContext is the single source of truth for user authentication and session management.
-    if (error.response && error.response.status === 401) {
-      return Promise.reject(error);
+    // Safe bounded retry for transient 502/503/504 server sleep or network glitched requests
+    if ((isNetworkOrTimeout || status === 502 || status === 503) && originalRequest && (!originalRequest._retryCount || originalRequest._retryCount < 2)) {
+      originalRequest._retryCount = (originalRequest._retryCount || 0) + 1;
+      const backoffDelay = originalRequest._retryCount * 800;
+      console.log(`[SelfHealing:API] Retrying transient request (${originalRequest._retryCount}/2) in ${backoffDelay}ms: ${url}`);
+      await new Promise(r => setTimeout(r, backoffDelay));
+      return api(originalRequest);
     }
 
-    // Auth endpoints (login, register): pass backend response directly to form
-    const url = error.config?.url || '';
-    const isAuthRoute = url.includes('/auth/login') || url.includes('/auth/register');
-    if (isAuthRoute) {
-      return Promise.reject(error);
+    // Auth endpoints: pass backend response directly to form (never trigger refresh loops)
+    const isAuthRoute = url.includes('/auth/login') ||
+                        url.includes('/auth/register') ||
+                        url.includes('/auth/refresh') ||
+                        url.includes('/auth/logout') ||
+                        url.includes('/auth/forgot-password');
+
+    // SILENT TOKEN REFRESH ON 401 WITH LOCK & QUEUE
+    if (error.response && error.response.status === 401) {
+      if (isAuthRoute) {
+        return Promise.reject(error);
+      }
+
+      if (originalRequest._retry) {
+        return Promise.reject(error);
+      }
+
+      // If another request is currently refreshing the token, queue this request
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        })
+          .then((newToken) => {
+            originalRequest.headers['Authorization'] = `Bearer ${newToken}`;
+            return api(originalRequest);
+          })
+          .catch((err) => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      const refreshToken =
+        localStorage.getItem('fasal_refresh_token') ||
+        safeParseStorage('fasal_user_session')?.refreshToken;
+
+      if (!refreshToken) {
+        isRefreshing = false;
+        processQueue(error, null);
+        return Promise.reject(error);
+      }
+
+      try {
+        const activeBase = normalizeBackendApiUrl(originalRequest.baseURL || api.defaults.baseURL || API_BASE_URL);
+        const refreshEndpoint = `${activeBase}/auth/refresh`;
+
+        // Direct axios instance to avoid interceptor recursion
+        const refreshRes = await axios.post(
+          refreshEndpoint,
+          { refreshToken },
+          { headers: { 'Content-Type': 'application/json' }, timeout: 15000 }
+        );
+
+        if (refreshRes.data?.success && (refreshRes.data.accessToken || refreshRes.data.token)) {
+          const newAccessToken = refreshRes.data.accessToken || refreshRes.data.token;
+          const newRefreshToken = refreshRes.data.refreshToken || refreshToken;
+
+          // Seamlessly persist newly rotated credentials
+          localStorage.setItem('krishi_token', newAccessToken);
+          localStorage.setItem('fasal_refresh_token', newRefreshToken);
+
+          const session = safeParseStorage('fasal_user_session');
+          if (session) {
+            session.token = newAccessToken;
+            session.refreshToken = newRefreshToken;
+            if (refreshRes.data.user) {
+              session.user = refreshRes.data.user;
+            }
+            localStorage.setItem('fasal_user_session', JSON.stringify(session));
+          }
+
+          api.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+          originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+
+          processQueue(null, newAccessToken);
+          isRefreshing = false;
+
+          console.log('[Fasal Drishti Auth] Access token silently refreshed. Replaying original request.');
+          return api(originalRequest);
+        } else {
+          throw new Error(refreshRes.data?.message || 'Token refresh failed');
+        }
+      } catch (refreshErr) {
+        processQueue(refreshErr, null);
+        isRefreshing = false;
+        console.warn('[Fasal Drishti Auth] Refresh token expired or revoked. Re-login required.');
+        return Promise.reject(refreshErr);
+      }
     }
 
     // If server is cold-starting, unavailable (Network Error, 404, 500, 502, 503),
@@ -1121,9 +1407,9 @@ api.interceptors.response.use(
     // Live Open-Meteo Weather Integration
     if (url.includes('/weather')) {
       try {
-        let lat = 20.00;
-        let lng = 73.78;
-        let name = 'Nashik, Maharashtra';
+        let lat = 26.7684;
+        let lng = 83.2305;
+        let name = 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
         const stored = localStorage.getItem('krishi_farm_coords');
         if (stored) {
           const parsed = JSON.parse(stored);

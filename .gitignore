@@ -19,17 +19,30 @@ build/
 # Uploads & Temp files
 backend/uploads/crop-*
 !backend/uploads/.gitkeep
-phone_screen*.png
-screen.png
+*.png
+*.jpg
+*.jpeg
+*.tar
+*.log
+log*.txt
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Test captures, archives & temp artifacts
+screenshots/
+scratch/
+extracted_app_webview/
+play_store_release/
+*.apk
+*.zip
+
 # Editor & OS files
 .DS_Store
 Thumbs.db
-.vscode/
 .idea/
+.vscode/*
+!.vscode/settings.json
 
 # Android Signing Keys & Credentials
 *.jks

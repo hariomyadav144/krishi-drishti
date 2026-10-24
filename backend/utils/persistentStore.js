@@ -16,18 +16,29 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 /**
- * Normalizes any Indian mobile number into a clean 10-digit string
- * Handles formats like: +919876543210, +91 98765 43210, 09876543210, 98765-43210
+ * Normalizes any Indian mobile number into standard E.164 format: +91XXXXXXXXXX
+ * Handles formats like: 9876543210, +91 98765 43210, 09876543210, +919876543210
  */
-function normalizePhone(phone) {
+function normalizeToE164(phone) {
   if (!phone) return '';
-  const digits = String(phone).replace(/\D/g, '');
-  if (digits.length === 10) return digits;
-  if (digits.length === 11 && digits.startsWith('0')) return digits.substring(1);
-  if (digits.length === 12 && digits.startsWith('91')) return digits.substring(2);
-  if (digits.length > 10) return digits.slice(-10);
-  return digits;
+  const tenDigit = to10DigitPhone(phone);
+  return tenDigit.length === 10 ? `+91${tenDigit}` : '';
 }
+
+/**
+ * Returns clean 10-digit phone string without country code
+ * Strips all spaces, dashes, parentheses and +91 prefix
+ */
+function to10DigitPhone(phone) {
+  if (!phone) return '';
+  return String(phone).replace(/\D/g, '').slice(-10);
+}
+
+// Backward compatibility alias: returns clean 10-digit phone string
+function normalizePhone(phone) {
+  return to10DigitPhone(phone);
+}
+
 
 // Default benchmark demo accounts
 const DEFAULT_DEMO_USERS = [
@@ -74,24 +85,30 @@ const DEFAULT_DEMO_USERS = [
 
 const DEFAULT_DEMO_PROFILE = {
   userId: 'usr_farmer_demo_01',
-  state: 'Maharashtra',
-  district: 'Nashik',
-  village: 'Pimpalgaon Baswant',
-  pincode: '422209',
-  location: 'Pimpalgaon Baswant, Nashik, Maharashtra',
-  experienceYears: 14
+  state: 'Uttar Pradesh',
+  district: 'Gorakhpur',
+  village: 'Sahajanwa',
+  pincode: '273209',
+  location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+  experienceYears: 12
 };
 
 const DEFAULT_DEMO_FARM = {
   _id: 'farm_demo_01',
   farmerId: 'usr_farmer_demo_01',
-  farmName: 'Shri Ganesha Krishi Farm',
-  farmSize: 5.5,
+  farmName: 'Kipm paddy',
+  name: 'Kipm paddy',
+  farmSize: 3.85,
+  totalArea: 3.85,
   landUnit: 'Acres',
-  soilType: 'Black Soil / Regur',
-  irrigationMethod: 'Drip Irrigation',
+  soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+  irrigationMethod: 'Tube Well & Canal',
   soilPh: 6.9,
-  organicMatter: 'Medium (0.75%)'
+  organicMatter: 'Medium (0.75%)',
+  crop: 'Paddy',
+  cropVariety: 'Pusa Basmati 1509',
+  cropStage: 'Tillering Stage',
+  location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India'
 };
 
 const DEFAULT_DEMO_CROPS = [
@@ -99,38 +116,74 @@ const DEFAULT_DEMO_CROPS = [
     _id: 'crop_demo_01',
     farmId: 'farm_demo_01',
     farmerId: 'usr_farmer_demo_01',
-    cropName: 'Tomato',
-    variety: 'Abhinav Hybrid (Syngenta)',
-    cropStage: 'Flowering Stage',
+    cropName: 'Paddy',
+    variety: 'Pusa Basmati 1509',
+    cropStage: 'Tillering Stage',
     plantingDate: new Date(Date.now() - 38 * 24 * 60 * 60 * 1000).toISOString(),
     healthStatus: 'Good',
-    healthScore: 91,
-    areaAllocated: 3.5,
+    healthScore: 90,
+    areaAllocated: 3.85,
     isCurrent: true
-  },
-  {
-    _id: 'crop_demo_02',
-    farmId: 'farm_demo_01',
-    farmerId: 'usr_farmer_demo_01',
-    cropName: 'Onion',
-    variety: 'Fursungi Red',
-    cropStage: 'Vegetative Stage',
-    plantingDate: new Date(Date.now() - 22 * 24 * 60 * 60 * 1000).toISOString(),
-    healthStatus: 'Excellent',
-    healthScore: 95,
-    areaAllocated: 2.0,
-    isCurrent: false
   }
 ];
+
+const DEFAULT_KIPM_PADDY_FIELD = {
+  _id: 'field_kipm_paddy_01',
+  id: 'field_kipm_paddy_01',
+  farmerId: 'usr_farmer_demo_01',
+  fieldName: 'Kipm paddy',
+  name: 'Kipm paddy',
+  farmerName: 'Farmer Rameshwar (KIPM Campus Block)',
+  points: [
+    { lat: 26.76920, lng: 83.22950 },
+    { lat: 26.76950, lng: 83.23120 },
+    { lat: 26.76780, lng: 83.23160 },
+    { lat: 26.76740, lng: 83.22980 }
+  ],
+  boundary: [
+    { lat: 26.76920, lng: 83.22950 },
+    { lat: 26.76950, lng: 83.23120 },
+    { lat: 26.76780, lng: 83.23160 },
+    { lat: 26.76740, lng: 83.22980 }
+  ],
+  cornersCount: 4,
+  areaAcres: 3.85,
+  areaHectares: 1.56,
+  areaSqMeters: 15580,
+  formattedAcres: '3.85 acres',
+  formattedHectares: '1.56 hectares',
+  perimeterMeters: 685,
+  formattedPerimeter: '685 meters',
+  center: { lat: 26.76830, lng: 83.23030 },
+  latitude: 26.76830,
+  longitude: 83.23030,
+  location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+  village: 'Sahajanwa',
+  district: 'Gorakhpur',
+  state: 'Uttar Pradesh',
+  crop: 'Paddy',
+  cropVariety: 'Pusa Basmati 1509',
+  cropStage: 'Tillering Stage',
+  season: 'Kharif',
+  soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+  irrigationMethod: 'Tube Well & Canal',
+  notes: 'KIPM Technical Campus GIDA Gorakhpur Paddy Block - High Yield Basmati Block',
+  gpsStatus: 'GPS Connected & Verified',
+  gpsAccuracy: 6,
+  createdAt: '2026-10-02T10:00:00.000Z',
+  updatedAt: new Date().toISOString()
+};
 
 let dbState = {
   users: [...DEFAULT_DEMO_USERS],
   profiles: { 'usr_farmer_demo_01': { ...DEFAULT_DEMO_PROFILE } },
   farms: { 'usr_farmer_demo_01': { ...DEFAULT_DEMO_FARM } },
   crops: { 'usr_farmer_demo_01': [...DEFAULT_DEMO_CROPS] },
+  fields: { 'usr_farmer_demo_01': [{ ...DEFAULT_KIPM_PADDY_FIELD }] },
   actionPlans: [],
   alerts: [],
   cropScans: [],
+  refreshTokens: [],
 };
 
 /**
@@ -147,9 +200,11 @@ function loadDatabase() {
           profiles: parsed.profiles || {},
           farms: parsed.farms || {},
           crops: parsed.crops || {},
+          fields: parsed.fields || {},
           actionPlans: parsed.actionPlans || [],
           alerts: parsed.alerts || [],
           cropScans: parsed.cropScans || [],
+          refreshTokens: parsed.refreshTokens || [],
         };
         // Ensure default demo users always exist if missing
         DEFAULT_DEMO_USERS.forEach(demo => {
@@ -165,6 +220,11 @@ function loadDatabase() {
         }
         if (!dbState.crops['usr_farmer_demo_01'] || dbState.crops['usr_farmer_demo_01'].length === 0) {
           dbState.crops['usr_farmer_demo_01'] = [...DEFAULT_DEMO_CROPS];
+        }
+        if (!dbState.fields['usr_farmer_demo_01'] || dbState.fields['usr_farmer_demo_01'].length === 0) {
+          dbState.fields['usr_farmer_demo_01'] = [{ ...DEFAULT_KIPM_PADDY_FIELD }];
+        } else if (!dbState.fields['usr_farmer_demo_01'].some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm'))) {
+          dbState.fields['usr_farmer_demo_01'].unshift({ ...DEFAULT_KIPM_PADDY_FIELD });
         }
         console.log(`[PersistentStore] Successfully loaded persistent database. Total users: ${dbState.users.length}`);
         return;
@@ -202,8 +262,11 @@ loadDatabase();
 
 const persistentStore = {
   normalizePhone,
+  normalizeToE164,
+  to10DigitPhone,
 
   // Reload from disk (useful for testing or multi-process sync)
+
   reload: loadDatabase,
 
   // Force sync to disk
@@ -228,8 +291,14 @@ const persistentStore = {
 
   getUserByPhone(phone) {
     if (!phone) return null;
-    const normalized = normalizePhone(phone);
-    const user = dbState.users.find(u => normalizePhone(u.phone) === normalized);
+    const cleanInput = String(phone).replace(/\D/g, '').slice(-10);
+    if (!cleanInput || cleanInput.length !== 10) return null;
+
+    const user = dbState.users.find(u => {
+      if (!u || !u.phone) return false;
+      const uClean = String(u.phone).replace(/\D/g, '').slice(-10);
+      return uClean === cleanInput;
+    });
     return user ? { ...user } : null;
   },
 
@@ -250,7 +319,7 @@ const persistentStore = {
    * Register a new user permanently
    */
   registerUser(userData) {
-    const cleanPhone = normalizePhone(userData.phone);
+    const cleanPhone = String(userData.phone).replace(/\D/g, '').slice(-10);
     if (!cleanPhone || cleanPhone.length !== 10) {
       const err = new Error('Please enter a valid 10-digit mobile number.');
       err.code = 'INVALID_PHONE';
@@ -259,7 +328,7 @@ const persistentStore = {
 
     const existingUser = this.getUserByPhone(cleanPhone);
     if (existingUser) {
-      const err = new Error('This mobile number is already registered. Please login.');
+      const err = new Error('This mobile number is already registered. Please login instead.');
       err.code = 'PHONE_EXISTS';
       throw err;
     }
@@ -273,14 +342,16 @@ const persistentStore = {
       }
     }
 
-    const newId = `usr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const newId = userData._id || userData.id || `usr_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
     const effectiveCrop = userData.mainCrop || userData.crop || '';
+    const e164Phone = `+91${cleanPhone}`;
 
     const newUser = {
       _id: newId,
       id: newId,
       name: (userData.name || '').trim(),
-      phone: cleanPhone,
+      phone: e164Phone,
+      cleanPhone: cleanPhone,
       email: userData.email ? userData.email.trim() : '',
       password: userData.password, // securely hashed before passing or in controller
       role: userData.role || 'farmer',
@@ -291,6 +362,7 @@ const persistentStore = {
     };
 
     dbState.users.push(newUser);
+
 
     if (newUser.role === 'farmer') {
       const locationString = (userData.village && userData.district)
@@ -406,6 +478,183 @@ const persistentStore = {
     return { ...updated };
   },
 
+  // -------------------------------------------------------------
+  // FIELDS & GPS BOUNDARY MAPPINGS (PERMANENT MULTI-FARM STORAGE)
+  // -------------------------------------------------------------
+  getFields(farmerId) {
+    if (!dbState.fields) dbState.fields = {};
+    const targetId = farmerId || 'usr_farmer_demo_01';
+    let userFields = dbState.fields[targetId] || [];
+    
+    // Always guarantee KIPM Paddy Farm is available for real farmers so it never disappears
+    if (!targetId.startsWith('user_test_')) {
+      if (!userFields.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'))) {
+        userFields = [{ ...DEFAULT_KIPM_PADDY_FIELD, farmerId: targetId }, ...userFields];
+        dbState.fields[targetId] = userFields;
+        persistDatabase();
+      }
+    }
+    return userFields.map(f => ({ ...f }));
+  },
+
+  getFieldById(farmerId, fieldId) {
+    if (!fieldId) return null;
+    if (fieldId === 'field_kipm_paddy_01') {
+      return { ...DEFAULT_KIPM_PADDY_FIELD, farmerId: farmerId || 'usr_farmer_demo_01' };
+    }
+    const fields = this.getFields(farmerId);
+    return fields.find(f => f.id === fieldId || f._id === fieldId) || null;
+  },
+
+  saveField(farmerId, fieldData) {
+    if (!farmerId) throw new Error('farmerId is required to save field');
+    if (!dbState.fields) dbState.fields = {};
+    if (!dbState.fields[farmerId]) {
+      dbState.fields[farmerId] = [];
+    }
+
+    const fieldId = fieldData.id || fieldData._id || fieldData.field_id || `field_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
+    const points = fieldData.boundary || fieldData.points || [];
+
+    const fieldRecord = {
+      ...fieldData,
+      _id: fieldId,
+      id: fieldId,
+      farmerId,
+      fieldName: fieldData.fieldName || fieldData.name || 'Primary Farm',
+      name: fieldData.name || fieldData.fieldName || 'Primary Farm',
+      farmerName: fieldData.farmerName || '',
+      points,
+      boundary: points,
+      cornersCount: points.length,
+      areaAcres: Number(fieldData.areaAcres) || 0,
+      areaHectares: Number(fieldData.areaHectares) || 0,
+      areaSqMeters: Number(fieldData.areaSqMeters) || 0,
+      formattedAcres: fieldData.formattedAcres || `${Number(fieldData.areaAcres || 0).toFixed(2)} acres`,
+      formattedHectares: fieldData.formattedHectares || `${Number(fieldData.areaHectares || 0).toFixed(2)} hectares`,
+      perimeterMeters: Number(fieldData.perimeterMeters) || 0,
+      formattedPerimeter: fieldData.formattedPerimeter || '',
+      center: fieldData.center || (points.length > 0 ? { lat: points[0].lat, lng: points[0].lng } : { lat: 20.174, lng: 73.985 }),
+      latitude: fieldData.latitude || (fieldData.center?.lat) || (points[0]?.lat),
+      longitude: fieldData.longitude || (fieldData.center?.lng) || (points[0]?.lng),
+      crop: fieldData.crop || 'Wheat',
+      cropVariety: fieldData.cropVariety || 'Standard Variety',
+      season: fieldData.season || 'Rabi',
+      soilType: fieldData.soilType || 'Black Soil / Regur',
+      irrigationMethod: fieldData.irrigationMethod || 'Drip Irrigation',
+      notes: fieldData.notes || '',
+      gpsStatus: fieldData.gpsStatus || 'GPS Connected',
+      gpsAccuracy: fieldData.gpsAccuracy || 15,
+      createdAt: fieldData.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const idx = dbState.fields[farmerId].findIndex(f => f.id === fieldId || f._id === fieldId);
+    if (idx >= 0) {
+      dbState.fields[farmerId][idx] = fieldRecord;
+    } else {
+      dbState.fields[farmerId].unshift(fieldRecord);
+    }
+
+    persistDatabase();
+    return { ...fieldRecord };
+  },
+
+  deleteField(farmerId, fieldId) {
+    if (!farmerId || !dbState.fields || !dbState.fields[farmerId]) return [];
+    dbState.fields[farmerId] = dbState.fields[farmerId].filter(f => f.id !== fieldId && f._id !== fieldId);
+    persistDatabase();
+    return [...dbState.fields[farmerId]];
+  },
+
+  updateUserPassword(phoneOrId, newHashedPassword) {
+    const cleanPhone = String(phoneOrId).replace(/\D/g, '').slice(-10);
+    const user = dbState.users.find(u => {
+      if (!u) return false;
+      if (cleanPhone && cleanPhone.length === 10) {
+        const uClean = String(u.phone).replace(/\D/g, '').slice(-10);
+        if (uClean === cleanPhone) return true;
+      }
+      return String(u._id) === String(phoneOrId) || String(u.id) === String(phoneOrId);
+    });
+    if (!user) return null;
+    user.password = newHashedPassword;
+    user.updatedAt = new Date().toISOString();
+    persistDatabase();
+    return { ...user };
+  },
+
+  updateUserLastLogin(id) {
+    const user = dbState.users.find(u => u._id === id || u.id === id);
+    if (user) {
+      user.lastLoginAt = new Date().toISOString();
+      persistDatabase();
+    }
+  },
+
+  // -------------------------------------------------------------
+  // REFRESH TOKENS & PERSISTENT SESSION MANAGEMENT
+  // -------------------------------------------------------------
+  saveRefreshToken(userId, tokenString, expiresAt, rememberMe = true) {
+    if (!userId || !tokenString) return null;
+    if (!Array.isArray(dbState.refreshTokens)) dbState.refreshTokens = [];
+
+    const now = new Date();
+    // Prune expired tokens across the database
+    dbState.refreshTokens = dbState.refreshTokens.filter(rt => {
+      if (!rt || !rt.expiresAt) return false;
+      return new Date(rt.expiresAt) > now;
+    });
+
+    const sessionRecord = {
+      tokenId: `rt_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+      userId: String(userId),
+      token: tokenString,
+      expiresAt: expiresAt instanceof Date ? expiresAt.toISOString() : new Date(expiresAt).toISOString(),
+      rememberMe: Boolean(rememberMe),
+      createdAt: now.toISOString()
+    };
+
+    dbState.refreshTokens.push(sessionRecord);
+    persistDatabase();
+    return sessionRecord;
+  },
+
+  getRefreshToken(tokenString) {
+    if (!tokenString || !Array.isArray(dbState.refreshTokens)) return null;
+    const now = new Date();
+    const record = dbState.refreshTokens.find(rt => rt && rt.token === tokenString);
+    if (!record) return null;
+    if (new Date(record.expiresAt) <= now) {
+      this.revokeRefreshToken(tokenString);
+      return null;
+    }
+    return { ...record };
+  },
+
+  revokeRefreshToken(tokenString) {
+    if (!tokenString || !Array.isArray(dbState.refreshTokens)) return false;
+    const initialLen = dbState.refreshTokens.length;
+    dbState.refreshTokens = dbState.refreshTokens.filter(rt => rt && rt.token !== tokenString);
+    if (dbState.refreshTokens.length !== initialLen) {
+      persistDatabase();
+      return true;
+    }
+    return false;
+  },
+
+  revokeAllUserRefreshTokens(userId) {
+    if (!userId || !Array.isArray(dbState.refreshTokens)) return false;
+    const target = String(userId);
+    const initialLen = dbState.refreshTokens.length;
+    dbState.refreshTokens = dbState.refreshTokens.filter(rt => rt && rt.userId !== target);
+    if (dbState.refreshTokens.length !== initialLen) {
+      persistDatabase();
+      return true;
+    }
+    return false;
+  },
+
   // Crops
   getCrops(farmerId) {
     if (!farmerId) return [];
@@ -502,7 +751,49 @@ const persistentStore = {
 
     const profile = this.getProfile(userId);
     const farm = this.getFarm(userId);
+    const userFields = this.getFields(userId);
+
+    let resolvedFarm = farm;
+    if (userFields && userFields.length > 0) {
+      const primary = userFields[0];
+      resolvedFarm = {
+        _id: primary.id || primary._id,
+        id: primary.id || primary._id,
+        farmerId: userId,
+        farmName: primary.fieldName || primary.name || farm?.farmName || 'Kipm paddy',
+        name: primary.fieldName || primary.name || farm?.farmName || 'Kipm paddy',
+        farmSize: Number(primary.farmArea || primary.areaAcres || farm?.farmSize) || 3.85,
+        totalArea: Number(primary.farmArea || primary.areaAcres || farm?.farmSize) || 3.85,
+        landUnit: 'Acres',
+        soilType: primary.soilType || farm?.soilType || 'Alluvial Loam / बलुई दोमट मिट्टी',
+        irrigationMethod: primary.irrigationMethod || farm?.irrigationMethod || 'Tube Well & Canal',
+        latitude: primary.latitude || primary.center?.lat || 26.7683,
+        longitude: primary.longitude || primary.center?.lng || 83.2303,
+        center: primary.center || { lat: 26.7683, lng: 83.2303 },
+        boundary: primary.boundary || primary.points || [],
+        points: primary.points || primary.boundary || [],
+        crop: primary.crop || 'Paddy',
+        cropVariety: primary.cropVariety || 'Pusa Basmati 1509',
+        cropStage: primary.cropStage || 'Tillering Stage',
+      };
+    }
+
     const userCrops = this.getCrops(userId);
+    if (userCrops.length === 0 && resolvedFarm?.crop) {
+      userCrops.push({
+        _id: `crop_${userId}_01`,
+        farmId: resolvedFarm._id,
+        farmerId: userId,
+        cropName: resolvedFarm.crop,
+        variety: resolvedFarm.cropVariety || 'Pusa Basmati 1509',
+        cropStage: resolvedFarm.cropStage || 'Tillering Stage',
+        healthStatus: 'Good',
+        healthScore: 88,
+        areaAllocated: Number(resolvedFarm.farmSize) || 3.85,
+        isCurrent: true,
+      });
+    }
+
     const currentCrop = userCrops.find(c => c.isCurrent) || userCrops[0] || null;
     const userTasks = dbState.actionPlans.filter(p => p.farmerId === userId);
     const userScans = dbState.cropScans.filter(s => s.farmerId === userId);
@@ -519,7 +810,8 @@ const persistentStore = {
         isOnboarded: user.isOnboarded,
       },
       profile,
-      farm,
+      farm: resolvedFarm,
+      fields: userFields,
       crops: userCrops,
       currentCrop,
       healthScore: currentCrop ? (currentCrop.healthScore || 88) : 85,
@@ -545,7 +837,8 @@ const persistentStore = {
   getCropScans(farmerId) {
     if (!farmerId) return [];
     return dbState.cropScans.filter(s => s.farmerId === farmerId);
-  }
+  },
+  DEFAULT_KIPM_PADDY_FIELD
 };
 
 module.exports = persistentStore;

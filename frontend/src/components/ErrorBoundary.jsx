@@ -1,9 +1,10 @@
 import React from 'react';
+import { RecoveryManager, LogLevel } from '../selfHealing/index.js';
 
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, recoveryAttempts: 0 };
   }
 
   static getDerivedStateFromError(error) {
@@ -12,10 +13,30 @@ export default class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('Fasal Drishti ErrorBoundary caught an error:', error, errorInfo);
+
+    RecoveryManager.logDiagnostic({
+      level: LogLevel.ERROR,
+      module: 'RootErrorBoundary',
+      errorType: 'UI_RENDER_CRASH',
+      message: error?.message || 'Component render crash',
+      stack: error?.stack || errorInfo?.componentStack || '',
+      status: 'CAUGHT_BY_ROOT_BOUNDARY',
+    });
+
+    // Attempt automatic self-healing remount once if not already looped
+    if (this.state.recoveryAttempts < 1) {
+      setTimeout(() => {
+        this.setState((prev) => ({
+          hasError: false,
+          error: null,
+          recoveryAttempts: prev.recoveryAttempts + 1,
+        }));
+      }, 500);
+    }
   }
 
   handleReset = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, recoveryAttempts: 0 });
     window.location.hash = '#/home';
     window.location.reload();
   };

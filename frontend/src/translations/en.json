@@ -407,7 +407,8 @@
   "crops": {
     "tomato": "Tomato",
     "wheat": "Wheat",
-    "rice": "Rice / Paddy",
+    "rice": "Paddy / धान",
+    "paddy": "Paddy / धान",
     "cotton": "Cotton",
     "maize": "Maize / Corn",
     "potato": "Potato",
@@ -498,6 +499,9 @@
     "timeoutError": "Server response timed out. The server may be waking up, please try again.",
     "farmNotAddedYet": "Farm information not added yet.",
     "farmLocationNotSet": "Farm location not set yet",
-    "unableToCreateAccount": "Unable to create your account right now. Please try again."
+    "unableToCreateAccount": "Unable to create your account right now. Please try again.",
+    "loadingApp": "FASAL DRISHTI",
+    "verifyingSession": "Verifying session...",
+    "sessionExpiredNotice": "Your session has safely ended. Please log in again."
   }
 }

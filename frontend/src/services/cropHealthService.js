@@ -41,9 +41,9 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
   }
 
   // Determine crop name and field name from available real data
-  const cropName = targetField?.crop || currentCrop?.cropName || currentCrop?.name || farm?.mainCrop || 'Wheat';
-  const cropStage = targetField?.cropStage || currentCrop?.stage || 'Flowering Stage';
-  const fieldName = targetField?.fieldName || (farm?.farmSize ? `Main Farm (${farm.farmSize} ${farm.landUnit || 'Acres'})` : 'Plot A - Main Field');
+  const cropName = targetField?.crop || currentCrop?.cropName || currentCrop?.name || farm?.mainCrop || farm?.crop || 'Paddy';
+  const cropStage = targetField?.cropStage || currentCrop?.stage || 'Tillering Stage';
+  const fieldName = targetField?.fieldName || targetField?.name || (farm?.farmName || farm?.name || 'Kipm paddy');
   const actualFieldId = targetField?.id || targetField?._id || fieldId || 'default';
 
   // Check if farmer has at least farm/field or crop information
@@ -341,8 +341,8 @@ export async function fetchCropHealthSummary() {
     const h = calculateCropHealth(f.id || f._id, { targetField: f });
     return {
       fieldId: f.id || f._id,
-      fieldName: f.fieldName || f.name || `Farm ${idx + 1}`,
-      crop: f.crop || 'Wheat',
+      fieldName: f.fieldName || f.name || 'Kipm paddy',
+      crop: f.crop || 'Paddy',
       healthScore: h.healthScore,
       status: h.status,
       confidence: h.confidence,
@@ -352,33 +352,43 @@ export async function fetchCropHealthSummary() {
     };
   });
 
+  const cleanBackend = backendSummaries.filter(b => {
+    const n = (b.fieldName || b.name || '').toLowerCase();
+    return !n.includes('plot a') && !n.includes('main wheat') && b.fieldId !== 'field_demo_01' && b._id !== 'field_demo_01';
+  });
+
   if (localSummaries.length > 0) {
     const localIds = new Set(localSummaries.map(s => String(s.fieldId)));
-    const uniqueBackend = backendSummaries.filter(b => !localIds.has(String(b.fieldId || b.id || b._id)));
+    const uniqueBackend = cleanBackend.filter(b => !localIds.has(String(b.fieldId || b.id || b._id)));
     return [...localSummaries, ...uniqueBackend];
   }
 
-  if (backendSummaries.length > 0) {
-    return backendSummaries;
+  if (cleanBackend.length > 0) {
+    return cleanBackend;
   }
 
   // Fallback to legacy fields
   const legacyFields = safeParse('krishi_farm_fields') || safeParse('krishi_fields') || [];
   if (Array.isArray(legacyFields) && legacyFields.length > 0) {
-    return legacyFields.map(f => {
-      const h = calculateCropHealth(f.id || f._id, { targetField: f });
-      return {
-        fieldId: f.id || f._id,
-        fieldName: f.fieldName || 'Plot',
-        crop: f.crop || 'Wheat',
-        healthScore: h.healthScore,
-        status: h.status,
-        confidence: h.confidence,
-        calculatedAt: h.calculatedAt,
-        reasons: h.reasons,
-        reasonsHi: h.reasonsHi
-      };
-    });
+    return legacyFields
+      .filter(f => {
+        const n = (f.fieldName || f.name || '').toLowerCase();
+        return !n.includes('plot a') && f.id !== 'field_demo_01' && f._id !== 'field_demo_01';
+      })
+      .map(f => {
+        const h = calculateCropHealth(f.id || f._id, { targetField: f });
+        return {
+          fieldId: f.id || f._id,
+          fieldName: f.fieldName || 'Kipm paddy',
+          crop: f.crop || 'Paddy',
+          healthScore: h.healthScore,
+          status: h.status,
+          confidence: h.confidence,
+          calculatedAt: h.calculatedAt,
+          reasons: h.reasons,
+          reasonsHi: h.reasonsHi
+        };
+      });
   }
 
   return [];
@@ -404,11 +414,11 @@ export async function fetchCropHealthHistory(fieldId = 'default', period = '30d'
   }
 
   return [
-    { date: 'Today', time: '10:30 AM', healthScore: 88, status: 'Healthy', confidence: 'High', crop: 'Wheat' },
-    { date: '7 days ago', time: '09:15 AM', healthScore: 84, status: 'Healthy', confidence: 'High', crop: 'Wheat' },
-    { date: '14 days ago', time: '11:45 AM', healthScore: 80, status: 'Healthy', confidence: 'High', crop: 'Wheat' },
-    { date: '1 month ago', time: '08:20 AM', healthScore: 76, status: 'Attention Needed', confidence: 'Medium', crop: 'Wheat' },
-    { date: '3 months ago', time: '02:10 PM', healthScore: 45, status: 'At Risk', confidence: 'High', crop: 'Wheat' },
+    { date: 'Today', time: '10:30 AM', healthScore: 88, status: 'Healthy', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
+    { date: '7 days ago', time: '09:15 AM', healthScore: 84, status: 'Healthy', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
+    { date: '14 days ago', time: '11:45 AM', healthScore: 80, status: 'Healthy', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
+    { date: '1 month ago', time: '08:20 AM', healthScore: 76, status: 'Attention Needed', confidence: 'Medium', crop: 'Paddy', fieldName: 'Kipm paddy' },
+    { date: '3 months ago', time: '02:10 PM', healthScore: 45, status: 'At Risk', confidence: 'High', crop: 'Paddy', fieldName: 'Kipm paddy' },
   ];
 }
 

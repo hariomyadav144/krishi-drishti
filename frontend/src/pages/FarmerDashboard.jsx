@@ -75,9 +75,28 @@ const safeSet = (key, val) => {
 const getInitialDashboardData = (user) => {
   const userId = user?.id || user?._id;
   const userCacheKey = userId ? `krishi_dash_cache_${userId}` : 'krishi_dash_cache';
-  const cached = safeParse(userCacheKey) || safeParse('krishi_dash_cache');
+  let cached = safeParse(userCacheKey) || safeParse('krishi_dash_cache');
   const activeFarm = safeParse('krishi_active_field') || safeParse('farm_data');
   const isDemo = user?.phone === '9876543210' || (typeof window !== 'undefined' && localStorage.getItem('krishi_demo_role') === 'farmer');
+
+  // Sanitize cached location & crop if obsolete
+  if (cached) {
+    if (cached.profile?.village?.toLowerCase().includes('pimpalgaon') || cached.profile?.location?.toLowerCase().includes('pimpalgaon')) {
+      cached.profile.village = 'Sahajanwa';
+      cached.profile.district = 'Gorakhpur';
+      cached.profile.state = 'Uttar Pradesh';
+      cached.profile.location = 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
+    }
+    if (cached.farm?.name?.toLowerCase().includes('plot a') || cached.farm?.farmName?.toLowerCase().includes('plot a')) {
+      cached.farm.name = 'Kipm paddy';
+      cached.farm.farmName = 'Kipm paddy';
+      cached.farm.location = 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
+    }
+    if (cached.currentCrop?.cropName?.toLowerCase() === 'wheat' || cached.currentCrop?.name?.toLowerCase() === 'wheat') {
+      cached.currentCrop.cropName = 'Paddy';
+      cached.currentCrop.name = 'Paddy';
+    }
+  }
 
   if (!isDemo && cached && cached.farmer?.id === userId) {
     const base = { ...cached };
@@ -108,19 +127,35 @@ const getInitialDashboardData = (user) => {
   }
 
   const base = cached || {
-    farmer: { name: 'Rameshwar Patil (रामेश्वर पाटिल)' },
-    profile: MOCK_PROFILE,
-    farm: MOCK_FARM,
-    currentCrop: MOCK_CURRENT_CROP,
+    farmer: { name: 'Hariom yadav' },
+    profile: {
+      ...MOCK_PROFILE,
+      village: 'Sahajanwa',
+      district: 'Gorakhpur',
+      state: 'Uttar Pradesh',
+      location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+    },
+    farm: {
+      ...MOCK_FARM,
+      farmName: 'Kipm paddy',
+      name: 'Kipm paddy',
+      crop: 'Paddy',
+      location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+    },
+    currentCrop: {
+      ...MOCK_CURRENT_CROP,
+      cropName: 'Paddy',
+      name: 'Paddy',
+    },
     crops: MOCK_CROPS,
     healthScore: null,
     pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
-    recentAnalyses: [generateMockScanResult('Tomato').data],
+    recentAnalyses: [generateMockScanResult('Paddy').data],
     recentRecommendations: [
       {
         _id: 'rec_01',
-        query: 'Early blight control',
-        aiResponse: 'Spray Mancozeb 75 WP or Neem Oil',
+        query: 'Paddy health monitoring',
+        aiResponse: 'Crop is in healthy tillering stage with optimal moisture.',
         createdAt: new Date().toISOString(),
       },
     ],
@@ -132,14 +167,15 @@ const getInitialDashboardData = (user) => {
       ...base.farm,
       name: activeFarm.name || activeFarm.fieldName || base.farm.name,
       totalArea: parseFloat(activeFarm.farmArea || activeFarm.areaAcres || base.farm.totalArea),
-      location: activeFarm.location || base.farm.location,
+      location: activeFarm.location || 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
       latitude: activeFarm.latitude || activeFarm.center?.lat || base.farm.latitude,
       longitude: activeFarm.longitude || activeFarm.center?.lng || base.farm.longitude
     };
     if (activeFarm.crop) {
       base.currentCrop = {
         ...base.currentCrop,
-        name: activeFarm.crop
+        name: activeFarm.crop,
+        cropName: activeFarm.crop
       };
     }
   }
@@ -171,7 +207,13 @@ export default function FarmerDashboard({ setActiveTab }) {
   // Real-Time Crop Health States: calculate synchronously on initial load so it renders immediately!
   const [cropHealthData, setCropHealthData] = useState(() => {
     const cached = safeParse('krishi_crop_health_cache');
-    if (cached && typeof cached.healthScore === 'number') return cached;
+    if (cached && typeof cached.healthScore === 'number') {
+      const fName = (cached.fieldName || '').toLowerCase();
+      const cName = (cached.crop || '').toLowerCase();
+      if (!fName.includes('plot a') && !cName.includes('wheat') && cached.fieldId !== 'field_demo_01') {
+        return cached;
+      }
+    }
     const initialDash = getInitialDashboardData();
     return calculateCropHealth('default', {
       farm: initialDash.farm,
@@ -242,10 +284,18 @@ export default function FarmerDashboard({ setActiveTab }) {
         setFieldActions(actionsRes);
       }
       if (Array.isArray(healthSummaryRes) && healthSummaryRes.length > 0) {
-        setHealthFieldsSummary(healthSummaryRes);
+        const cleanSummaries = healthSummaryRes.filter(f => {
+          const n = (f.fieldName || f.name || '').toLowerCase();
+          return !n.includes('plot a') && !n.includes('main wheat') && f.fieldId !== 'field_demo_01' && f._id !== 'field_demo_01';
+        });
+        setHealthFieldsSummary(cleanSummaries);
       }
       if (latestHealthRes && typeof latestHealthRes.healthScore === 'number') {
-        setCropHealthData(latestHealthRes);
+        const lName = (latestHealthRes.fieldName || '').toLowerCase();
+        const lCrop = (latestHealthRes.crop || '').toLowerCase();
+        if (!lName.includes('plot a') && !lCrop.includes('wheat') && latestHealthRes.fieldId !== 'field_demo_01') {
+          setCropHealthData(latestHealthRes);
+        }
       }
     } catch (e) {
       console.warn('Dashboard background refresh note:', e.message);
@@ -297,7 +347,13 @@ export default function FarmerDashboard({ setActiveTab }) {
         setCropHealthData(updated);
       }
       fetchCropHealthSummary().then(res => {
-        if (Array.isArray(res) && res.length > 0) setHealthFieldsSummary(res);
+        if (Array.isArray(res) && res.length > 0) {
+          const clean = res.filter(f => {
+            const n = (f.fieldName || f.name || '').toLowerCase();
+            return !n.includes('plot a') && !n.includes('main wheat') && f.fieldId !== 'field_demo_01' && f._id !== 'field_demo_01';
+          });
+          setHealthFieldsSummary(clean);
+        }
       });
     } catch (err) {
       console.error('Recalculate error:', err);
@@ -383,22 +439,24 @@ export default function FarmerDashboard({ setActiveTab }) {
               <span className="font-extrabold text-[11px] tracking-wider text-emerald-300 uppercase">
                 FASAL DRISHTI
               </span>
-              <span className="text-[9px] font-extrabold bg-emerald-400 text-slate-950 px-2 py-0.5 rounded-full shadow-xs flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-950 animate-ping"></span>
-                <span>LIVE CONNECTED (ANTIGRAVITY)</span>
-              </span>
-              <span className="text-[9px] font-bold uppercase tracking-wider bg-white/20 px-2 py-0.5 rounded-full backdrop-blur-xs truncate max-w-[170px] sm:max-w-none">
-                📍 {[profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ') || t('auth.farmLocationNotSet', 'Farm location not set yet')}
+              <span className="text-[9px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-xs truncate max-w-[220px] sm:max-w-none">
+                📍 {(() => {
+                  const loc = farm?.location || [profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ');
+                  if (!loc || loc.toLowerCase().includes('pimpalgaon') || loc.toLowerCase().includes('nashik')) {
+                    return 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
+                  }
+                  return loc;
+                })()}
               </span>
             </div>
             <h2 className="text-base sm:text-2xl font-black tracking-tight leading-snug truncate">
               {getGreeting()}{farmer?.name || user?.name ? `, ${farmer?.name || user?.name}` : ''}
             </h2>
             <p className="text-[11px] sm:text-xs text-emerald-100/90 font-medium truncate mt-0.5">
-              {farm?.farmName || (farm?.farmSize ? `${farmer?.name || user?.name || 'Farmer'}'s Farm` : t('auth.farmNotAddedYet', 'Farm information not added yet.'))}
-              {farm?.farmSize ? ` • ${farm.farmSize} ${farm?.landUnit || 'Acres'}` : ''}
+              {farm?.farmName || farm?.name || 'Kipm paddy'}
+              {farm?.farmSize || farm?.totalArea ? ` • ${farm.farmSize || farm.totalArea} ${farm?.landUnit || 'Acres'}` : ''}
               {farm?.soilType ? ` (${farm.soilType})` : ''}
-              {currentCrop?.cropName ? ` • 🌱 ${currentCrop.cropName}` : ''}
+              {` • 🌱 धान / Paddy`}
             </p>
           </div>
         </div>
@@ -879,7 +937,7 @@ export default function FarmerDashboard({ setActiveTab }) {
           <div className="flex items-baseline justify-between">
             <div>
               <h5 className="font-bold text-xs">Fall Armyworm & Mildew</h5>
-              <p className="text-[11px] text-rose-200/80">8-14 km away in Nashik Block</p>
+              <p className="text-[11px] text-rose-200/80">8-14 km away in Gorakhpur Block</p>
             </div>
             <span className="text-xs font-bold text-rose-300 underline">View Radar →</span>
           </div>

@@ -1,9 +1,10 @@
 import React from 'react';
+import { RecoveryManager, LogLevel } from '../selfHealing/index.js';
 
 export default class TabErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, recoveryAttempts: 0 };
   }
 
   static getDerivedStateFromError(error) {
@@ -11,17 +12,37 @@ export default class TabErrorBoundary extends React.Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    console.error('[TabErrorBoundary Error]:', error, errorInfo);
+    console.error(`[TabErrorBoundary:${this.props.tabKey} Error]:`, error, errorInfo);
+
+    RecoveryManager.logDiagnostic({
+      level: LogLevel.ERROR,
+      module: `Tab:${this.props.tabKey || 'Unknown'}`,
+      errorType: 'UI_TAB_CRASH',
+      message: error?.message || 'Tab render error',
+      stack: error?.stack || errorInfo?.componentStack || '',
+      status: 'CAUGHT_BY_TAB_BOUNDARY',
+    });
+
+    // Auto-attempt recovery once
+    if (this.state.recoveryAttempts < 1) {
+      setTimeout(() => {
+        this.setState((prev) => ({
+          hasError: false,
+          error: null,
+          recoveryAttempts: prev.recoveryAttempts + 1,
+        }));
+      }, 400);
+    }
   }
 
   componentDidUpdate(prevProps) {
     if (prevProps.tabKey !== this.props.tabKey && this.state.hasError) {
-      this.setState({ hasError: false, error: null });
+      this.setState({ hasError: false, error: null, recoveryAttempts: 0 });
     }
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, recoveryAttempts: 0 });
   };
 
   render() {
@@ -32,7 +53,7 @@ export default class TabErrorBoundary extends React.Component {
             🌱
           </div>
           <h3 className="text-lg font-black text-slate-900">
-            {this.props.title || 'अनुभाग सुरक्षित रीलोड / Refreshing Section'}
+            {this.props.title || 'डेटा सिंक एवं रिफ्रेश / Syncing Data'}
           </h3>
           <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
             इस मॉड्यूल का डेटा पुनः सिंक किया जा रहा है। आप नीचे दिए गए बटन से पुनः प्रयास कर सकते हैं या मुख्य डैशबोर्ड पर जा सकते हैं।

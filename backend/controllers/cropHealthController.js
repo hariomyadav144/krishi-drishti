@@ -1,6 +1,7 @@
 const CropHealthRecord = require('../models/CropHealthRecord');
 const Field = require('../models/Field');
 const { calculateCropHealth } = require('../services/cropHealthEngine');
+const persistentStore = require('../utils/persistentStore');
 const { 
   isDbConnected,
   getStatelessFields, 
@@ -20,10 +21,10 @@ const getLatestCropHealth = async (req, res) => {
     if (fieldId === 'default' || !fieldId) {
       if (isDbConnected()) {
         const firstField = await Field.findOne({ farmerId }).sort({ updatedAt: -1 });
-        fieldId = firstField?._id || 'field_demo_01';
+        fieldId = firstField?._id || 'field_kipm_paddy_01';
       } else {
-        const fields = getStatelessFields();
-        fieldId = fields[0]?._id || 'field_demo_01';
+        const fields = persistentStore.getFields(farmerId);
+        fieldId = fields[0]?._id || fields[0]?.id || 'field_kipm_paddy_01';
       }
     }
 
@@ -49,7 +50,7 @@ const getLatestCropHealth = async (req, res) => {
     try {
       const fallbackRecord = await calculateCropHealth({ 
         farmerId: req.user?._id || 'usr_farmer_demo_01', 
-        fieldId: req.params?.fieldId || 'field_demo_01' 
+        fieldId: req.params?.fieldId || 'field_kipm_paddy_01' 
       });
       return res.status(200).json({
         success: true,
@@ -77,15 +78,28 @@ const getCropHealthSummary = async (req, res) => {
     if (isDbConnected()) {
       fields = await Field.find({ farmerId }).lean();
     } else {
-      fields = getStatelessFields();
+      fields = persistentStore.getFields(farmerId);
+      if (!fields || fields.length === 0) {
+        fields = getStatelessFields(farmerId);
+      }
     }
+
+    // Filter out obsolete legacy mock Plot A / field_demo_01
+    fields = (fields || []).filter(f => {
+      if (!f) return false;
+      if (f._id === 'field_demo_01' || f.id === 'field_demo_01') return false;
+      const n = (f.fieldName || f.name || '').toLowerCase();
+      if (n.includes('plot a') || n.includes('main wheat field')) return false;
+      return true;
+    });
 
     if (!fields || fields.length === 0) {
       fields = [{
-        _id: 'field_demo_01',
-        fieldName: 'Plot A - Main Wheat Field',
-        crop: 'Wheat',
-        cropStage: 'Vegetative Stage'
+        _id: 'field_kipm_paddy_01',
+        id: 'field_kipm_paddy_01',
+        fieldName: 'Kipm paddy',
+        crop: 'Paddy',
+        cropStage: 'Tillering Stage'
       }];
     }
 
@@ -106,13 +120,13 @@ const getCropHealthSummary = async (req, res) => {
 
         return {
           fieldId,
-          fieldName: f.fieldName || latestRecord?.fieldName || 'Plot',
-          crop: f.crop || latestRecord?.crop || 'Wheat',
-          cropStage: f.cropStage || latestRecord?.cropStage || 'Vegetative Stage',
-          healthScore: latestRecord?.healthScore || 75,
+          fieldName: f.fieldName || latestRecord?.fieldName || 'Kipm paddy',
+          crop: f.crop || latestRecord?.crop || 'Paddy',
+          cropStage: f.cropStage || latestRecord?.cropStage || 'Tillering Stage',
+          healthScore: latestRecord?.healthScore || 88,
           status: latestRecord?.status || 'Healthy',
           statusHi: latestRecord?.statusHi || 'स्वस्थ',
-          confidence: latestRecord?.confidence || 'Medium',
+          confidence: latestRecord?.confidence || 'High',
           lastUpdated: latestRecord?.calculatedAt || new Date().toISOString()
         };
       })
@@ -200,10 +214,10 @@ const recalculateCropHealth = async (req, res) => {
     if (fieldId === 'default' || !fieldId) {
       if (isDbConnected()) {
         const firstField = await Field.findOne({ farmerId }).sort({ updatedAt: -1 });
-        fieldId = firstField?._id || 'field_demo_01';
+        fieldId = firstField?._id || 'field_kipm_paddy_01';
       } else {
-        const fields = getStatelessFields();
-        fieldId = fields[0]?._id || 'field_demo_01';
+        const fields = persistentStore.getFields(farmerId);
+        fieldId = fields[0]?._id || fields[0]?.id || 'field_kipm_paddy_01';
       }
     }
 

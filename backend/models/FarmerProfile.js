@@ -14,21 +14,21 @@ const farmerProfileSchema = new mongoose.Schema({
   state: {
     type: String,
     required: true,
-    default: 'Maharashtra',
+    default: 'Uttar Pradesh',
   },
   district: {
     type: String,
     required: true,
-    default: 'Nashik',
+    default: 'Gorakhpur',
   },
   village: {
     type: String,
     required: true,
-    default: 'Pimpalgaon',
+    default: 'Sahajanwa',
   },
   pincode: {
     type: String,
-    default: '422209',
+    default: '273209',
   },
   experienceYears: {
     type: Number,

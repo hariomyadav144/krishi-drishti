@@ -40,24 +40,27 @@ const USERS = [
 
 const PROFILE = {
   userId: 'usr_farmer_demo_01',
-  state: 'Maharashtra',
-  district: 'Nashik',
-  village: 'Pimpalgaon Baswant',
-  pincode: '422209',
-  location: 'Pimpalgaon Baswant, Nashik, Maharashtra',
+  state: 'Uttar Pradesh',
+  district: 'Gorakhpur',
+  village: 'Sahajanwa',
+  pincode: '273209',
+  location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
   experienceYears: 14
 };
 
 const FARM = {
   _id: 'farm_demo_01',
   farmerId: 'usr_farmer_demo_01',
-  farmName: 'Shri Ganesha Krishi Farm',
-  farmSize: 5.5,
+  farmName: 'Kipm paddy',
+  name: 'Kipm paddy',
+  farmSize: 3.85,
   landUnit: 'Acres',
-  soilType: 'Black Soil / Regur',
-  irrigationMethod: 'Drip Irrigation',
+  soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+  irrigationMethod: 'Tube Well & Canal',
   soilPh: 6.9,
-  organicMatter: 'Medium (0.75%)'
+  organicMatter: 'Medium (0.75%)',
+  crop: 'Paddy',
+  location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India'
 };
 
 const CROPS = [
@@ -1664,76 +1667,40 @@ function addStatelessSoilTest(fieldId, soilData) {
 // -------------------------------------------------------------
 const STATELESS_HEALTH_RECORDS = [
   {
-    _id: 'rec_hlth_wheat_01',
+    _id: 'rec_hlth_paddy_01',
     farmerId: 'usr_farmer_demo_01',
-    fieldId: 'field_demo_01',
-    fieldName: 'Plot A - Main Wheat Field',
-    crop: 'Wheat',
-    cropStage: 'Vegetative Stage',
-    healthScore: 78,
-    status: 'Attention Needed',
-    statusHi: 'ध्यान योग्य',
-    confidence: 'High',
-    confidenceScore: 90,
-    factors: {
-      cropCondition: { score: 72, available: true, weight: 0.30, details: 'Minor yellowing observed', detailsHi: 'हल्का पीलापन देखा गया' },
-      soilMoisture: { score: 70, available: true, weight: 0.20, details: 'Soil moisture decreasing', detailsHi: 'मिट्टी में नमी कम हो रही है' },
-      weather: { score: 85, available: true, weight: 0.15, details: '27°C, 62% humidity', detailsHi: '27°C, 62% आर्द्रता' },
-      irrigation: { score: 80, available: true, weight: 0.10, details: 'Irrigation scheduled within 48h', detailsHi: '48 घंटों में सिंचाई की सिफारिश' },
-      cropStage: { score: 88, available: true, weight: 0.10, details: 'Vegetative stage progress normal', detailsHi: 'वानस्पतिक विकास सामान्य' },
-      nutrients: { score: 84, available: true, weight: 0.10, details: 'Basal fertilizer active', detailsHi: 'बुवाई के समय दी गई खाद सक्रिय' },
-      farmMonitoring: { score: 80, available: true, weight: 0.05, details: 'Sentinel-2 NDVI 0.72', detailsHi: 'उपग्रह NDVI 0.72' }
-    },
-    reasons: ['✓ Favorable weather & temperature', '⚠ Soil moisture is decreasing below recommended level'],
-    reasonsHi: ['✓ मौसम एवं तापमान फसल के अनुकूल है', '⚠ मिट्टी में नमी की कमी देखी जा रही है'],
-    explanation: 'Wheat health is at 78% because soil moisture was decreasing. Timely irrigation will restore peak health.',
-    explanationHi: 'गेहूं का स्वास्थ्य 78% है क्योंकि खेत में नमी कम हो रही थी। सिंचाई के बाद स्वास्थ्य में सुधार होगा।',
-    recommendations: [
-      { id: 'rec_01', title: 'Schedule Field Irrigation', titleHi: 'खेत में सिंचाई करें', description: 'Apply irrigation within 24-48 hours', descriptionHi: '24-48 घंटों के भीतर सिंचाई करें', urgency: 'High', category: 'Irrigation' }
-    ],
-    dataSources: [
-      { name: 'Latest Crop Image Scan', available: true, lastRecorded: new Date(Date.now() - 15 * 86400000).toISOString() },
-      { name: 'Soil Moisture Telemetry', available: true, lastRecorded: new Date(Date.now() - 15 * 86400000).toISOString() },
-      { name: 'Weather & Microclimate Data', available: true, lastRecorded: new Date(Date.now() - 15 * 86400000).toISOString() }
-    ],
-    calculatedAt: new Date(Date.now() - 15 * 86400000).toISOString(),
-    createdAt: new Date(Date.now() - 15 * 86400000).toISOString()
-  },
-  {
-    _id: 'rec_hlth_wheat_02',
-    farmerId: 'usr_farmer_demo_01',
-    fieldId: 'field_demo_01',
-    fieldName: 'Plot A - Main Wheat Field',
-    crop: 'Wheat',
-    cropStage: 'Vegetative Stage',
-    healthScore: 84,
+    fieldId: 'field_kipm_paddy_01',
+    fieldName: 'Kipm paddy',
+    crop: 'Paddy',
+    cropStage: 'Tillering Stage',
+    healthScore: 88,
     status: 'Healthy',
     statusHi: 'स्वस्थ',
     confidence: 'High',
-    confidenceScore: 90,
+    confidenceScore: 92,
     factors: {
-      cropCondition: { score: 86, available: true, weight: 0.30, details: 'Foliage recovered after irrigation', detailsHi: 'सिंचाई के बाद पत्तियां हरी-भरी' },
-      soilMoisture: { score: 82, available: true, weight: 0.20, details: 'Moisture restored to optimal', detailsHi: 'नमी का स्तर पुनः उत्तम' },
-      weather: { score: 88, available: true, weight: 0.15, details: '26°C, 65% humidity', detailsHi: '26°C, 65% आर्द्रता' },
-      irrigation: { score: 92, available: true, weight: 0.10, details: 'No irrigation needed', detailsHi: 'आज सिंचाई की आवश्यकता नहीं' },
-      cropStage: { score: 88, available: true, weight: 0.10, details: 'Vigour strong', detailsHi: 'मजबूत विकास' },
-      nutrients: { score: 85, available: true, weight: 0.10, details: 'Nutrients balanced', detailsHi: 'पोषक तत्व संतुलित' },
-      farmMonitoring: { score: 84, available: true, weight: 0.05, details: 'Sentinel-2 NDVI 0.75', detailsHi: 'उपग्रह NDVI 0.75' }
+      cropCondition: { score: 92, available: true, weight: 0.30, details: 'Clean vigorous tillers & foliage', detailsHi: 'पत्तियां व कल्ले स्वस्थ एवं रोगमुक्त' },
+      soilMoisture: { score: 85, available: true, weight: 0.20, details: 'Soil moisture optimal for tillering', detailsHi: 'टिलरिंग हेतु नमी उत्तम' },
+      weather: { score: 88, available: true, weight: 0.15, details: '27°C, 65% humidity', detailsHi: '27°C, 65% आर्द्रता' },
+      irrigation: { score: 90, available: true, weight: 0.10, details: 'Irrigation on schedule', detailsHi: 'सिंचाई निर्धारित समय पर' },
+      cropStage: { score: 90, available: true, weight: 0.10, details: 'Active tillering', detailsHi: 'सक्रिय कल्ले निकलना' },
+      nutrients: { score: 86, available: true, weight: 0.10, details: 'Balanced nutrition', detailsHi: 'संतुलित पोषण' },
+      farmMonitoring: { score: 85, available: true, weight: 0.05, details: 'Sentinel-2 NDVI 0.78', detailsHi: 'उपग्रह NDVI 0.78' }
     },
-    reasons: ['✓ No significant disease detected in latest scan', '✓ Soil moisture within recommended range', '✓ Favorable weather & temperature conditions'],
-    reasonsHi: ['✓ नवीनतम जांच में कोई गंभीर रोग नहीं पाया गया', '✓ मिट्टी में नमी उचित स्तर पर है', '✓ मौसम एवं तापमान फसल के अनुकूल है'],
-    explanation: 'Wheat is healthy at 84%. Root zone moisture is balanced and foliage is vigorous.',
-    explanationHi: 'गेहूं 84% के साथ स्वस्थ है। जड़ों में पर्याप्त नमी है और वानस्पतिक विकास तेजी से हो रहा है।',
+    reasons: ['✓ Favorable weather & temperature', '✓ Soil moisture is optimal for vegetative tillering'],
+    reasonsHi: ['✓ मौसम एवं तापमान फसल के अनुकूल है', '✓ मिट्टी में नमी की मात्रा टिलरिंग हेतु उत्तम है'],
+    explanation: 'Paddy health is at 88% with optimal soil moisture and vigorous tillering progress.',
+    explanationHi: 'धान का स्वास्थ्य 88% के साथ उत्तम है। खेत में पर्याप्त नमी है और टिलरिंग सामान्य रूप से हो रही है।',
     recommendations: [
-      { id: 'rec_02', title: 'Maintain Regular Crop Inspection', titleHi: 'नियमित फसल निरीक्षण जारी रखें', description: 'Continue weekly scouting', descriptionHi: 'साप्ताहिक जांच जारी रखें', urgency: 'Low', category: 'General' }
+      { id: 'rec_01', title: 'Maintain Water Level', titleHi: 'पानी का स्तर बनाए रखें', description: 'Maintain 2-3 cm standing water in field', descriptionHi: 'खेत में 2-3 सेमी पानी बनाए रखें', urgency: 'Normal', category: 'Irrigation' }
     ],
     dataSources: [
-      { name: 'Latest Crop Image Scan', available: true, lastRecorded: new Date(Date.now() - 7 * 86400000).toISOString() },
-      { name: 'Soil Moisture Telemetry', available: true, lastRecorded: new Date(Date.now() - 7 * 86400000).toISOString() },
-      { name: 'Weather & Microclimate Data', available: true, lastRecorded: new Date(Date.now() - 7 * 86400000).toISOString() }
+      { name: 'Latest Crop Image Scan', available: true, lastRecorded: new Date(Date.now() - 3 * 86400000).toISOString() },
+      { name: 'Soil Moisture Telemetry', available: true, lastRecorded: new Date(Date.now() - 3 * 86400000).toISOString() },
+      { name: 'Weather & Microclimate Data', available: true, lastRecorded: new Date(Date.now() - 3 * 86400000).toISOString() }
     ],
-    calculatedAt: new Date(Date.now() - 7 * 86400000).toISOString(),
-    createdAt: new Date(Date.now() - 7 * 86400000).toISOString()
+    calculatedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
   }
 ];
 
@@ -1774,20 +1741,20 @@ const STATELESS_ACTION_ITEMS = [
   {
     _id: 'act_item_demo_01',
     farmerId: 'usr_farmer_demo_01',
-    fieldId: 'field_demo_01',
-    fieldName: 'Plot A - Main Wheat Field',
-    issueKey: 'moisture_stress',
-    title: 'Moisture Stress Detected: Plan Irrigation',
-    titleHi: 'नमी की कमी: 24-48 घंटे में सिंचाई करें',
-    description: 'Soil moisture is declining under active vegetative growth. Rainfall is not expected soon.',
-    descriptionHi: 'फसल की सक्रिय वृद्धि के कारण नमी कम हो रही है और बारिश की संभावना नहीं है।',
-    severity: 'high',
+    fieldId: 'field_kipm_paddy_01',
+    fieldName: 'Kipm paddy',
+    issueKey: 'moisture_optimal',
+    title: 'Moisture Balanced: Continue Routine Care',
+    titleHi: 'नमी संतुलित: सामान्य देखभाल जारी रखें',
+    description: 'Soil moisture is in optimal vegetative range for Basmati paddy.',
+    descriptionHi: 'धान की फसल हेतु खेत में नमी का स्तर उत्तम बना हुआ है।',
+    severity: 'low',
     category: 'irrigation',
     dataSource: 'soil_sensor',
-    confidence: 88,
+    confidence: 90,
     status: 'pending',
     resolutionStatus: 'active',
-    initialMetric: { name: 'moistureScore', value: 38, unit: '%' },
+    initialMetric: { name: 'moistureScore', value: 85, unit: '%' },
     createdAt: new Date(Date.now() - 3600000 * 4).toISOString()
   }
 ];

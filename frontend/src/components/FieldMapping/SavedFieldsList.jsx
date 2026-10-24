@@ -23,9 +23,13 @@ export default function SavedFieldsList({
   onNavigateIntelligence
 }) {
   const { lang } = useLanguage();
+  const cleanFields = (fields || []).filter(f => {
+    const n = String(f?.name || f?.fieldName || '').toLowerCase();
+    return !n.includes('plot a') && !n.includes('main wheat') && f?.id !== 'field_demo_01' && f?._id !== 'field_demo_01';
+  });
 
   // Section 25: Empty Farm State
-  if (!fields || fields.length === 0) {
+  if (!cleanFields || cleanFields.length === 0) {
     return (
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-8 text-center space-y-4">
         <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto text-2xl shadow-inner">
@@ -70,7 +74,7 @@ export default function SavedFieldsList({
               {lang === 'hi' ? 'आपके खेत (Your Farms)' : 'Your Farms'}
             </h3>
             <p className="text-[11px] text-slate-500">
-              {fields.length} {fields.length === 1 ? 'field saved' : 'fields saved'} • Choose an active field for farm intelligence
+              {cleanFields.length} {cleanFields.length === 1 ? 'field saved' : 'fields saved'} • Choose an active field for farm intelligence
             </p>
           </div>
         </div>
@@ -91,7 +95,7 @@ export default function SavedFieldsList({
 
       {/* Farm Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {fields.map((farm, index) => {
+        {cleanFields.map((farm, index) => {
           const isActive = farm.id === activeFieldId || farm._id === activeFieldId;
           const farmName = farm.name || farm.fieldName || `Farm ${index + 1}`;
           const cornersCount = (farm.boundary && Array.isArray(farm.boundary))

@@ -425,12 +425,12 @@ COMPLETE FARM INTELLIGENCE CONTEXT FOR THIS FARM:
 ==================================================
 1. FARM & PLOT:
    - Farmer: ${context.farmInfo?.farmerName || 'Farmer'}${context.farmInfo?.village || context.farmInfo?.district ? ` (${[context.farmInfo?.village, context.farmInfo?.district, context.farmInfo?.state].filter(Boolean).join(', ')})` : ''}
-   - Field: "${f.fieldName || 'Plot A'}" | Area: ${f.areaAcres || 0} ${context.farmInfo?.landUnit || 'Acres'}
+   - Field: "${f.fieldName || 'Kipm paddy'}" | Area: ${f.areaAcres || 0} ${context.farmInfo?.landUnit || 'Acres'}
    - Soil Classification: ${f.soilType || 'Standard'} | Drainage: ${f.drainage || 'Well Drained'}
    - Irrigation Facility: ${f.irrigationMethod || 'Standard'}
 
 2. CROP & GROWTH STAGE:
-   - Active Crop: ${c.crop || 'Wheat'} | Variety: ${c.cropVariety || 'Certified Hybrid'}
+   - Active Crop: ${c.crop || 'Paddy'} | Variety: ${c.cropVariety || 'Certified Hybrid'}
    - Sowing Date: ${c.sowingDate ? new Date(c.sowingDate).toLocaleDateString() : '35 days ago'} (Crop Age: ${c.cropAgeDays || 35} days)
    - Current Stage: ${c.cropStage || 'Vegetative Stage'}
    - Target Yield: ${c.targetYieldQuintalPerAcre || 22} Quintals/Acre

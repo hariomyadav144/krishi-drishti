@@ -36,20 +36,23 @@ export const MOCK_ADMIN_USER = {
 };
 
 export const MOCK_PROFILE = {
-  state: 'Maharashtra',
-  district: 'Nashik',
-  village: 'Pimpalgaon Baswant',
-  location: 'Pimpalgaon Baswant, Nashik, Maharashtra',
-  pincode: '422209',
+  state: 'Uttar Pradesh',
+  district: 'Gorakhpur',
+  village: 'Sahajanwa',
+  location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+  pincode: '273209',
   experienceYears: 12,
 };
 
 export const MOCK_FARM = {
-  farmName: 'Shri Ganesha Fasal Farm',
-  farmSize: 5.0,
+  farmName: 'Kipm paddy',
+  name: 'Kipm paddy',
+  farmSize: 3.85,
   landUnit: 'Acres',
-  soilType: 'Black Soil / Regur',
-  irrigationMethod: 'Drip Irrigation',
+  soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+  irrigationMethod: 'Tube Well & Canal',
+  location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+  crop: 'Paddy',
 };
 
 export const MOCK_CURRENT_CROP = {

@@ -7,6 +7,7 @@ const ActionPlan = require('../models/ActionPlan');
 const CropAnalysis = require('../models/CropAnalysis');
 const Recommendation = require('../models/Recommendation');
 const Alert = require('../models/Alert');
+const persistentStore = require('../utils/persistentStore');
 const { runFieldMonitoringPipeline } = require('../services/fieldMonitoringService');
 const { 
   isDbConnected, 
@@ -179,7 +180,7 @@ const getFarmerDashboard = async (req, res) => {
     const userId = req.user._id;
 
     if (!isDbConnected()) {
-      const data = getStatelessDashboardForUser(userId);
+      const data = persistentStore.getDashboardForUser(userId) || getStatelessDashboardForUser(userId);
       return res.json({
         success: true,
         data: data || getStatelessDashboard()
@@ -221,7 +222,7 @@ const getFarmerDashboard = async (req, res) => {
     });
   } catch (error) {
     console.error('Farmer dashboard error:', error.message);
-    const fallbackData = getStatelessDashboardForUser(req.user?._id);
+    const fallbackData = persistentStore.getDashboardForUser(req.user?._id) || getStatelessDashboardForUser(req.user?._id);
     res.json({
       success: true,
       data: fallbackData || {
@@ -338,32 +339,56 @@ const getFarmInsights = async (req, res) => {
   }
 };
 
-// Field Mapping In-Memory Synchronization
+// Field Mapping Permanent Persistence
 const isLegacyMockField = (f) => {
   if (!f) return true;
-  if (Array.isArray(f.points) && f.points.length === 7) return true;
-  if (f.fieldName && (f.fieldName.includes('North Plot') || f.fieldName.includes('field_demo'))) return true;
+  // NEVER filter out fields based on points.length (a legitimate farm can have 7, 8 or any number of boundary corners!)
   if (f.id === 'field_demo_01' || f._id === 'field_demo_01' || f.id === 'field_demo_maize_01') return true;
-  if (Array.isArray(f.points) && f.points.some(p => Math.abs(p.lat - 20.174) < 0.05 && Math.abs(p.lng - 73.985) < 0.05)) return true;
   return false;
 };
 
 const getFields = async (req, res) => {
-  try {
-    const farmerId = req.user?._id;
-    if (isDbConnected() && farmerId) {
-      const dbFields = await Field.find({ farmerId }).sort({ createdAt: -1 });
-      if (dbFields && dbFields.length > 0) {
-        const cleanDbFields = dbFields.filter(f => !isLegacyMockField(f));
-        return res.json({ success: true, data: cleanDbFields });
-      }
-    }
-  } catch (err) {
-    console.warn('Field lookup from DB warning:', err.message);
+  const farmerId = req.user?._id || req.user?.id;
+  if (!farmerId) {
+    return res.status(401).json({ success: false, message: 'Authentication required' });
   }
-  const fields = getStatelessFields(req.user?._id);
-  const cleanFields = fields.filter(f => !isLegacyMockField(f));
-  res.json({ success: true, data: cleanFields });
+
+  let dbFields = [];
+  // 1. Retrieve from MongoDB if connected
+  if (isDbConnected()) {
+    try {
+      const records = await Field.find({ farmerId }).sort({ createdAt: -1 });
+      if (records && records.length > 0) {
+        dbFields = records.map(f => f.toObject ? f.toObject() : f);
+      }
+    } catch (err) {
+      console.warn('Field lookup from DB warning:', err.message);
+    }
+  }
+
+  // 2. Retrieve from permanent disk persistentStore
+  const diskFields = persistentStore.getFields(farmerId);
+
+  // 3. Fallback to stateless store if both empty
+  const statelessFields = getStatelessFields(farmerId);
+
+  // 4. Merge all fields cleanly (deduplicate by id)
+  const mergedMap = new Map();
+  statelessFields.forEach(f => {
+    const key = f.id || f._id;
+    if (key && !isLegacyMockField(f)) mergedMap.set(String(key), f);
+  });
+  diskFields.forEach(f => {
+    const key = f.id || f._id;
+    if (key && !isLegacyMockField(f)) mergedMap.set(String(key), f);
+  });
+  dbFields.forEach(f => {
+    const key = f.id || f._id;
+    if (key && !isLegacyMockField(f)) mergedMap.set(String(key), f);
+  });
+
+  const finalFields = Array.from(mergedMap.values()).sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  return res.json({ success: true, data: finalFields });
 };
 
 const saveField = async (req, res) => {
@@ -388,17 +413,27 @@ const saveField = async (req, res) => {
     }
   }
 
-  const farmerId = req.user?._id;
+  const farmerId = req.user?._id || req.user?.id;
   if (!farmerId) {
     return res.status(401).json({ success: false, message: 'Authentication required to save field.' });
   }
 
-  if (isDbConnected() && req.user?._id) {
+  // 1. ALWAYS permanently save to disk persistentStore first for 100% zero-data-loss guarantee
+  const savedDiskField = persistentStore.saveField(farmerId, fieldData);
+
+  // 2. Keep in-memory statelessStore aligned
+  try {
+    saveStatelessField(savedDiskField, farmerId);
+  } catch (_) {}
+
+  // 3. Save to MongoDB if connected
+  let savedDbField = null;
+  if (isDbConnected()) {
     try {
-      let savedDbField = null;
-      if (fieldData._id || (fieldData.id && fieldData.id.match(/^[0-9a-fA-F]{24}$/))) {
+      const queryId = fieldData._id || fieldData.id;
+      if (queryId && queryId.match(/^[0-9a-fA-F]{24}$/)) {
         savedDbField = await Field.findOneAndUpdate(
-          { _id: fieldData._id || fieldData.id, farmerId },
+          { _id: queryId, farmerId },
           { ...fieldData, farmerId },
           { new: true, upsert: true }
         );
@@ -409,42 +444,43 @@ const saveField = async (req, res) => {
         });
       }
 
-      // Proactively trigger autonomous monitoring pipeline immediately upon field registration
+      // Proactively trigger autonomous monitoring pipeline
       try {
         runFieldMonitoringPipeline(savedDbField._id, farmerId)
           .catch(e => console.warn('[FieldSave] Initial monitoring auto-run note:', e.message));
       } catch (_) {}
-
-      // Keep stateless copy aligned
-      saveStatelessField(savedDbField.toObject ? savedDbField.toObject() : savedDbField, farmerId);
-
-      return res.json({ success: true, data: savedDbField });
     } catch (dbErr) {
       console.warn('Field save to DB warning:', dbErr.message);
     }
   }
 
-  const saved = saveStatelessField(fieldData, farmerId);
-  res.json({ success: true, data: saved });
+  const responseField = savedDbField ? (savedDbField.toObject ? savedDbField.toObject() : savedDbField) : savedDiskField;
+  res.json({ success: true, data: responseField });
 };
 
 const deleteField = async (req, res) => {
   const { id } = req.params;
-  const farmerId = req.user?._id;
+  const farmerId = req.user?._id || req.user?.id;
   if (!farmerId) {
     return res.status(401).json({ success: false, message: 'Authentication required to delete field.' });
   }
 
-  if (isDbConnected() && req.user?._id) {
+  // Delete from persistent disk store
+  const remainingDisk = persistentStore.deleteField(farmerId, id);
+
+  // Delete from stateless memory store
+  deleteStatelessField(id, farmerId);
+
+  // Delete from MongoDB if connected
+  if (isDbConnected()) {
     try {
-      await Field.findOneAndDelete({ _id: id, farmerId });
+      await Field.findOneAndDelete({ $or: [{ _id: id }, { id }], farmerId });
     } catch (err) {
       console.warn('Field deletion DB warning:', err.message);
     }
   }
 
-  const remaining = deleteStatelessField(id, farmerId);
-  res.json({ success: true, message: 'Field deleted', data: remaining });
+  res.json({ success: true, message: 'Field deleted successfully', data: remainingDisk });
 };
 
 module.exports = {

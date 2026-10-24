@@ -16,21 +16,33 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    buildFeatures {
+        buildConfig = true
+    }
     signingConfigs {
         release {
             def keystorePropsFile = rootProject.file("keystore.properties")
             if (keystorePropsFile.exists()) {
                 def props = new Properties()
                 props.load(new FileInputStream(keystorePropsFile))
-                storeFile = file(props['storeFile'])
+                def rawStorePath = props['storeFile']
+                if (rootProject.file(rawStorePath).exists()) {
+                    storeFile = rootProject.file(rawStorePath)
+                } else {
+                    storeFile = file(rawStorePath)
+                }
                 storePassword = props['storePassword']
                 keyAlias = props['keyAlias']
                 keyPassword = props['keyPassword']
+                v1SigningEnabled = true
+                v2SigningEnabled = true
             } else if (System.getenv("KEYSTORE_FILE") != null) {
                 storeFile = file(System.getenv("KEYSTORE_FILE"))
                 storePassword = System.getenv("KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("KEY_ALIAS")
                 keyPassword = System.getenv("KEY_PASSWORD")
+                v1SigningEnabled = true
+                v2SigningEnabled = true
             }
         }
     }

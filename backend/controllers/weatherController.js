@@ -6,8 +6,8 @@ const { isDbConnected } = require('../utils/statelessStore');
 // @route GET /api/weather
 const getWeather = async (req, res) => {
   try {
-    let district = req.query.district || req.query.city || 'Nashik';
-    let state = req.query.state || 'Maharashtra';
+    let district = req.query.district || req.query.city || 'Gorakhpur';
+    let state = req.query.state || 'Uttar Pradesh';
 
     if (isDbConnected() && req.user?._id) {
       try {

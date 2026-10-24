@@ -55,9 +55,9 @@ export default function WeatherPage() {
         } catch (_) {}
       }
 
-      lat = lat || 20.00;
-      lng = lng || 73.78;
-      name = name || 'Nashik, Maharashtra';
+      lat = lat || 26.7684;
+      lng = lng || 83.2305;
+      name = name || 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
 
       console.log(`[WEATHER REQUEST] latitude: ${lat}, longitude: ${lng}, name: ${name}`);
 
@@ -200,7 +200,7 @@ export default function WeatherPage() {
             <p className="text-xs text-slate-700 font-bold flex items-center gap-1.5">
               <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
               <span>
-                {activeLocationInfo?.name || (typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Nashik, Maharashtra'))}
+                {activeLocationInfo?.name || (typeof location === 'object' && location !== null ? `${location.district || ''}, ${location.state || ''}` : (location || 'Sahajanwa, Gorakhpur, Uttar Pradesh, India'))}
               </span>
             </p>
 
@@ -298,9 +298,9 @@ export default function WeatherPage() {
       {showMap && (
         <FarmLocationMap 
           onLocationSelect={handleLocationSelect}
-          initialLat={activeLocationInfo?.lat || 20.00}
-          initialLng={activeLocationInfo?.lng || 73.78}
-          initialName={activeLocationInfo?.name || (typeof location === 'string' ? location : 'Nashik, Maharashtra')}
+          initialLat={activeLocationInfo?.lat || 26.7684}
+          initialLng={activeLocationInfo?.lng || 83.2305}
+          initialName={activeLocationInfo?.name || (typeof location === 'string' ? location : 'Sahajanwa, Gorakhpur, Uttar Pradesh, India')}
           activeCoords={activeLocationInfo}
         />
       )}

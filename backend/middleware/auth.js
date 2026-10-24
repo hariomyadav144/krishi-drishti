@@ -53,7 +53,36 @@ const protect = async (req, res, next) => {
       req.user = getStatelessUserByRole(role);
       return next();
     }
-    return res.status(401).json({ success: false, message: 'Invalid or expired token.' });
+
+    // PERMANENT LOGIN: Token expiry alone MUST NEVER drop authenticated farmer session
+    if (err.name === 'TokenExpiredError') {
+      try {
+        const decoded = jwt.decode(token);
+        if (decoded && decoded.id) {
+          if (isDbConnected()) {
+            try {
+              const dbUser = await User.findById(decoded.id).select('-password');
+              if (dbUser) {
+                req.user = dbUser;
+                return next();
+              }
+            } catch (_) {}
+          }
+          const storeUser = persistentStore.getUserById(decoded.id) || getStatelessUserById(decoded.id);
+          if (storeUser) {
+            req.user = storeUser;
+            return next();
+          }
+        }
+      } catch (_) {}
+    }
+
+    const isExpired = err.name === 'TokenExpiredError';
+    return res.status(401).json({
+      success: false,
+      code: isExpired ? 'TOKEN_EXPIRED' : 'INVALID_TOKEN',
+      message: isExpired ? 'Access token has expired.' : 'Invalid or expired token.'
+    });
   }
 };
 

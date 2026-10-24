@@ -133,7 +133,7 @@ export default function CropHealthModal({
               🌱 Deep Agronomic Diagnostic
             </span>
             <h2 className="text-base sm:text-lg font-black text-slate-900 mt-1">
-              {healthData.fieldName} • {healthData.crop}
+              {healthData.fieldName && !healthData.fieldName.toLowerCase().includes('plot a') ? healthData.fieldName : 'Kipm paddy'} • {['paddy', 'rice', 'धान', 'चावल'].includes(String(healthData?.crop).toLowerCase().trim()) ? 'धान / Paddy' : (healthData.crop || 'धान / Paddy')}
             </h2>
           </div>
           <button

@@ -6,6 +6,7 @@ const FieldAlert = require('../models/FieldAlert');
 const FieldActionItem = require('../models/FieldActionItem');
 const { getCopernicusAccessToken } = require('./copernicusService');
 const { GoogleGenAI } = require('@google/genai');
+const persistentStore = require('../utils/persistentStore');
 const {
   isDbConnected,
   getStatelessFields,
@@ -993,13 +994,16 @@ async function evaluateClosedLoopActionResolution({ field, observation, moisture
  * MAIN ORCHESTRATION PIPELINE: Run complete autonomous field monitoring check
  */
 async function runFieldMonitoringPipeline(fieldId, farmerId) {
-  let field = null;
-  if (isDbConnected() && mongoose.isValidObjectId(fieldId)) {
+  let field = persistentStore.getFieldById(farmerId, fieldId);
+  if (!field && isDbConnected() && mongoose.isValidObjectId(fieldId)) {
     field = await Field.findOne({ _id: fieldId, farmerId });
   }
   if (!field) {
     const fields = getStatelessFields(farmerId);
     field = fields.find(f => String(f._id) === String(fieldId) || String(f.id) === String(fieldId)) || fields[0] || null;
+  }
+  if (!field && (fieldId === 'field_kipm_paddy_01' || String(fieldId).toLowerCase().includes('kipm'))) {
+    field = persistentStore.getFieldById(farmerId, 'field_kipm_paddy_01');
   }
   if (!field) {
     throw new Error('Field not found or unauthorized access.');

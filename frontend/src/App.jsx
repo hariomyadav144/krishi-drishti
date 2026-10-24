@@ -9,8 +9,6 @@ import BottomNav from './components/BottomNav';
 import TabErrorBoundary from './components/TabErrorBoundary';
 import SwarAssistant from './components/SwarAssistant';
 import LanguageSelectionModal from './components/LanguageSelectionModal';
-import PresentationToolbar from './components/PresentationToolbar';
-import PhoneFrameContainer from './components/PhoneFrameContainer';
 import InAppUpdateModal from './components/InAppUpdateModal';
 
 // Direct static imports for all pages — eliminates dynamic chunk fetching failures on GitHub Pages & delivers instant 0ms tab navigation
@@ -66,35 +64,6 @@ function MainApp() {
   const [authView, setAuthView] = useState('login'); // 'login' | 'register'
   const [activeTab, setActiveTabState] = useState(() => getTabFromHash());
 
-  // VIP Presentation View Mode: 'phone' (realistic smartphone mockup) | 'desktop' (wide screen dashboard)
-  const [viewMode, setViewModeState] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('krishi_view_mode');
-      if (saved === 'phone' || saved === 'desktop') return saved;
-      // Default to phone mockup so on large laptop/projector screens it presents the mobile app immediately!
-      return 'phone';
-    }
-    return 'phone';
-  });
-
-  const setViewMode = useCallback((mode) => {
-    setViewModeState(mode);
-    try {
-      localStorage.setItem('krishi_view_mode', mode);
-    } catch (_) {}
-  }, []);
-
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const toggleFullscreen = useCallback(() => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen?.().catch(() => {});
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen?.().catch(() => {});
-      setIsFullscreen(false);
-    }
-  }, []);
-
   const setActiveTab = useCallback((tab) => {
     setActiveTabState(tab);
     if (window.location.hash !== `#/${tab}`) {
@@ -141,8 +110,12 @@ function MainApp() {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center text-white px-4 text-center">
         <div className="w-12 h-12 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin mb-4"></div>
-        <p className="font-bold text-sm tracking-wider uppercase text-emerald-400 mb-1">Loading FASAL DRISHTI...</p>
-        <p className="text-xs text-slate-400 mb-2">फ़सल दृष्टि प्रारंभ हो रही है</p>
+        <p className="font-bold text-sm tracking-wider uppercase text-emerald-400 mb-1">
+          {t('auth.loadingApp', 'FASAL DRISHTI')}
+        </p>
+        <p className="text-xs text-slate-300 mb-2">
+          {t('auth.verifyingSession', 'सत्र सत्यापित किया जा रहा है... (Verifying Session)')}
+        </p>
         {loadDelayWarning && (
           <div className="mt-4 p-4 rounded-2xl bg-white/5 border border-white/10 max-w-xs">
             <p className="text-xs text-slate-300 mb-3">
@@ -176,71 +149,40 @@ function MainApp() {
     );
   }
 
-  // If not authenticated, render Login / Register
+  // If not authenticated, render Login / Register directly into the real viewport
   if (!isAuthenticated) {
-    const authContent = authView === 'register' ? (
-      <Suspense fallback={<TabLoadingSkeleton />}>
-        <Register
-          onNavigateLogin={() => setAuthView('login')}
-          onRegistered={() => setActiveTab('home')}
-        />
-      </Suspense>
-    ) : (
+    if (authView === 'register') {
+      return (
+        <Suspense fallback={<TabLoadingSkeleton />}>
+          <Register
+            onNavigateLogin={() => setAuthView('login')}
+            onRegistered={() => setActiveTab('home')}
+          />
+        </Suspense>
+      );
+    }
+    return (
       <Login
         onNavigateRegister={() => setAuthView('register')}
       />
-    );
-
-    return (
-      <div className="min-h-screen bg-slate-950 flex flex-col font-sans w-full max-w-full overflow-x-hidden relative">
-        <PresentationToolbar 
-          viewMode={viewMode} 
-          setViewMode={setViewMode} 
-          isFullscreen={isFullscreen} 
-          toggleFullscreen={toggleFullscreen} 
-        />
-        <PhoneFrameContainer viewMode={viewMode}>
-          {authContent}
-        </PhoneFrameContainer>
-      </div>
     );
   }
 
   // If authenticated but needs onboarding
   if (user && !user.isOnboarded && activeTab !== 'onboarding') {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col font-sans w-full max-w-full overflow-x-hidden relative">
-        <PresentationToolbar 
-          viewMode={viewMode} 
-          setViewMode={setViewMode} 
-          isFullscreen={isFullscreen} 
-          toggleFullscreen={toggleFullscreen} 
-        />
-        <PhoneFrameContainer viewMode={viewMode}>
-          <Suspense fallback={<TabLoadingSkeleton />}>
-            <Onboarding onComplete={() => setActiveTab('home')} />
-          </Suspense>
-        </PhoneFrameContainer>
-      </div>
+      <Suspense fallback={<TabLoadingSkeleton />}>
+        <Onboarding onComplete={() => setActiveTab('home')} />
+      </Suspense>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex flex-col font-sans w-full max-w-full overflow-x-hidden relative">
-      <PresentationToolbar 
-        viewMode={viewMode} 
-        setViewMode={setViewMode} 
-        isFullscreen={isFullscreen} 
-        toggleFullscreen={toggleFullscreen} 
-      />
+    <div className="min-h-screen bg-[#F4F7F4] flex flex-col font-sans w-full max-w-full overflow-x-hidden relative">
+      <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      <PhoneFrameContainer viewMode={viewMode}>
-        <div className={`flex flex-col font-sans w-full max-w-full relative ${viewMode === 'phone' ? 'min-h-full bg-[#F4F7F4]' : 'min-h-screen bg-[#F4F7F4]'}`}>
-          <Navbar activeTab={activeTab} setActiveTab={setActiveTab} />
-
-          {/* Horizontal Quick Shortcut Strip for Tablets/Desktops (Only in full desktop mode) */}
-          {viewMode === 'desktop' && (
-            <div className="hidden sm:block bg-white border-b border-slate-200 py-2 px-4 shadow-xs sticky top-16 z-30">
+      {/* Horizontal Quick Shortcut Strip for Tablets/Desktops */}
+      <div className="hidden sm:block bg-white border-b border-slate-200 py-2 px-4 shadow-xs sticky top-16 z-30">
               <div className="max-w-7xl mx-auto flex items-center justify-between overflow-x-auto gap-2 text-xs font-bold scrollbar-none">
           <div className="flex items-center gap-1.5 flex-nowrap">
             <button
@@ -442,10 +384,9 @@ function MainApp() {
           </div>
         </div>
       </div>
-    )}
 
-          {/* Main Content Area */}
-          <main className={`flex-1 w-full max-w-full overflow-x-hidden ${viewMode === 'phone' ? 'pb-20' : 'pb-16'}`}>
+      {/* Main Content Area */}
+      <main className="flex-1 w-full max-w-full overflow-x-hidden pb-20 md:pb-8">
             <TabErrorBoundary tabKey={activeTab} onNavigateHome={() => setActiveTab('home')}>
               <Suspense fallback={<TabLoadingSkeleton />}>
                 {activeTab === 'home' && <FarmerDashboard setActiveTab={setActiveTab} />}
@@ -475,10 +416,10 @@ function MainApp() {
           </main>
 
           {/* Bottom Navigation */}
-          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} isPhoneFrame={viewMode === 'phone'} />
+          <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
           {/* Global Floating SWAR AI & Voice Assistant */}
-          <SwarAssistant isPhoneFrame={viewMode === 'phone'} />
+          <SwarAssistant />
 
           {/* First Launch Language Selector Modal */}
           <LanguageSelectionModal
@@ -489,9 +430,7 @@ function MainApp() {
           {/* Automatic In-App Production Update Check Dialog */}
           <InAppUpdateModal />
         </div>
-      </PhoneFrameContainer>
-    </div>
-  );
+      );
 }
 
 export default function App() {

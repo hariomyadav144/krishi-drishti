@@ -179,6 +179,28 @@ export default function CropHealthCircle({
     ? (lang === 'hi' ? 'मध्यम' : 'Medium')
     : (lang === 'hi' ? 'कम' : 'Low');
 
+  // Read active field as single source of truth
+  const getActiveFieldData = () => {
+    if (typeof window === 'undefined') return null;
+    try {
+      const raw = localStorage.getItem('krishi_active_field') || localStorage.getItem('farm_data');
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) { return null; }
+  };
+  const activeFarm = getActiveFieldData();
+  const rawCrop = activeFarm?.crop || healthData?.crop || 'Paddy';
+  const isPaddy = ['paddy', 'rice', 'धान', 'चावल'].includes(String(rawCrop).toLowerCase().trim()) ||
+                  (activeFarm?.name || activeFarm?.fieldName || '').toLowerCase().includes('paddy') ||
+                  (healthData?.fieldName || '').toLowerCase().includes('paddy');
+  const displayCrop = isPaddy ? 'धान / Paddy' : (tCrop(rawCrop) || rawCrop);
+  const displayFieldName = activeFarm?.name || activeFarm?.fieldName || (healthData?.fieldName && !healthData.fieldName.toLowerCase().includes('plot a') ? healthData.fieldName : 'Kipm paddy');
+
+  // Filter out any obsolete Plot A from fieldsSummary
+  const cleanFieldsSummary = fieldsSummary.filter(f => {
+    const n = (f.fieldName || f.name || '').toLowerCase();
+    return !n.includes('plot a') && !n.includes('main wheat') && f.fieldId !== 'field_demo_01' && f._id !== 'field_demo_01';
+  });
+
   return (
     <div className={`agri-card p-4 sm:p-5 bg-gradient-to-br ${theme.bgGradient} ${theme.borderColor} border-2 shadow-sm rounded-2xl sm:rounded-3xl transition-all duration-300 w-full max-w-full overflow-hidden`}>
       
@@ -196,23 +218,23 @@ export default function CropHealthCircle({
 
           <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-1 truncate">
             <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
-            <span className="truncate">{healthData?.fieldName || 'Plot A'}</span>
+            <span className="truncate">{displayFieldName}</span>
             <span>•</span>
-            <span className="text-emerald-800 font-bold">{tCrop(healthData?.crop) || healthData?.crop || 'Wheat'}</span>
-            <span className="text-slate-500 font-normal">({tStage(healthData?.cropStage) || healthData?.cropStage || 'Vegetative'})</span>
+            <span className="text-emerald-800 font-bold">{displayCrop}</span>
+            <span className="text-slate-500 font-normal">({tStage(healthData?.cropStage) || healthData?.cropStage || 'Tillering'})</span>
           </p>
         </div>
 
         {/* Multi-Field Switcher & Circular Refresh Button */}
         <div className="flex items-center gap-1.5 shrink-0">
-          {fieldsSummary.length > 1 && (
+          {cleanFieldsSummary.length > 1 && (
             <select
               value={selectedFieldId || healthData?.fieldId || ''}
               onChange={(e) => onSelectField && onSelectField(e.target.value)}
               className="bg-white text-slate-800 text-[11px] font-bold py-1 px-2 rounded-xl border border-slate-300 shadow-2xs focus:outline-none cursor-pointer max-w-[110px] truncate"
               title="Select Field Plot"
             >
-              {fieldsSummary.map((f) => (
+              {cleanFieldsSummary.map((f) => (
                 <option key={f.fieldId} value={f.fieldId}>
                   {f.fieldName} ({f.healthScore}%)
                 </option>

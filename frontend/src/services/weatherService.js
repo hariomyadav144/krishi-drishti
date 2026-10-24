@@ -44,9 +44,9 @@ const DAYS_OF_WEEK_HI = ['रविवार', 'सोमवार', 'मंग�
  * @param {string} locationName - Name of village/city
  */
 export async function fetchOpenMeteoWeather(
-  lat = 20.00, 
-  lon = 73.78, 
-  locationName = 'Nashik, Maharashtra'
+  lat = 26.7684, 
+  lon = 83.2305, 
+  locationName = 'Sahajanwa, Gorakhpur, Uttar Pradesh, India'
 ) {
   try {
     const url = 'https://api.open-meteo.com/v1/forecast';
