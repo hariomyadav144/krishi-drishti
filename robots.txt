@@ -1,0 +1,22 @@
+# Robots.txt for Fasal Drishti — AI-Powered Smart Farming Platform
+# Production Website: https://hariomyadav144.github.io/krishi-drishti/
+
+User-agent: *
+Allow: /
+Allow: /krishi-drishti/
+Allow: /krishi-drishti/sitemap.xml
+Allow: /krishi-drishti/privacy-policy.html
+Allow: /krishi-drishti/logo.png
+
+# Protect private farmer records, internal dashboards, and API endpoints
+Disallow: /krishi-drishti/api/
+Disallow: /api/
+Disallow: /krishi-drishti/#/profile
+Disallow: /krishi-drishti/#/admin
+
+# Googlebot specific rules
+User-agent: Googlebot
+Allow: /
+Allow: /krishi-drishti/
+
+Sitemap: https://hariomyadav144.github.io/krishi-drishti/sitemap.xml
