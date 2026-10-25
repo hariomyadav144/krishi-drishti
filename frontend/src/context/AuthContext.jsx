@@ -306,8 +306,9 @@ export const AuthProvider = ({ children }) => {
         res = await api.post('/auth/login', { phone: cleanPhone, password, rememberMe });
       } catch (primaryErr) {
         // If primary backend fails, try candidate backend
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
         const isPrimaryLocal = (api.defaults.baseURL || '').includes('localhost');
-        const candidateUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api';
+        const candidateUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : (isHttps ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api');
         
         console.warn(`[AUTH:LOGIN] Primary attempt to ${api.defaults.baseURL} failed (${primaryErr.response?.status || primaryErr.code}). Trying candidate: ${candidateUrl}`);
         try {
@@ -417,8 +418,9 @@ export const AuthProvider = ({ children }) => {
       try {
         res = await api.post('/auth/register', regPayload);
       } catch (primaryErr) {
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
         const isPrimaryLocal = (api.defaults.baseURL || '').includes('localhost');
-        const altUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api';
+        const altUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : (isHttps ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api');
         try {
           const candidateAxios = axios.create({ timeout: 12000, headers: { 'Content-Type': 'application/json' } });
           const altRes = await candidateAxios.post(`${altUrl}/auth/register`, regPayload);
@@ -456,8 +458,9 @@ export const AuthProvider = ({ children }) => {
         saveRegisteredUserLocally(newUser, newToken);
 
         // Background mirror to alternate server if reachable so account exists everywhere
+        const isHttps = typeof window !== 'undefined' && window.location.protocol === 'https:';
         const isPrimaryLocal = (api.defaults.baseURL || '').includes('localhost');
-        const altUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api';
+        const altUrl = isPrimaryLocal ? DEFAULT_PRODUCTION_API_URL : (isHttps ? DEFAULT_PRODUCTION_API_URL : 'http://localhost:5000/api');
         axios.post(`${altUrl}/auth/register`, regPayload, { timeout: 8000 }).catch(() => {});
 
         try {

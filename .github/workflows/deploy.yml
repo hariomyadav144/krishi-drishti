@@ -35,12 +35,15 @@ jobs:
         env:
           GITHUB_PAGES: 'true'
           VITE_BASE_PATH: '/krishi-drishti/'
+          VITE_API_BASE_URL: 'https://krishi-drishti-pykj.onrender.com/api'
         run: npm run build
 
-      - name: Create 404.html & .nojekyll for GitHub Pages SPA
+      - name: Create 404.html, sitemap.xml, robots.txt & .nojekyll for GitHub Pages SPA
         run: |
           cp frontend/dist/index.html frontend/dist/404.html
           touch frontend/dist/.nojekyll
+          [ -f frontend/public/sitemap.xml ] && cp frontend/public/sitemap.xml frontend/dist/sitemap.xml
+          [ -f frontend/public/robots.txt ] && cp frontend/public/robots.txt frontend/dist/robots.txt
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4

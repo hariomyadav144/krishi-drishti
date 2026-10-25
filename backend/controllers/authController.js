@@ -24,9 +24,9 @@ const {
 
 const JWT_ACCESS_SECRET = process.env.JWT_SECRET || 'krishi_drishti_secret_key_2026_smart_farming';
 const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'krishi_drishti_refresh_secret_key_2026_persistent';
-const ACCESS_TOKEN_EXPIRY = '365d'; // Permanent access token: 1 year (farmer never logged out automatically)
-const REFRESH_TOKEN_EXPIRY_LONG = '3650d'; // 10 years persistent session
-const REFRESH_TOKEN_EXPIRY_SHORT = '3650d'; // 10 years standard session
+const ACCESS_TOKEN_EXPIRY = process.env.ACCESS_TOKEN_EXPIRY || '15m'; // 15m access token with transparent silent rotation
+const REFRESH_TOKEN_EXPIRY_LONG = '365d'; // 365 days persistent session for Remember Me
+const REFRESH_TOKEN_EXPIRY_SHORT = '30d'; // 30 days standard session
 
 const generateAccessToken = (userId) => {
   return jwt.sign(
@@ -45,7 +45,7 @@ const generateToken = generateAccessToken;
 
 const generateRefreshToken = (userId, rememberMe = true) => {
   const expiry = rememberMe ? REFRESH_TOKEN_EXPIRY_LONG : REFRESH_TOKEN_EXPIRY_SHORT;
-  const expiryDays = 3650; // 10 years
+  const expiryDays = rememberMe ? 365 : 30;
   const expiresAt = new Date(Date.now() + expiryDays * 24 * 60 * 60 * 1000);
   const tokenId = `rt_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`;
 

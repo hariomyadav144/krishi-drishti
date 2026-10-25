@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Phone, Lock, ArrowRight, UserPlus, KeyRound, ShieldCheck, CheckCircle2, RotateCcw, ArrowLeft } from 'lucide-react';
+import { Phone, Lock, ArrowRight, UserPlus, KeyRound, ShieldCheck, CheckCircle2, RotateCcw, ArrowLeft, Satellite, MapPin, Scan, Sparkles, TrendingUp, CloudRain, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Award } from 'lucide-react';
 import api, { normalizePhone } from '../services/api';
 
 export default function Login({ onNavigateRegister }) {
@@ -38,6 +38,7 @@ export default function Login({ onNavigateRegister }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [cooldown, setCooldown] = useState(0);
   const [successMessage, setSuccessMessage] = useState('');
+  const [openFaq, setOpenFaq] = useState(null);
 
   // Resend cooldown timer
   useEffect(() => {
@@ -682,6 +683,282 @@ export default function Login({ onNavigateRegister }) {
 
         </div>
       </div>
+
+      {/* ============================================================= */}
+      {/* PUBLIC LANDING PAGE: EXPLAINING FASAL DRISHTI FOR EVERYONE    */}
+      {/* ============================================================= */}
+      <section id="public-landing-overview" className="mt-14 max-w-5xl mx-auto w-full px-2 sm:px-4 text-slate-100 pb-12">
+        {/* Hero Section */}
+        <div className="text-center mb-10">
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/20 border border-emerald-400/40 text-emerald-300 text-xs font-bold tracking-wide uppercase mb-3">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>{lang === 'hi' ? 'उपग्रह से मिट्टी तक — स्मार्ट कृषि क्रांति' : 'Space to Soil — Smart Agriculture'}</span>
+          </div>
+          <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">
+            {lang === 'hi' 
+              ? 'फ़सल दृष्टि: भारतीय किसानों के लिए कृत्रिम बुद्धिमत्ता (AI) साथी'
+              : 'Fasal Drishti: AI-Powered Smart Farming Platform'}
+          </h2>
+          <p className="mt-3 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+            {lang === 'hi'
+              ? 'यूरोपीय अंतरिक्ष एजेंसी के सेंटिनल-2 उपग्रह, ऑन-डिवाइस कैमरा विजन, और गूगल जेमिनी एग्रोनॉमी AI का संगम — कम लागत में अधिक उपज और त्वरित रोग उपचार।'
+              : 'Combining Copernicus Sentinel-2 satellite telemetry, camera computer vision, and Google Gemini agronomy to maximize yield, optimize water, and diagnose diseases instantly.'}
+          </p>
+
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="button"
+              onClick={() => handleDemo('farmer')}
+              className="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm shadow-lg transition flex items-center gap-2 active:scale-95"
+            >
+              <span>👨‍🌾</span>
+              <span>{lang === 'hi' ? 'लाइव किसान डेमो देखें' : 'Try Live Farmer Demo'}</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
+            {onNavigateRegister && (
+              <button
+                type="button"
+                onClick={onNavigateRegister}
+                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 border border-white/20 text-emerald-300 font-bold text-xs sm:text-sm shadow-sm transition flex items-center gap-2"
+              >
+                <UserPlus className="w-4 h-4" />
+                <span>{lang === 'hi' ? 'नया किसान खाता बनाएं' : 'Register Free Account'}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* 6 Core Agricultural Pillars Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-12">
+          {/* Pillar 1 */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 backdrop-blur-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+              <Satellite className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1.5">
+              {lang === 'hi' ? 'उपग्रह फसल स्वास्थ्य (NDVI Radar)' : 'Satellite Field Monitoring (NDVI)'}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {lang === 'hi'
+                ? '10-मीटर रिज़ॉल्यूशन के सेंटिनल-2 उपग्रह चित्रों से क्लोरोफिल स्तर और मिट्टी की नमी का सटीक विश्लेषण। फसल में तनाव का पहले से पता लगाएं।'
+                : '10m multispectral Sentinel-2 satellite telemetry tracking chlorophyll index, vegetation health, and soil moisture before visible crop wilting.'}
+            </p>
+          </div>
+
+          {/* Pillar 2 */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 backdrop-blur-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+              <MapPin className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1.5">
+              {lang === 'hi' ? 'GPS खेत सीमांकन (Field Mapping)' : 'GPS Farm Boundary Mapping'}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {lang === 'hi'
+                ? 'खेत के चारों कोनों पर चलकर या उपग्रह मानचित्र पर बिंदु लगाकर सटीक रकबा (एकड़/हेक्टेयर) नापें। एक ही खाते में एकाधिक खेत प्रबंधित करें।'
+                : 'Walk field boundaries with smartphone GPS or tap satellite map to construct accurate polygon geofences with instant acreage & perimeter calculation.'}
+            </p>
+          </div>
+
+          {/* Pillar 3 */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 backdrop-blur-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+              <Scan className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1.5">
+              {lang === 'hi' ? 'AI रोग स्कैनर (Disease Diagnosis)' : 'Instant Crop Disease Scanner'}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {lang === 'hi'
+                ? 'पत्ती की तस्वीर खींचते ही AI द्वारा झुलसा, रतुआ, चूर्णिल आसिता की पहचान। जैविक नीम उपचार और रासायनिक छिड़काव की सही मात्रा प्राप्त करें।'
+                : 'Snap a leaf photo with mobile camera for instant diagnostic classification with severity scoring, organic bio-remedies, and pesticide dosages.'}
+            </p>
+          </div>
+
+          {/* Pillar 4 */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 backdrop-blur-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1.5">
+              {lang === 'hi' ? '24/7 AI कृषि वैज्ञानिक (Swar Advisor)' : '24/7 AI Agronomist (Swar)'}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {lang === 'hi'
+                ? 'गूगल जेमिनी AI द्वारा संचालित। हिंदी एवं अंग्रेजी में बोलकर या लिखकर सवाल पूछें — सिंचाई, खाद, खरपतवार नियंत्रण की तत्काल वैज्ञानिक सलाह।'
+                : 'Powered by Google Gemini. Ask agronomy questions via voice or text in Hindi and English for instant scientific crop management advice.'}
+            </p>
+          </div>
+
+          {/* Pillar 5 */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 backdrop-blur-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+              <TrendingUp className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1.5">
+              {lang === 'hi' ? 'लाइव मंडी भाव (APMC Mandi Rates)' : 'Real-Time APMC Mandi Rates'}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {lang === 'hi'
+                ? 'गेहूं, धान, टमाटर, प्याज, सोयाबीन, कपास और आलू के दैनिक थोक मंडी भाव। फसल बेचने का सबसे सही समय और स्थान चुनें।'
+                : 'Live AGMARKNET wholesale rates across Indian APMCs with price trend indicators, modal prices, and market insights.'}
+            </p>
+          </div>
+
+          {/* Pillar 6 */}
+          <div className="p-5 rounded-2xl bg-white/5 border border-white/10 hover:border-emerald-500/40 backdrop-blur-md transition-all">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-3">
+              <CloudRain className="w-5 h-5" />
+            </div>
+            <h3 className="text-base font-bold text-white mb-1.5">
+              {lang === 'hi' ? 'मौसम व सिंचाई सलाह (Agro-Weather)' : 'Weather Forecast & Irrigation'}
+            </h3>
+            <p className="text-xs text-slate-300 leading-relaxed">
+              {lang === 'hi'
+                ? '5-दिवसीय वर्षा पूर्वानुमान, छिड़काव अनुकूलता सूचकांक, और खेत की आवश्यकतानुसार सटीक सिंचाई समय निर्धारण।'
+                : '5-day precipitation probability, spray suitability index, evapotranspiration rates, and optimal irrigation scheduling.'}
+            </p>
+          </div>
+        </div>
+
+        {/* How Farmers Access Fasal Drishti (3 Simple Steps) */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-white/5 border border-white/15 backdrop-blur-md mb-12">
+          <h3 className="text-lg sm:text-2xl font-bold text-white text-center mb-6">
+            {lang === 'hi' ? 'किसान भाई कैसे उपयोग करें? (3 सरल चरण)' : 'How Indian Farmers Access Fasal Drishti (3 Easy Steps)'}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-white/5 border border-white/10">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/30 text-emerald-300 font-extrabold flex items-center justify-center text-lg mb-3">
+                1
+              </div>
+              <h4 className="font-bold text-white text-sm mb-1">
+                {lang === 'hi' ? 'क्रोम ब्राउज़र में खोलें' : 'Open in Google Chrome'}
+              </h4>
+              <p className="text-xs text-slate-300">
+                {lang === 'hi' 
+                  ? 'किसी भी स्मार्टफोन में लिंक खोलें। कोई भारी 100MB ऐप इंस्टॉल करने की आवश्यकता नहीं।'
+                  : 'Open the HTTPS link on any Android phone or PC in Google Chrome. Zero download required.'}
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-white/5 border border-white/10">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/30 text-emerald-300 font-extrabold flex items-center justify-center text-lg mb-3">
+                2
+              </div>
+              <h4 className="font-bold text-white text-sm mb-1">
+                {lang === 'hi' ? '1-क्लिक डेमो या खाता बनाएं' : '1-Click Demo or Login'}
+              </h4>
+              <p className="text-xs text-slate-300">
+                {lang === 'hi' 
+                  ? '"Farmer Demo" पर क्लिक करके तुरंत जांचें या अपने 10-अंकों के मोबाइल नंबर से नया खाता बनाएं।'
+                  : 'Click Farmer Demo for immediate exploration, or register with your 10-digit mobile number.'}
+              </p>
+            </div>
+
+            <div className="flex flex-col items-center text-center p-4 rounded-2xl bg-white/5 border border-white/10">
+              <div className="w-12 h-12 rounded-full bg-emerald-500/30 text-emerald-300 font-extrabold flex items-center justify-center text-lg mb-3">
+                3
+              </div>
+              <h4 className="font-bold text-white text-sm mb-1">
+                {lang === 'hi' ? 'रोग जांचें व खेत नापें' : 'Scan Crops & Map Farm'}
+              </h4>
+              <p className="text-xs text-slate-300">
+                {lang === 'hi' 
+                  ? 'पत्तियों की फोटो खींचें, उपग्रह से फसल की सेहत देखें और मंडी के ताजा भाव जानकर लाभ कमाएं।'
+                  : 'Capture leaf photos for AI diagnosis, monitor satellite vegetative radar, and check APMC mandi rates.'}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Agricultural FAQ Accordion */}
+        <div className="p-6 sm:p-8 rounded-3xl bg-white/5 border border-white/15 backdrop-blur-md mb-10">
+          <div className="flex items-center gap-2 mb-6">
+            <HelpCircle className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-lg sm:text-xl font-bold text-white">
+              {lang === 'hi' ? 'अक्सर पूछे जाने वाले प्रश्न (FAQ)' : 'Frequently Asked Questions'}
+            </h3>
+          </div>
+
+          <div className="space-y-3">
+            {[
+              {
+                qHi: 'क्या फ़सल दृष्टि का उपयोग पूर्णतः निःशुल्क है?',
+                qEn: 'Is Fasal Drishti completely free for farmers?',
+                aHi: 'हाँ! फ़सल दृष्टि भारतीय किसानों के लिए पूर्णतः निःशुल्क उपलब्ध है। उपग्रह विश्लेषण, रोग स्कैनर, और एआई कृषि सलाह के लिए कोई शुल्क नहीं है।',
+                aEn: 'Yes! Fasal Drishti is completely free for Indian farmers. All satellite monitoring, disease scanning, and AI agronomy advice are provided at zero cost.'
+              },
+              {
+                qHi: 'उपग्रह (NDVI) विश्लेषण कैसे काम करता है?',
+                qEn: 'How does the satellite (NDVI) monitoring work?',
+                aHi: 'हम यूरोपीय अंतरिक्ष एजेंसी (ESA) के सेंटिनल-2 उपग्रह के 10-मीटर मल्टीस्पेक्ट्रल डेटा का उपयोग करते हैं जो पत्तियों के क्लोरोफिल और पानी की अवशोषण क्षमता का विश्लेषण कर पौधे के तनाव का समय रहते पता लगाता है।',
+                aEn: 'We integrate Sentinel-2 multispectral satellite telemetry (10m resolution) to calculate the Normalized Difference Vegetation Index (NDVI), detecting crop stress days before it becomes visible to the eye.'
+              },
+              {
+                qHi: 'क्या मेरा खेत का डेटा और व्यक्तिगत जानकारी सुरक्षित है?',
+                qEn: 'Is my farm and personal data private and secure?',
+                aHi: 'हाँ! आपका व्यक्तिगत डेटा, फोन नंबर और खेत की सीमाएं एन्क्रिप्टेड हैं। निजी डैशबोर्ड केवल आपके लॉगिन द्वारा सुरक्षित रहते हैं और कभी सार्वजनिक रूप से साझा नहीं किए जाते।',
+                aEn: 'Absolutely. Personal farmer data, mobile numbers, and polygon coordinates are encrypted and protected behind authentication. They are never indexed publicly or sold.'
+              },
+              {
+                qHi: 'किन-किन फसलों के रोगों की पहचान संभव है?',
+                qEn: 'Which crops are supported for disease scanning?',
+                aHi: 'गेहूं, धान (चावल), टमाटर, आलू, प्याज, सोयाबीन, कपास, सरसों, मक्का, चना, गन्ना और मिर्च सहित सभी प्रमुख भारतीय फसलों के रोगों की पहचान और उपचार उपलब्ध है।',
+                aEn: 'Wheat, Paddy (Rice), Tomato, Potato, Onion, Soybean, Cotton, Mustard, Maize, Gram, Sugarcane, and Chilli with organic and chemical treatment plans.'
+              }
+            ].map((faq, idx) => (
+              <div 
+                key={idx} 
+                className="border border-white/10 rounded-xl overflow-hidden bg-black/20"
+              >
+                <button
+                  type="button"
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                  className="w-full py-3.5 px-4 text-left flex items-center justify-between font-semibold text-xs sm:text-sm text-white hover:bg-white/5 transition"
+                >
+                  <span>{lang === 'hi' ? faq.qHi : faq.qEn}</span>
+                  {openFaq === idx ? (
+                    <ChevronUp className="w-4 h-4 text-emerald-400 flex-shrink-0" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-slate-400 flex-shrink-0" />
+                  )}
+                </button>
+                {openFaq === idx && (
+                  <div className="px-4 pb-4 text-xs text-slate-300 leading-relaxed border-t border-white/5 pt-3">
+                    {lang === 'hi' ? faq.aHi : faq.aEn}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Public Footer */}
+        <footer className="pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-400 gap-3">
+          <p>
+            © 2026 Fasal Drishti (फ़सल दृष्टि) — From Space to Soil. All rights reserved.
+          </p>
+          <div className="flex items-center gap-4">
+            <a 
+              href="./privacy-policy.html" 
+              className="hover:text-emerald-300 underline transition"
+              target="_blank" 
+              rel="noreferrer"
+            >
+              {lang === 'hi' ? 'गोपनीयता नीति (Privacy Policy)' : 'Privacy Policy'}
+            </a>
+            <span className="text-slate-600">•</span>
+            <a 
+              href="./sitemap.xml" 
+              className="hover:text-emerald-300 underline transition"
+              target="_blank" 
+              rel="noreferrer"
+            >
+              Sitemap.xml
+            </a>
+          </div>
+        </footer>
+      </section>
     </div>
   );
 }

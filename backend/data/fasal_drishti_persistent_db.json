@@ -12,7 +12,7 @@
       "languagePreference": "hi",
       "isDemo": true,
       "createdAt": "2026-01-01T00:00:00.000Z",
-      "lastLoginAt": "2026-10-05T15:01:47.541Z"
+      "lastLoginAt": "2026-10-25T11:12:51.175Z"
     },
     {
       "_id": "usr_expert_demo_01",
@@ -41,57 +41,18 @@
       "createdAt": "2026-01-01T00:00:00.000Z"
     },
     {
-      "_id": "usr_1790134692839_smcua3",
-      "id": "usr_1790134692839_smcua3",
-      "name": "Farmer Alpha",
-      "phone": "9111111111",
-      "email": "alpha@farm.in",
-      "password": "$2a$10$J7cvw4o9jtrWDoHROO7IrOgiLxAJQafPrZpEKWgFF1VJTzAfn/Z6y",
-      "role": "farmer",
-      "isOnboarded": false,
-      "languagePreference": "hi",
-      "isDemo": false,
-      "createdAt": "2026-09-23T03:38:12.839Z"
-    },
-    {
-      "_id": "usr_1790134692902_x4xbl1",
-      "id": "usr_1790134692902_x4xbl1",
-      "name": "Farmer Beta",
-      "phone": "9222222222",
-      "email": "beta@farm.in",
-      "password": "$2a$10$36m3LDuF2v6xo9ir4UmsYed.f8BxSqoSS4yp7aq7/y6uQNNlgMflK",
-      "role": "farmer",
-      "isOnboarded": false,
-      "languagePreference": "hi",
-      "isDemo": false,
-      "createdAt": "2026-09-23T03:38:12.902Z"
-    },
-    {
-      "_id": "usr_1790134693150_tar75l",
-      "id": "usr_1790134693150_tar75l",
-      "name": "Brand New Farmer",
-      "phone": "9444444444",
-      "email": "",
-      "password": "$2a$10$plKHwPaz5rxIFKolrsi6UubUdGeoAix7dUZwyPA6NGChpOgERHOCO",
-      "role": "farmer",
-      "isOnboarded": false,
-      "languagePreference": "hi",
-      "isDemo": false,
-      "createdAt": "2026-09-23T03:38:13.150Z"
-    },
-    {
       "_id": "usr_1790931008660_r731el",
       "id": "usr_1790931008660_r731el",
       "name": "Test Farmer 91",
       "phone": "9999999991",
       "email": "",
-      "password": "$2a$10$BzR7pmnhA.372zXSEjVs4.8SlMaTP43DzQGcYImGWTrvKvniBt0n2",
+      "password": "$2a$10$8IQjWmTsMnvIfP616M95T.VXAI0fJ/vCjsuos1XAow8Kd.HxFmPmK",
       "role": "farmer",
       "isOnboarded": false,
       "languagePreference": "hi",
       "isDemo": false,
       "createdAt": "2026-10-02T08:50:08.660Z",
-      "updatedAt": "2026-10-03T12:02:15.786Z"
+      "updatedAt": "2026-10-25T11:09:34.308Z"
     },
     {
       "_id": "usr_1790931850622_w6atwo",
@@ -184,14 +145,14 @@
       "phone": "+919812343210",
       "cleanPhone": "9812343210",
       "email": "",
-      "password": "$2a$10$nk/pqVYZURuW7fU7zh5eruprlOABLc10Vkt9Hkc2dRBMKVHT2Tozq",
+      "password": "$2a$10$2Lp4tEauWndKOkqqCQEN3.mlSf15I9lS1y1YXFj3fjDUF/HUc82la",
       "role": "farmer",
       "isOnboarded": false,
       "languagePreference": "hi",
       "isDemo": false,
       "createdAt": "2026-10-03T11:01:09.951Z",
-      "lastLoginAt": "2026-10-03T12:01:42.698Z",
-      "updatedAt": "2026-10-03T12:01:42.456Z"
+      "lastLoginAt": "2026-10-25T11:14:12.046Z",
+      "updatedAt": "2026-10-25T11:14:11.600Z"
     },
     {
       "_id": "usr_1791028639382_sn5pdi",
@@ -206,7 +167,7 @@
       "languagePreference": "hi",
       "isDemo": false,
       "createdAt": "2026-10-03T11:57:19.382Z",
-      "lastLoginAt": "2026-10-03T12:03:19.525Z"
+      "lastLoginAt": "2026-10-25T11:14:26.997Z"
     },
     {
       "_id": "usr_1791028814443_z1a0wo",
@@ -260,14 +221,77 @@
       "phone": "+919870011223",
       "cleanPhone": "9870011223",
       "email": "",
-      "password": "$2a$10$V8gR2R1MZdkQ1iDZha.xV.zv2ap/7q5stMlUXo0WL8oMic9jZQpuu",
+      "password": "$2a$10$omM1fh5KUKtNaWk5TIsgLOKqNaiLK8N7quhEETHQD8bA/CBtDDbs2",
       "role": "farmer",
       "isOnboarded": false,
       "languagePreference": "hi",
       "isDemo": false,
       "createdAt": "2026-10-05T13:49:05.719Z",
-      "lastLoginAt": "2026-10-05T15:36:42.735Z",
-      "updatedAt": "2026-10-05T15:36:41.480Z"
+      "lastLoginAt": "2026-10-25T11:16:32.952Z",
+      "updatedAt": "2026-10-25T11:16:31.619Z"
+    },
+    {
+      "_id": "usr_1792926769749_0049x2",
+      "id": "usr_1792926769749_0049x2",
+      "name": "Farmer Alpha",
+      "phone": "9111111111",
+      "cleanPhone": "9111111111",
+      "e164Phone": "+919111111111",
+      "email": "alpha@farm.in",
+      "password": "$2a$10$sEUvSaD2rr3x93OOY77w/uKa5BSf5C41fhTBEYmwH0qbuDnvRK37a",
+      "role": "farmer",
+      "isOnboarded": false,
+      "languagePreference": "hi",
+      "isDemo": false,
+      "createdAt": "2026-10-25T11:12:49.749Z",
+      "lastLoginAt": "2026-10-25T11:12:51.385Z"
+    },
+    {
+      "_id": "usr_1792926769876_1mx1ch",
+      "id": "usr_1792926769876_1mx1ch",
+      "name": "Farmer Beta",
+      "phone": "9222222222",
+      "cleanPhone": "9222222222",
+      "e164Phone": "+919222222222",
+      "email": "beta@farm.in",
+      "password": "$2a$10$pmtGMTZE/yykbAPoFa9oYOlvhObqoiYPDTLhZsQKZgv3Sjh4tWb5.",
+      "role": "farmer",
+      "isOnboarded": false,
+      "languagePreference": "hi",
+      "isDemo": false,
+      "createdAt": "2026-10-25T11:12:49.876Z",
+      "lastLoginAt": "2026-10-25T11:12:51.528Z"
+    },
+    {
+      "_id": "usr_1792926771071_1i0vm0",
+      "id": "usr_1792926771071_1i0vm0",
+      "name": "Brand New Farmer",
+      "phone": "9444444444",
+      "cleanPhone": "9444444444",
+      "e164Phone": "+919444444444",
+      "email": "",
+      "password": "$2a$10$czPFPsB7v6m7FXwdRYG8Ke9n1vlR9slJ9FnuOoRHyOwc0i8SRdPtm",
+      "role": "farmer",
+      "isOnboarded": false,
+      "languagePreference": "hi",
+      "isDemo": false,
+      "createdAt": "2026-10-25T11:12:51.071Z"
+    },
+    {
+      "_id": "usr_1792927339350_f8f5lc",
+      "id": "usr_1792927339350_f8f5lc",
+      "name": "Test Farmer Ram",
+      "phone": "9988776655",
+      "cleanPhone": "9988776655",
+      "e164Phone": "+919988776655",
+      "email": "",
+      "password": "$2a$10$.ESQ3LJFG0ZEMkmzvbie..TxppbVRBCcDY1PtsAXaUzQA2FF2Blca",
+      "role": "farmer",
+      "isOnboarded": true,
+      "languagePreference": "hi",
+      "isDemo": false,
+      "createdAt": "2026-10-25T11:22:19.350Z",
+      "lastLoginAt": "2026-10-25T11:24:17.694Z"
     }
   ],
   "profiles": {
@@ -432,6 +456,62 @@
       "district": "",
       "village": "",
       "location": "",
+      "experienceYears": 0
+    },
+    "usr_1792926473953_xplj9a": {
+      "userId": "usr_1792926473953_xplj9a",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1792926474113_sx2nho": {
+      "userId": "usr_1792926474113_sx2nho",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1792926480582_6nxbo9": {
+      "userId": "usr_1792926480582_6nxbo9",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1792926769749_0049x2": {
+      "userId": "usr_1792926769749_0049x2",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1792926769876_1mx1ch": {
+      "userId": "usr_1792926769876_1mx1ch",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1792926771071_1i0vm0": {
+      "userId": "usr_1792926771071_1i0vm0",
+      "state": "",
+      "district": "",
+      "village": "",
+      "location": "",
+      "experienceYears": 0
+    },
+    "usr_1792927339350_f8f5lc": {
+      "userId": "usr_1792927339350_f8f5lc",
+      "state": "Uttar Pradesh",
+      "district": "Gorakhpur",
+      "village": "Sahajanwa",
+      "location": "Sahajanwa, Gorakhpur, Uttar Pradesh",
       "experienceYears": 0
     }
   },
@@ -623,6 +703,69 @@
       "landUnit": "Acres",
       "soilType": "Alluvial Loam / बलुई दोमट मिट्टी",
       "irrigationMethod": ""
+    },
+    "usr_1792926473953_xplj9a": {
+      "_id": "farm_usr_1792926473953_xplj9a",
+      "farmerId": "usr_1792926473953_xplj9a",
+      "farmName": "Farmer Alpha's Farm",
+      "farmSize": 7.5,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1792926474113_sx2nho": {
+      "_id": "farm_usr_1792926474113_sx2nho",
+      "farmerId": "usr_1792926474113_sx2nho",
+      "farmName": "Farmer Beta's Farm",
+      "farmSize": 3,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1792926480582_6nxbo9": {
+      "_id": "farm_usr_1792926480582_6nxbo9",
+      "farmerId": "usr_1792926480582_6nxbo9",
+      "farmName": "Brand New Farmer's Farm",
+      "farmSize": 0,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1792926769749_0049x2": {
+      "_id": "farm_usr_1792926769749_0049x2",
+      "farmerId": "usr_1792926769749_0049x2",
+      "farmName": "Farmer Alpha's Farm",
+      "farmSize": 7.5,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1792926769876_1mx1ch": {
+      "_id": "farm_usr_1792926769876_1mx1ch",
+      "farmerId": "usr_1792926769876_1mx1ch",
+      "farmName": "Farmer Beta's Farm",
+      "farmSize": 3,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1792926771071_1i0vm0": {
+      "_id": "farm_usr_1792926771071_1i0vm0",
+      "farmerId": "usr_1792926771071_1i0vm0",
+      "farmName": "Brand New Farmer's Farm",
+      "farmSize": 0,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
+    },
+    "usr_1792927339350_f8f5lc": {
+      "_id": "farm_usr_1792927339350_f8f5lc",
+      "farmerId": "usr_1792927339350_f8f5lc",
+      "farmName": "Test Farmer Ram's Farm",
+      "farmSize": 5.2,
+      "landUnit": "Acres",
+      "soilType": "",
+      "irrigationMethod": ""
     }
   },
   "crops": {
@@ -812,6 +955,83 @@
         "areaAllocated": 3.85,
         "isCurrent": true,
         "createdAt": "2026-10-05T13:49:05.719Z"
+      }
+    ],
+    "usr_1792926473953_xplj9a": [
+      {
+        "_id": "crop_usr_1792926473953_xplj9a_01",
+        "farmId": "farm_usr_1792926473953_xplj9a",
+        "farmerId": "usr_1792926473953_xplj9a",
+        "cropName": "Wheat",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 7.5,
+        "isCurrent": true,
+        "createdAt": "2026-10-25T11:07:53.954Z"
+      }
+    ],
+    "usr_1792926474113_sx2nho": [
+      {
+        "_id": "crop_usr_1792926474113_sx2nho_01",
+        "farmId": "farm_usr_1792926474113_sx2nho",
+        "farmerId": "usr_1792926474113_sx2nho",
+        "cropName": "Rice",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 3,
+        "isCurrent": true,
+        "createdAt": "2026-10-25T11:07:54.113Z"
+      }
+    ],
+    "usr_1792926480582_6nxbo9": [],
+    "usr_1792926769749_0049x2": [
+      {
+        "_id": "crop_usr_1792926769749_0049x2_01",
+        "farmId": "farm_usr_1792926769749_0049x2",
+        "farmerId": "usr_1792926769749_0049x2",
+        "cropName": "Wheat",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 7.5,
+        "isCurrent": true,
+        "createdAt": "2026-10-25T11:12:49.749Z"
+      }
+    ],
+    "usr_1792926769876_1mx1ch": [
+      {
+        "_id": "crop_usr_1792926769876_1mx1ch_01",
+        "farmId": "farm_usr_1792926769876_1mx1ch",
+        "farmerId": "usr_1792926769876_1mx1ch",
+        "cropName": "Rice",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 3,
+        "isCurrent": true,
+        "createdAt": "2026-10-25T11:12:49.876Z"
+      }
+    ],
+    "usr_1792926771071_1i0vm0": [],
+    "usr_1792927339350_f8f5lc": [
+      {
+        "_id": "crop_usr_1792927339350_f8f5lc_01",
+        "farmId": "farm_usr_1792927339350_f8f5lc",
+        "farmerId": "usr_1792927339350_f8f5lc",
+        "cropName": "Wheat",
+        "variety": "High Yield Standard",
+        "cropStage": "Vegetative Stage",
+        "healthStatus": "Good",
+        "healthScore": 88,
+        "areaAllocated": 5.2,
+        "isCurrent": true,
+        "createdAt": "2026-10-25T11:22:19.350Z"
       }
     ]
   },
@@ -1550,6 +1770,68 @@
             "lng": 80.946
           }
         ],
+        "createdAt": "2026-10-25T11:14:26.908Z",
+        "_id": "field_1792926866908_30cjkt",
+        "id": "field_1792926866908_30cjkt",
+        "farmerId": "usr_1791028639382_sn5pdi",
+        "fieldName": "KIPM Paddy Field - Permanent Test",
+        "farmerName": "",
+        "points": [
+          {
+            "lat": 26.8467,
+            "lng": 80.9462
+          },
+          {
+            "lat": 26.8475,
+            "lng": 80.947
+          },
+          {
+            "lat": 26.848,
+            "lng": 80.946
+          }
+        ],
+        "cornersCount": 3,
+        "areaAcres": 0,
+        "areaHectares": 0,
+        "areaSqMeters": 0,
+        "formattedAcres": "0.00 acres",
+        "formattedHectares": "0.00 hectares",
+        "perimeterMeters": 0,
+        "formattedPerimeter": "",
+        "center": {
+          "lat": 26.8467,
+          "lng": 80.9462
+        },
+        "latitude": 26.8467,
+        "longitude": 80.9462,
+        "cropVariety": "Standard Variety",
+        "season": "Rabi",
+        "soilType": "Black Soil / Regur",
+        "irrigationMethod": "Drip Irrigation",
+        "notes": "",
+        "gpsStatus": "GPS Connected",
+        "gpsAccuracy": 15,
+        "updatedAt": "2026-10-25T11:14:26.908Z"
+      },
+      {
+        "userId": "usr_1791028639382_sn5pdi",
+        "name": "KIPM Paddy Field - Permanent Test",
+        "crop": "Paddy",
+        "area": "2.5 Acres",
+        "boundary": [
+          {
+            "lat": 26.8467,
+            "lng": 80.9462
+          },
+          {
+            "lat": 26.8475,
+            "lng": 80.947
+          },
+          {
+            "lat": 26.848,
+            "lng": 80.946
+          }
+        ],
         "createdAt": "2026-10-03T12:03:19.463Z",
         "_id": "field_1791028999463_z16jmw",
         "id": "field_1791028999463_z16jmw",
@@ -2007,6 +2289,75 @@
             "lng": 83.2325
           }
         ],
+        "_id": "field_1792926992833_xzu2zy",
+        "id": "field_1792926992833_xzu2zy",
+        "farmerId": "usr_1791208145719_0i6s6r",
+        "farmerName": "",
+        "boundary": [
+          {
+            "lat": 26.771,
+            "lng": 83.232
+          },
+          {
+            "lat": 26.7725,
+            "lng": 83.2335
+          },
+          {
+            "lat": 26.7705,
+            "lng": 83.234
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2325
+          }
+        ],
+        "cornersCount": 4,
+        "areaHectares": 0,
+        "areaSqMeters": 0,
+        "formattedAcres": "2.50 acres",
+        "formattedHectares": "0.00 hectares",
+        "perimeterMeters": 0,
+        "formattedPerimeter": "",
+        "center": {
+          "lat": 26.771,
+          "lng": 83.232
+        },
+        "latitude": 26.771,
+        "longitude": 83.232,
+        "season": "Rabi",
+        "soilType": "Black Soil / Regur",
+        "irrigationMethod": "Drip Irrigation",
+        "notes": "",
+        "gpsStatus": "GPS Connected",
+        "gpsAccuracy": 15,
+        "createdAt": "2026-10-25T11:16:32.833Z",
+        "updatedAt": "2026-10-25T11:16:32.833Z"
+      },
+      {
+        "name": "Sector B Basmati Block",
+        "fieldName": "Sector B Basmati Block",
+        "crop": "Paddy",
+        "cropVariety": "Pusa 1121",
+        "areaAcres": 2.5,
+        "farmArea": "2.5",
+        "points": [
+          {
+            "lat": 26.771,
+            "lng": 83.232
+          },
+          {
+            "lat": 26.7725,
+            "lng": 83.2335
+          },
+          {
+            "lat": 26.7705,
+            "lng": 83.234
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2325
+          }
+        ],
         "_id": "field_1791214602661_n7z8mk",
         "id": "field_1791214602661_n7z8mk",
         "farmerId": "usr_1791208145719_0i6s6r",
@@ -2189,10 +2540,525 @@
         "createdAt": "2026-10-02T10:00:00.000Z",
         "updatedAt": "2026-10-05T13:49:05.245Z"
       }
+    ],
+    "usr_1792926473953_xplj9a": [
+      {
+        "_id": "field_kipm_paddy_01",
+        "id": "field_kipm_paddy_01",
+        "farmerId": "usr_1792926473953_xplj9a",
+        "fieldName": "Kipm paddy",
+        "name": "Kipm paddy",
+        "farmerName": "Farmer Rameshwar (KIPM Campus Block)",
+        "points": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "boundary": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "cornersCount": 4,
+        "areaAcres": 3.85,
+        "areaHectares": 1.56,
+        "areaSqMeters": 15580,
+        "formattedAcres": "3.85 acres",
+        "formattedHectares": "1.56 hectares",
+        "perimeterMeters": 685,
+        "formattedPerimeter": "685 meters",
+        "center": {
+          "lat": 26.7683,
+          "lng": 83.2303
+        },
+        "latitude": 26.7683,
+        "longitude": 83.2303,
+        "location": "Sahajanwa, Gorakhpur, Uttar Pradesh, India",
+        "village": "Sahajanwa",
+        "district": "Gorakhpur",
+        "state": "Uttar Pradesh",
+        "crop": "Paddy",
+        "cropVariety": "Pusa Basmati 1509",
+        "cropStage": "Tillering Stage",
+        "season": "Kharif",
+        "soilType": "Alluvial Loam / बलुई दोमट मिट्टी",
+        "irrigationMethod": "Tube Well & Canal",
+        "notes": "KIPM Technical Campus GIDA Gorakhpur Paddy Block - High Yield Basmati Block",
+        "gpsStatus": "GPS Connected & Verified",
+        "gpsAccuracy": 6,
+        "createdAt": "2026-10-02T10:00:00.000Z",
+        "updatedAt": "2026-10-25T11:07:53.435Z"
+      }
+    ],
+    "usr_1792926474113_sx2nho": [
+      {
+        "_id": "field_kipm_paddy_01",
+        "id": "field_kipm_paddy_01",
+        "farmerId": "usr_1792926474113_sx2nho",
+        "fieldName": "Kipm paddy",
+        "name": "Kipm paddy",
+        "farmerName": "Farmer Rameshwar (KIPM Campus Block)",
+        "points": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "boundary": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "cornersCount": 4,
+        "areaAcres": 3.85,
+        "areaHectares": 1.56,
+        "areaSqMeters": 15580,
+        "formattedAcres": "3.85 acres",
+        "formattedHectares": "1.56 hectares",
+        "perimeterMeters": 685,
+        "formattedPerimeter": "685 meters",
+        "center": {
+          "lat": 26.7683,
+          "lng": 83.2303
+        },
+        "latitude": 26.7683,
+        "longitude": 83.2303,
+        "location": "Sahajanwa, Gorakhpur, Uttar Pradesh, India",
+        "village": "Sahajanwa",
+        "district": "Gorakhpur",
+        "state": "Uttar Pradesh",
+        "crop": "Paddy",
+        "cropVariety": "Pusa Basmati 1509",
+        "cropStage": "Tillering Stage",
+        "season": "Kharif",
+        "soilType": "Alluvial Loam / बलुई दोमट मिट्टी",
+        "irrigationMethod": "Tube Well & Canal",
+        "notes": "KIPM Technical Campus GIDA Gorakhpur Paddy Block - High Yield Basmati Block",
+        "gpsStatus": "GPS Connected & Verified",
+        "gpsAccuracy": 6,
+        "createdAt": "2026-10-02T10:00:00.000Z",
+        "updatedAt": "2026-10-25T11:07:53.435Z"
+      }
+    ],
+    "usr_1792926480582_6nxbo9": [
+      {
+        "_id": "field_kipm_paddy_01",
+        "id": "field_kipm_paddy_01",
+        "farmerId": "usr_1792926480582_6nxbo9",
+        "fieldName": "Kipm paddy",
+        "name": "Kipm paddy",
+        "farmerName": "Farmer Rameshwar (KIPM Campus Block)",
+        "points": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "boundary": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "cornersCount": 4,
+        "areaAcres": 3.85,
+        "areaHectares": 1.56,
+        "areaSqMeters": 15580,
+        "formattedAcres": "3.85 acres",
+        "formattedHectares": "1.56 hectares",
+        "perimeterMeters": 685,
+        "formattedPerimeter": "685 meters",
+        "center": {
+          "lat": 26.7683,
+          "lng": 83.2303
+        },
+        "latitude": 26.7683,
+        "longitude": 83.2303,
+        "location": "Sahajanwa, Gorakhpur, Uttar Pradesh, India",
+        "village": "Sahajanwa",
+        "district": "Gorakhpur",
+        "state": "Uttar Pradesh",
+        "crop": "Paddy",
+        "cropVariety": "Pusa Basmati 1509",
+        "cropStage": "Tillering Stage",
+        "season": "Kharif",
+        "soilType": "Alluvial Loam / बलुई दोमट मिट्टी",
+        "irrigationMethod": "Tube Well & Canal",
+        "notes": "KIPM Technical Campus GIDA Gorakhpur Paddy Block - High Yield Basmati Block",
+        "gpsStatus": "GPS Connected & Verified",
+        "gpsAccuracy": 6,
+        "createdAt": "2026-10-02T10:00:00.000Z",
+        "updatedAt": "2026-10-25T11:07:53.435Z"
+      }
+    ],
+    "usr_1792927339350_f8f5lc": [
+      {
+        "name": "North Wheat Field",
+        "fieldName": "North Wheat Field",
+        "crop": "Wheat",
+        "areaAcres": 5.2,
+        "points": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "boundary": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "_id": "field_1792927457709_3uarf3",
+        "id": "field_1792927457709_3uarf3",
+        "farmerId": "usr_1792927339350_f8f5lc",
+        "farmerName": "",
+        "cornersCount": 4,
+        "areaHectares": 0,
+        "areaSqMeters": 0,
+        "formattedAcres": "5.20 acres",
+        "formattedHectares": "0.00 hectares",
+        "perimeterMeters": 0,
+        "formattedPerimeter": "",
+        "center": {
+          "lat": 26.7692,
+          "lng": 83.2295
+        },
+        "latitude": 26.7692,
+        "longitude": 83.2295,
+        "cropVariety": "Standard Variety",
+        "season": "Rabi",
+        "soilType": "Black Soil / Regur",
+        "irrigationMethod": "Drip Irrigation",
+        "notes": "",
+        "gpsStatus": "GPS Connected",
+        "gpsAccuracy": 15,
+        "createdAt": "2026-10-25T11:24:17.709Z",
+        "updatedAt": "2026-10-25T11:24:17.709Z"
+      },
+      {
+        "name": "North Wheat Field",
+        "fieldName": "North Wheat Field",
+        "crop": "Wheat",
+        "areaAcres": 5.2,
+        "points": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "boundary": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "_id": "field_1792927405552_76vhzb",
+        "id": "field_1792927405552_76vhzb",
+        "farmerId": "usr_1792927339350_f8f5lc",
+        "farmerName": "",
+        "cornersCount": 4,
+        "areaHectares": 0,
+        "areaSqMeters": 0,
+        "formattedAcres": "5.20 acres",
+        "formattedHectares": "0.00 hectares",
+        "perimeterMeters": 0,
+        "formattedPerimeter": "",
+        "center": {
+          "lat": 26.7692,
+          "lng": 83.2295
+        },
+        "latitude": 26.7692,
+        "longitude": 83.2295,
+        "cropVariety": "Standard Variety",
+        "season": "Rabi",
+        "soilType": "Black Soil / Regur",
+        "irrigationMethod": "Drip Irrigation",
+        "notes": "",
+        "gpsStatus": "GPS Connected",
+        "gpsAccuracy": 15,
+        "createdAt": "2026-10-25T11:23:25.552Z",
+        "updatedAt": "2026-10-25T11:23:25.552Z"
+      },
+      {
+        "name": "North Wheat Field",
+        "fieldName": "North Wheat Field",
+        "crop": "Wheat",
+        "areaAcres": 5.2,
+        "points": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "boundary": [
+          {
+            "lat": 26.7692,
+            "lng": 83.2295
+          },
+          {
+            "lat": 26.7695,
+            "lng": 83.2312
+          },
+          {
+            "lat": 26.7678,
+            "lng": 83.2316
+          },
+          {
+            "lat": 26.7674,
+            "lng": 83.2298
+          }
+        ],
+        "_id": "field_1792927339455_fgaj36",
+        "id": "field_1792927339455_fgaj36",
+        "farmerId": "usr_1792927339350_f8f5lc",
+        "farmerName": "",
+        "cornersCount": 4,
+        "areaHectares": 0,
+        "areaSqMeters": 0,
+        "formattedAcres": "5.20 acres",
+        "formattedHectares": "0.00 hectares",
+        "perimeterMeters": 0,
+        "formattedPerimeter": "",
+        "center": {
+          "lat": 26.7692,
+          "lng": 83.2295
+        },
+        "latitude": 26.7692,
+        "longitude": 83.2295,
+        "cropVariety": "Standard Variety",
+        "season": "Rabi",
+        "soilType": "Black Soil / Regur",
+        "irrigationMethod": "Drip Irrigation",
+        "notes": "",
+        "gpsStatus": "GPS Connected",
+        "gpsAccuracy": 15,
+        "createdAt": "2026-10-25T11:22:19.455Z",
+        "updatedAt": "2026-10-25T11:22:19.455Z"
+      }
     ]
   },
   "actionPlans": [],
   "alerts": [
+    {
+      "_id": "alert_1792927339350_iqkz",
+      "userId": "usr_1792927339350_f8f5lc",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-10-25T11:22:19.350Z"
+    },
+    {
+      "_id": "alert_1792926771071_87ji",
+      "userId": "usr_1792926771071_1i0vm0",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-10-25T11:12:51.071Z"
+    },
+    {
+      "_id": "alert_1792926769876_0hde",
+      "userId": "usr_1792926769876_1mx1ch",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-10-25T11:12:49.876Z"
+    },
+    {
+      "_id": "alert_1792926769749_0wqs",
+      "userId": "usr_1792926769749_0049x2",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-10-25T11:12:49.749Z"
+    },
+    {
+      "_id": "alert_1792926480582_akfn",
+      "userId": "usr_1792926480582_6nxbo9",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-10-25T11:08:00.582Z"
+    },
+    {
+      "_id": "alert_1792926474113_bar7",
+      "userId": "usr_1792926474113_sx2nho",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-10-25T11:07:54.113Z"
+    },
+    {
+      "_id": "alert_1792926473954_s1us",
+      "userId": "usr_1792926473953_xplj9a",
+      "title": "Welcome to Fasal Drishti! 🌱",
+      "titleHi": "फ़सल दृष्टि में आपका स्वागत है! 🌱",
+      "message": "Your smart farming companion is active. Scan your crop or ask AI advice anytime.",
+      "messageHi": "आपका स्मार्ट कृषि साथी सक्रिय है। अपनी फसल की जांच करें या AI सलाह लें।",
+      "priority": "low",
+      "category": "system",
+      "isRead": false,
+      "createdAt": "2026-10-25T11:07:53.954Z"
+    },
     {
       "_id": "alert_1791208145719_cvro",
       "userId": "usr_1791208145719_0i6s6r",
@@ -2759,6 +3625,262 @@
       "expiresAt": "2036-10-02T15:36:42.737Z",
       "rememberMe": true,
       "createdAt": "2026-10-05T15:36:42.737Z"
+    },
+    {
+      "tokenId": "rt_1792926473961_n5zjs1",
+      "userId": "usr_1792926473953_xplj9a",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDczOTUzX3hwbGo5YSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0NzM5NjBfeXVoMHZmYXUiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0NzMsImV4cCI6MjEwODI4NjQ3M30.bzGhJpFI-K4UNCBWwdyzlr-4YUKhJ1DBrHw5HEHZkIo",
+      "expiresAt": "2036-10-22T11:07:53.960Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:07:53.961Z"
+    },
+    {
+      "tokenId": "rt_1792926474116_e115uq",
+      "userId": "usr_1792926474113_sx2nho",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDc0MTEzX3N4Mm5obyIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0NzQxMTZfM2RvMmNtc3QiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0NzQsImV4cCI6MjEwODI4NjQ3NH0.Xx6g9Yf2s9S5l9qxqZplyvie1Si9d7SHBZfT6JjU_VY",
+      "expiresAt": "2036-10-22T11:07:54.116Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:07:54.116Z"
+    },
+    {
+      "tokenId": "rt_1792926474214_zfb3go",
+      "userId": "usr_1792926473953_xplj9a",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDczOTUzX3hwbGo5YSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0NzQyMTRfMnJ3b2JpMTIiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0NzQsImV4cCI6MjEwODI4NjQ3NH0.nA737IDS_lvyZf3il32tNarPuvvaHouWAb2PK02mGdw",
+      "expiresAt": "2036-10-22T11:07:54.214Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:07:54.214Z"
+    },
+    {
+      "tokenId": "rt_1792926474322_zwq5te",
+      "userId": "usr_1792926474113_sx2nho",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDc0MTEzX3N4Mm5obyIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0NzQzMjFfMHkyZTZrcDMiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0NzQsImV4cCI6MjEwODI4NjQ3NH0.39LcXSQjBVX6fzGBOQ6UTkONjKzMvATiFHJLtqM2rfw",
+      "expiresAt": "2036-10-22T11:07:54.321Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:07:54.322Z"
+    },
+    {
+      "tokenId": "rt_1792926480585_5xu46p",
+      "userId": "usr_1792926480582_6nxbo9",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDgwNTgyXzZueGJvOSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0ODA1ODVfZzR5bzg3ZDQiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0ODAsImV4cCI6MjEwODI4NjQ4MH0.p_LuAXZMZ1KHPgRmrwVhLcCRMO-ewFgh3tD8zv3E1BA",
+      "expiresAt": "2036-10-22T11:08:00.585Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:08:00.585Z"
+    },
+    {
+      "tokenId": "rt_1792926480715_p9yjw7",
+      "userId": "usr_farmer_demo_01",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl9mYXJtZXJfZGVtb18wMSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0ODA3MTRfaHV3ejc1MWoiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0ODAsImV4cCI6MjEwODI4NjQ4MH0.Xrf_V7IJx6FvjQ5J6T0Zok284vEQR04tDCSA4eXxB0Y",
+      "expiresAt": "2036-10-22T11:08:00.714Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:08:00.715Z"
+    },
+    {
+      "tokenId": "rt_1792926480838_bmynww",
+      "userId": "usr_1792926473953_xplj9a",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDczOTUzX3hwbGo5YSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0ODA4MzhfZTc5bzJnbjYiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0ODAsImV4cCI6MjEwODI4NjQ4MH0.Rg3AsRnWoIhWGjTrEKac1BqzRLI_gcd7d8YaNLH1C6E",
+      "expiresAt": "2036-10-22T11:08:00.838Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:08:00.838Z"
+    },
+    {
+      "tokenId": "rt_1792926480954_poq5pt",
+      "userId": "usr_1792926473953_xplj9a",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDczOTUzX3hwbGo5YSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0ODA5NTRfeTgza3F5Zm8iLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0ODAsImV4cCI6MjEwODI4NjQ4MH0.4iwpq077-ECkjAZN9eOLjTguYi8IFTo-OgLQ0kS0J9I",
+      "expiresAt": "2036-10-22T11:08:00.954Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:08:00.954Z"
+    },
+    {
+      "tokenId": "rt_1792926481088_vv53iz",
+      "userId": "usr_1792926474113_sx2nho",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NDc0MTEzX3N4Mm5obyIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY0ODEwODhfcmgyNmZ5NHYiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY0ODEsImV4cCI6MjEwODI4NjQ4MX0.aP9lISVdUNvq5ezApF2j77edP9dDmkryNKF3d8doKCo",
+      "expiresAt": "2036-10-22T11:08:01.088Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:08:01.088Z"
+    },
+    {
+      "tokenId": "rt_1792926769759_z4816p",
+      "userId": "usr_1792926769749_0049x2",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzY5NzQ5XzAwNDl4MiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3Njk3NThfdGswazJmanQiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NjksImV4cCI6MjEwODI4Njc2OX0.-RAh08n-5W604CSOxeNw4Tz0nuhCAeWYctd--qLgV1k",
+      "expiresAt": "2036-10-22T11:12:49.758Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:49.759Z"
+    },
+    {
+      "tokenId": "rt_1792926769881_55bhlm",
+      "userId": "usr_1792926769876_1mx1ch",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzY5ODc2XzFteDFjaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3Njk4ODBfcGowM2hhYm0iLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NjksImV4cCI6MjEwODI4Njc2OX0.4ZfiABrLxMmvcSofU674NPmDJ0ZhZdqaZ22ESZw2Zgw",
+      "expiresAt": "2036-10-22T11:12:49.880Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:49.881Z"
+    },
+    {
+      "tokenId": "rt_1792926769984_4vo40y",
+      "userId": "usr_1792926769749_0049x2",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzY5NzQ5XzAwNDl4MiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3Njk5ODNfOHhtM25ja3oiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NjksImV4cCI6MjEwODI4Njc2OX0.894UKF1PGs-SQNNmTj42whuteRtjNeL6r1siw8jVHfc",
+      "expiresAt": "2036-10-22T11:12:49.983Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:49.984Z"
+    },
+    {
+      "tokenId": "rt_1792926770080_ee9jsb",
+      "userId": "usr_1792926769876_1mx1ch",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzY5ODc2XzFteDFjaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3NzAwODBfY3M3NmpqZngiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NzAsImV4cCI6MjEwODI4Njc3MH0.IaeXCtobYmv3Ln8mFtiu6QqaMIQLM7OBgl_WJ68NgHU",
+      "expiresAt": "2036-10-22T11:12:50.080Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:50.080Z"
+    },
+    {
+      "tokenId": "rt_1792926771074_281yvw",
+      "userId": "usr_1792926771071_1i0vm0",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzcxMDcxXzFpMHZtMCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3NzEwNzRfZHZhcHdoNHQiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NzEsImV4cCI6MjEwODI4Njc3MX0.Qo2RjiaNaNpJlMLLr1kq0qvT05zmBCRdOKTG4MvQOLo",
+      "expiresAt": "2036-10-22T11:12:51.074Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:51.074Z"
+    },
+    {
+      "tokenId": "rt_1792926771178_sj0dxe",
+      "userId": "usr_farmer_demo_01",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl9mYXJtZXJfZGVtb18wMSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3NzExNzdfYmQzamZzc3MiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NzEsImV4cCI6MjEwODI4Njc3MX0.7LRfwW9ucWmdJA1W0S6PPEbV-7nzfoXqTYuw5y5L00M",
+      "expiresAt": "2036-10-22T11:12:51.177Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:51.178Z"
+    },
+    {
+      "tokenId": "rt_1792926771284_5twyuk",
+      "userId": "usr_1792926769749_0049x2",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzY5NzQ5XzAwNDl4MiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3NzEyODRfd296YnBzZGMiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NzEsImV4cCI6MjEwODI4Njc3MX0.ONUpZ5oLiqA-l_N0uiJvQtyEIInrQaO5pK465z2nnhU",
+      "expiresAt": "2036-10-22T11:12:51.284Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:51.284Z"
+    },
+    {
+      "tokenId": "rt_1792926771388_2khc22",
+      "userId": "usr_1792926769749_0049x2",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzY5NzQ5XzAwNDl4MiIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3NzEzODhfZTc5YjF0c2wiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NzEsImV4cCI6MjEwODI4Njc3MX0.nKvRS-4uRcUlFbCHWd8jdDVXyzk9RxIMZPh_LPfKdhQ",
+      "expiresAt": "2036-10-22T11:12:51.388Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:51.388Z"
+    },
+    {
+      "tokenId": "rt_1792926771531_tsabkr",
+      "userId": "usr_1792926769876_1mx1ch",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI2NzY5ODc2XzFteDFjaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3NzE1MzFfNmRxdGh2aGoiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3NzEsImV4cCI6MjEwODI4Njc3MX0.-7nDd5GiIWXsriGNdB2iVOFyu5MkM0WpuT4QXaEt-t4",
+      "expiresAt": "2036-10-22T11:12:51.531Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:12:51.531Z"
+    },
+    {
+      "tokenId": "rt_1792926781669_04vyla",
+      "userId": "usr_1791028639382_sn5pdi",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI4NjM5MzgyX3NuNXBkaSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY3ODE2NjhfaDRicXhnamoiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY3ODEsImV4cCI6MjEwODI4Njc4MX0.f6J342lX7wRgKBEdRyzzb6iVAsDreUylfCpS_Vn6M3I",
+      "expiresAt": "2036-10-22T11:13:01.668Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:13:01.669Z"
+    },
+    {
+      "tokenId": "rt_1792926803151_x9wei0",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4MDMxNTBfYWE2eHV4aWYiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4MDMsImV4cCI6MjEwODI4NjgwM30.1l6jgpYIaFAxDLWJSmdoqaH_DuSlVvY2vYfYdhjso7s",
+      "expiresAt": "2036-10-22T11:13:23.150Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:13:23.151Z"
+    },
+    {
+      "tokenId": "rt_1792926803256_cdaw5n",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4MDMyNTZfaTk0dGRuc2UiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4MDMsImV4cCI6MjEwODI4NjgwM30.MA2ZJO6kTqEq0SWPtKQaKNAA-OmrU9GfSPbmnl8CICo",
+      "expiresAt": "2036-10-22T11:13:23.256Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:13:23.256Z"
+    },
+    {
+      "tokenId": "rt_1792926803412_ru526b",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4MDM0MTFfMHIwZ3VtcGUiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4MDMsImV4cCI6MjEwODI4NjgwM30.uqRZHyO-8o5ynV1h5abqLup0aL6Ni0-us4GDWtVfIRY",
+      "expiresAt": "2036-10-22T11:13:23.411Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:13:23.412Z"
+    },
+    {
+      "tokenId": "rt_1792926803499_54n5mh",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4MDM0OTlfOWlyc2NheTUiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4MDMsImV4cCI6MjEwODI4NjgwM30.9V9pJW1UiXYDooAFnywTlOffy2wsMo_DTOLMZA-xMvw",
+      "expiresAt": "2036-10-22T11:13:23.499Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:13:23.499Z"
+    },
+    {
+      "tokenId": "rt_1792926851741_fafjm8",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4NTE3NDFfaHk5ZDB0dXIiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4NTEsImV4cCI6MTgyNDQ2Mjg1MX0.Rdu8kLGUvsEARt1KCp_QPp3KfczDub0dO9MkfX3fG9U",
+      "expiresAt": "2027-10-25T11:14:11.741Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:14:11.741Z"
+    },
+    {
+      "tokenId": "rt_1792926851837_gu1xja",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4NTE4MzdfNTZ1ZmN6ZWIiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4NTEsImV4cCI6MTgyNDQ2Mjg1MX0.czSfXV-ZywiY4LQEpp2_FrygQ0Y0B5cxRNuJ0vlmLVI",
+      "expiresAt": "2027-10-25T11:14:11.837Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:14:11.837Z"
+    },
+    {
+      "tokenId": "rt_1792926851922_v9kpea",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4NTE5MjFfNWo1ZzcxdjciLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4NTEsImV4cCI6MTgyNDQ2Mjg1MX0.6sCJZrs1fJeu45QVZ2jBPXyltT1BXTX8G0TEddujT0A",
+      "expiresAt": "2027-10-25T11:14:11.921Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:14:11.922Z"
+    },
+    {
+      "tokenId": "rt_1792926852049_56baxv",
+      "userId": "usr_1791025269951_5y5oqh",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI1MjY5OTUxXzV5NW9xaCIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4NTIwNDhfejk3dGdieXUiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4NTIsImV4cCI6MTgyNDQ2Mjg1Mn0.iohbI8KLNI0GAK3q7mlP42yvuhO1I5LMfLk6cAx84d0",
+      "expiresAt": "2027-10-25T11:14:12.048Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:14:12.049Z"
+    },
+    {
+      "tokenId": "rt_1792926867000_ali5re",
+      "userId": "usr_1791028639382_sn5pdi",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMDI4NjM5MzgyX3NuNXBkaSIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY4NjcwMDBfdWg1OGY2cm4iLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY4NjcsImV4cCI6MTgyNDQ2Mjg2N30.5l89Kem_Ck0mIMr1BwGmWjVaftYZ2sqLfydGKnufb88",
+      "expiresAt": "2027-10-25T11:14:27.000Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:14:27.000Z"
+    },
+    {
+      "tokenId": "rt_1792926913243_ckqb9q",
+      "userId": "usr_1791208145719_0i6s6r",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMjA4MTQ1NzE5XzBpNnM2ciIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY5MTMyNDJfNjM1b3U3cjYiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY5MTMsImV4cCI6MTgyNDQ2MjkxM30.JoKRkYE8nPoHDTgAo_FRXdHt9wGSSIuGvOkAaY4hKOo",
+      "expiresAt": "2027-10-25T11:15:13.242Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:15:13.243Z"
+    },
+    {
+      "tokenId": "rt_1792926991716_73wwjj",
+      "userId": "usr_1791208145719_0i6s6r",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMjA4MTQ1NzE5XzBpNnM2ciIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY5OTE3MTZfbnQxYTdxeWsiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY5OTEsImV4cCI6MTgyNDQ2Mjk5MX0.mvWanJzkyAPkxj_5v6IAckChbAFzmf4PpVizMdR5MVw",
+      "expiresAt": "2027-10-25T11:16:31.716Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:16:31.716Z"
+    },
+    {
+      "tokenId": "rt_1792926992956_ue2t3x",
+      "userId": "usr_1791208145719_0i6s6r",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkxMjA4MTQ1NzE5XzBpNnM2ciIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjY5OTI5NTVfaGV2cTJvbWEiLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjY5OTIsImV4cCI6MTgyNDQ2Mjk5Mn0.iZPE_MqeColLjI9oFOxBiqkzbB6jtYBv-JczwDTovCA",
+      "expiresAt": "2027-10-25T11:16:32.955Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:16:32.956Z"
+    },
+    {
+      "tokenId": "rt_1792927339356_13loke",
+      "userId": "usr_1792927339350_f8f5lc",
+      "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6InVzcl8xNzkyOTI3MzM5MzUwX2Y4ZjVsYyIsInR5cGUiOiJyZWZyZXNoIiwidG9rZW5JZCI6InJ0XzE3OTI5MjczMzkzNTZfd2RjOG1lbG8iLCJyZW1lbWJlck1lIjp0cnVlLCJpYXQiOjE3OTI5MjczMzksImV4cCI6MTgyNDQ2MzMzOX0.VPaGS8g7hn1fiqx6TWqIQYPJmMw-IfTkHMKxKzcDh8s",
+      "expiresAt": "2027-10-25T11:22:19.356Z",
+      "rememberMe": true,
+      "createdAt": "2026-10-25T11:22:19.356Z"
     }
   ]
 }

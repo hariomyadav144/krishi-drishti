@@ -605,8 +605,9 @@ export async function compareFieldObservations(fieldId, period = '7d', fieldPayl
   };
 
   const candidateBases = [
-    'http://localhost:5000/api',
-    (typeof api !== 'undefined' && api.defaults?.baseURL) || 'http://localhost:5000/api'
+    (typeof api !== 'undefined' && api.defaults?.baseURL) || 'https://krishi-drishti-pykj.onrender.com/api',
+    'https://krishi-drishti-pykj.onrender.com/api',
+    'http://localhost:5000/api'
   ];
 
   // 1. Query real Copernicus Sentinel-2 & Open-Meteo pipeline on backend

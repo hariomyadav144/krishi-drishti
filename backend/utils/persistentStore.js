@@ -350,8 +350,9 @@ const persistentStore = {
       _id: newId,
       id: newId,
       name: (userData.name || '').trim(),
-      phone: e164Phone,
+      phone: cleanPhone,
       cleanPhone: cleanPhone,
+      e164Phone: e164Phone,
       email: userData.email ? userData.email.trim() : '',
       password: userData.password, // securely hashed before passing or in controller
       role: userData.role || 'farmer',
@@ -486,8 +487,8 @@ const persistentStore = {
     const targetId = farmerId || 'usr_farmer_demo_01';
     let userFields = dbState.fields[targetId] || [];
     
-    // Always guarantee KIPM Paddy Farm is available for real farmers so it never disappears
-    if (!targetId.startsWith('user_test_')) {
+    // Always guarantee KIPM Paddy Farm is available for demo persona (usr_farmer_demo_01)
+    if (targetId === 'usr_farmer_demo_01') {
       if (!userFields.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'))) {
         userFields = [{ ...DEFAULT_KIPM_PADDY_FIELD, farmerId: targetId }, ...userFields];
         dbState.fields[targetId] = userFields;
@@ -753,28 +754,33 @@ const persistentStore = {
     const farm = this.getFarm(userId);
     const userFields = this.getFields(userId);
 
-    let resolvedFarm = farm;
+    let resolvedFarm = farm ? {
+      ...farm,
+      farmSize: Number(farm.farmSize !== undefined ? farm.farmSize : 0),
+      totalArea: Number(farm.farmSize !== undefined ? farm.farmSize : 0),
+    } : null;
+
     if (userFields && userFields.length > 0) {
       const primary = userFields[0];
       resolvedFarm = {
         _id: primary.id || primary._id,
         id: primary.id || primary._id,
         farmerId: userId,
-        farmName: primary.fieldName || primary.name || farm?.farmName || 'Kipm paddy',
-        name: primary.fieldName || primary.name || farm?.farmName || 'Kipm paddy',
-        farmSize: Number(primary.farmArea || primary.areaAcres || farm?.farmSize) || 3.85,
-        totalArea: Number(primary.farmArea || primary.areaAcres || farm?.farmSize) || 3.85,
+        farmName: primary.fieldName || primary.name || farm?.farmName || (user.name ? `${user.name}'s Farm` : 'Farm'),
+        name: primary.fieldName || primary.name || farm?.farmName || (user.name ? `${user.name}'s Farm` : 'Farm'),
+        farmSize: Number(primary.farmArea || primary.areaAcres !== undefined ? (primary.farmArea || primary.areaAcres) : (farm?.farmSize || 0)),
+        totalArea: Number(primary.farmArea || primary.areaAcres !== undefined ? (primary.farmArea || primary.areaAcres) : (farm?.farmSize || 0)),
         landUnit: 'Acres',
-        soilType: primary.soilType || farm?.soilType || 'Alluvial Loam / बलुई दोमट मिट्टी',
-        irrigationMethod: primary.irrigationMethod || farm?.irrigationMethod || 'Tube Well & Canal',
+        soilType: primary.soilType || farm?.soilType || '',
+        irrigationMethod: primary.irrigationMethod || farm?.irrigationMethod || '',
         latitude: primary.latitude || primary.center?.lat || 26.7683,
         longitude: primary.longitude || primary.center?.lng || 83.2303,
         center: primary.center || { lat: 26.7683, lng: 83.2303 },
         boundary: primary.boundary || primary.points || [],
         points: primary.points || primary.boundary || [],
-        crop: primary.crop || 'Paddy',
-        cropVariety: primary.cropVariety || 'Pusa Basmati 1509',
-        cropStage: primary.cropStage || 'Tillering Stage',
+        crop: primary.crop || farm?.crop || '',
+        cropVariety: primary.cropVariety || farm?.cropVariety || '',
+        cropStage: primary.cropStage || farm?.cropStage || '',
       };
     }
 
@@ -785,11 +791,11 @@ const persistentStore = {
         farmId: resolvedFarm._id,
         farmerId: userId,
         cropName: resolvedFarm.crop,
-        variety: resolvedFarm.cropVariety || 'Pusa Basmati 1509',
-        cropStage: resolvedFarm.cropStage || 'Tillering Stage',
+        variety: resolvedFarm.cropVariety || 'Standard Variety',
+        cropStage: resolvedFarm.cropStage || 'Vegetative Stage',
         healthStatus: 'Good',
         healthScore: 88,
-        areaAllocated: Number(resolvedFarm.farmSize) || 3.85,
+        areaAllocated: Number(resolvedFarm.farmSize) || 1.0,
         isCurrent: true,
       });
     }
@@ -837,6 +843,9 @@ const persistentStore = {
   getCropScans(farmerId) {
     if (!farmerId) return [];
     return dbState.cropScans.filter(s => s.farmerId === farmerId);
+  },
+  reload() {
+    loadDatabase();
   },
   DEFAULT_KIPM_PADDY_FIELD
 };

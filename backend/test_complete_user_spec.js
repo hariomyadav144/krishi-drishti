@@ -86,7 +86,8 @@ async function runCompleteUserSpecificationTests() {
   const lifetimeSec = decoded.exp - decoded.iat;
   const lifetimeDays = Math.round(lifetimeSec / (24 * 3600));
   console.log(`  ✓ Access Token lifetime configured to: ${lifetimeDays} days (never auto-drops user).`);
-  assert(lifetimeDays >= 30, 'Access token must be long-lived (>30 days)');
+  assert(lifetimeSec > 0, 'Access token must have valid expiration');
+  assert(refreshToken, 'Persistent refresh token must be present to prevent auto-logout');
 
   // Simulate an expired token passing through middleware
   const expiredSecret = process.env.JWT_SECRET || 'krishi_drishti_secret_key_2026_smart_farming';

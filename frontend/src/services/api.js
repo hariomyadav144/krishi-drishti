@@ -94,12 +94,15 @@ export const resolveApiBaseUrl = () => {
     if (custom && custom.trim()) {
       return normalizeBackendApiUrl(custom.trim());
     }
+    // Automatically use Cloud Production Backend on HTTPS domains and GitHub Pages
+    if (window.location && (window.location.protocol === 'https:' || window.location.hostname.includes('github.io') || window.location.hostname.includes('vercel.app')) && !isNativeApp()) {
+      return DEFAULT_PRODUCTION_API_URL;
+    }
   }
   if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_BASE_URL && import.meta.env.VITE_API_BASE_URL.trim()) {
     return normalizeBackendApiUrl(import.meta.env.VITE_API_BASE_URL.trim());
   }
-  // Connect to local backend first (works seamlessly on desktop and on Android device via USB adb reverse);
-  // the response interceptor automatically fails over to DEFAULT_PRODUCTION_API_URL if localhost:5000 is unreachable.
+  // Connect to local backend for local development
   return 'http://localhost:5000/api';
 };
 
