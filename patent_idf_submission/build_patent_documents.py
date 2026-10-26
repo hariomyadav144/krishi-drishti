@@ -1,15 +1,27 @@
 import os
-import docx
 from docx import Document
 from docx.shared import Inches, Pt, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_ALIGN_VERTICAL
+from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.oxml import parse_xml, OxmlElement
 from docx.oxml.ns import nsdecls, qn
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SUBMISSION_DIR = os.path.join(BASE_DIR, 'patent_idf_submission')
 DIAGRAMS_DIR = os.path.join(SUBMISSION_DIR, 'Fasal_Drishti_Technical_Diagrams')
+SCREENSHOTS_DIR = os.path.join(BASE_DIR, 'screenshots')
+
+def get_screenshot_path(filename):
+    """Safely locate screenshots across screenshots directory, project root, and frontend folder."""
+    candidates = [
+        os.path.join(SCREENSHOTS_DIR, filename),
+        os.path.join(BASE_DIR, filename),
+        os.path.join(BASE_DIR, 'frontend', filename)
+    ]
+    for path in candidates:
+        if os.path.exists(path):
+            return path
+    return os.path.join(SCREENSHOTS_DIR, filename)
 
 def set_cell_background(cell, fill_hex):
     tcPr = cell._tc.get_or_add_tcPr()
@@ -318,27 +330,27 @@ def generate_deliverable_1():
                      "Figure 4: Multimodal Plant Pathology & Tiered Diagnostic Fallback Flowchart")
 
     # Insert Real Screenshot 1: Home Dashboard
-    add_image_figure(os.path.join(BASE_DIR, 'home_final.png'), 
+    add_image_figure(get_screenshot_path('home_final.png'), 
                      "Screenshot 1: Verified Live Farmer Dashboard (Hariom Yadav - Paddy Crop, Gorakhpur Weather, & Dynamic Health Overview)")
 
     # Insert Real Screenshot 2: Field Mapping
-    add_image_figure(os.path.join(BASE_DIR, 'live_mapping_boundary.png'), 
+    add_image_figure(get_screenshot_path('live_mapping_boundary.png'), 
                      "Screenshot 2: GPS-Based Field Perimeter Boundary Tracing with Real Shoelace Acreage Computation")
 
     # Insert Real Screenshot 3: Field Monitoring Page
-    add_image_figure(os.path.join(BASE_DIR, 'live_field_monitoring_page.png'), 
+    add_image_figure(get_screenshot_path('live_field_monitoring_page.png'), 
                      "Screenshot 3: Autonomous Field Monitoring Interface showing Multi-Zone NDVI, Soil Moisture, and Weather Correlation")
 
     # Insert Real Screenshot 4: Plant Pathology Scanner
-    add_image_figure(os.path.join(BASE_DIR, 'frontend', 'test_tab_diagnose.png'), 
+    add_image_figure(get_screenshot_path('test_tab_diagnose.png'), 
                      "Screenshot 4: AI Crop Disease Scanner with Multimodal Diagnostic Findings, Chemical/Organic Treatments, and Action Timeline")
 
     # Insert Real Screenshot 5: Mandi Prices
-    add_image_figure(os.path.join(BASE_DIR, 'frontend', 'test_tab_mandi.png'), 
+    add_image_figure(get_screenshot_path('test_tab_mandi.png'), 
                      "Screenshot 5: Real-Time AGMARKNET Mandi Price Discovery & Predictive Selling Intelligence")
 
     # Insert Real Screenshot 6: Mobile Client View
-    add_image_figure(os.path.join(BASE_DIR, 'phone_fd_screen.png'), 
+    add_image_figure(get_screenshot_path('phone_fd_screen.png'), 
                      "Screenshot 6: Fasal Drishti Native Android / Mobile Viewport with Floating SWAR Voice Assistant Trigger")
 
     # --------------------------------------------------------------------------

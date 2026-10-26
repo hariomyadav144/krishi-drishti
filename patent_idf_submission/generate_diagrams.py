@@ -24,14 +24,6 @@ def create_architecture_diagram():
     ax.text(6.5, 8.25, "Layered Architecture of Edge-Resilient Multi-Spectral Farm Telemetry & AI Decision Support Platform", 
             ha='center', va='center', fontsize=9.5, fontstyle='italic', color='#475569')
 
-    # Color definitions
-    colors = {
-        'client': '#0284c7',
-        'edge': '#059669',
-        'backend': '#d97706',
-        'db': '#7c3aed',
-        'external': '#dc2626'
-    }
 
     # Tier 1: Client & Presentation
     tier1 = patches.FancyBboxPatch((0.5, 6.3), 12, 1.6, boxstyle="round,pad=0.2,rounding_size=0.3",
