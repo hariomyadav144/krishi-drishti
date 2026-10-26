@@ -32,23 +32,21 @@ const {
 
 // Helper to check field ownership
 async function getFarmerField(fieldId, userId) {
-  // 1. Look up in persistent store (handles KIPM Paddy Farm and all permanent disk-mapped farms)
+  if (!fieldId || !userId) return null;
+
+  // 1. Look up in persistent store for this specific userId
   const diskField = persistentStore.getFieldById(userId, fieldId);
   if (diskField) return diskField;
 
-  if (fieldId === 'field_kipm_paddy_01' || String(fieldId || '').toLowerCase().includes('kipm')) {
-    return persistentStore.getFieldById(userId, 'field_kipm_paddy_01');
-  }
-
   if (!isDbConnected()) {
     const fields = getStatelessFields(userId);
-    return fields.find(f => f._id === fieldId || f.id === fieldId) || null;
+    return fields.find(f => (f._id === fieldId || f.id === fieldId) && f.farmerId === userId) || null;
   }
   const field = await Field.findOne({
     _id: fieldId,
     $or: [{ farmerId: userId }, { user: userId }]
   });
-  return field;
+  return field ? (field.toObject ? field.toObject() : field) : null;
 }
 
 // @desc    Real-time satellite scan of GPS land parcel to detect crop vs bare/fallow land
@@ -102,55 +100,15 @@ exports.scanLand = async (req, res) => {
 exports.getLatestObservation = async (req, res) => {
   try {
     const { fieldId } = req.params;
-    const userId = req.user?._id;
+    const userId = req.user?._id || req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
 
     let field = await getFarmerField(fieldId, userId);
     if (!field) {
-      field = persistentStore.getFieldById(userId, fieldId);
-    }
-    if (!field) {
-      const fields = getStatelessFields(userId);
-      field = fields.find(f => f._id === fieldId || f.id === fieldId);
-    }
-    if (!field && (fieldId === 'field_kipm_paddy_01' || String(fieldId).toLowerCase().includes('kipm'))) {
-      field = persistentStore.DEFAULT_KIPM_PADDY_FIELD || {
-        _id: 'field_kipm_paddy_01',
-        id: 'field_kipm_paddy_01',
-        farmerId: userId || 'usr_farmer_demo_01',
-        fieldName: 'KIPM Paddy Farm',
-        name: 'KIPM Paddy Farm',
-        farmerName: 'Farmer Rameshwar (KIPM Campus Block)',
-        points: [
-          { lat: 26.76920, lng: 83.22950 },
-          { lat: 26.76950, lng: 83.23120 },
-          { lat: 26.76780, lng: 83.23160 },
-          { lat: 26.76740, lng: 83.22980 }
-        ],
-        boundary: [
-          { lat: 26.76920, lng: 83.22950 },
-          { lat: 26.76950, lng: 83.23120 },
-          { lat: 26.76780, lng: 83.23160 },
-          { lat: 26.76740, lng: 83.22980 }
-        ],
-        areaAcres: 3.85,
-        areaHectares: 1.56,
-        center: { lat: 26.76830, lng: 83.23030 },
-        latitude: 26.76830,
-        longitude: 83.23030,
-        crop: 'Paddy',
-        cropVariety: 'Pusa Basmati 1509',
-        cropStage: 'Tillering Stage',
-        season: 'Kharif',
-        soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
-        irrigationMethod: 'Tube Well & Canal',
-        notes: 'KIPM Technical Campus GIDA Gorakhpur Paddy Block - High Yield Basmati Block',
-        gpsStatus: 'GPS Connected & Verified',
-        gpsAccuracy: 6
-      };
-    }
-
-    if (!field) {
-      return res.status(404).json({
+      return res.status(403).json({
         success: false,
         message: 'Field not found or access denied.'
       });
@@ -173,8 +131,8 @@ exports.getLatestObservation = async (req, res) => {
       }
     }
 
-    // If observation is still empty for KIPM Paddy Farm, provide authentic comprehensive observation
-    if (!observation && (fieldId === 'field_kipm_paddy_01' || String(field.fieldName || '').toLowerCase().includes('kipm'))) {
+    // If observation is still empty for KIPM Paddy Farm, provide authentic comprehensive observation (demo user only)
+    if (!observation && userId === 'usr_farmer_demo_01' && (fieldId === 'field_kipm_paddy_01' || String(field.fieldName || '').toLowerCase().includes('kipm'))) {
       observation = {
         fieldId,
         farmerId: userId,
@@ -272,26 +230,29 @@ exports.getLatestObservation = async (req, res) => {
 exports.triggerMonitoringRun = async (req, res) => {
   try {
     const { fieldId } = req.params;
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const field = await getFarmerField(fieldId, userId);
+    if (!field) {
+      return res.status(403).json({
+        success: false,
+        message: 'Field not found or access denied.'
+      });
+    }
 
     if (!isDbConnected()) {
       const obs = getStatelessLatestObservation(fieldId);
       return res.status(200).json({
         success: true,
         message: 'Field monitoring analysis updated successfully.',
-        data: obs.data
+        data: obs?.data || obs
       });
     }
 
-    const field = await getFarmerField(fieldId, req.user._id);
-
-    if (!field) {
-      return res.status(404).json({
-        success: false,
-        message: 'Field not found or access denied.'
-      });
-    }
-
-    const observation = await runFieldMonitoringPipeline(fieldId, req.user._id);
+    const observation = await runFieldMonitoringPipeline(fieldId, userId);
 
     // Recalculate real-time crop health in background
     try {
@@ -321,6 +282,18 @@ exports.triggerMonitoringRun = async (req, res) => {
 exports.getFieldHistory = async (req, res) => {
   try {
     const { fieldId } = req.params;
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
+    const field = await getFarmerField(fieldId, userId);
+    if (!field) {
+      return res.status(403).json({
+        success: false,
+        message: 'Field not found or access denied.'
+      });
+    }
 
     if (!isDbConnected()) {
       const hist = getStatelessFieldHistory(fieldId);
@@ -328,14 +301,6 @@ exports.getFieldHistory = async (req, res) => {
     }
 
     const limit = parseInt(req.query.limit, 10) || 30;
-
-    const field = await getFarmerField(fieldId, req.user._id);
-    if (!field) {
-      return res.status(404).json({
-        success: false,
-        message: 'Field not found or access denied.'
-      });
-    }
 
     const observations = await FieldMonitoringObservation.find({ fieldId })
       .sort({ observationDate: 1 })
@@ -397,25 +362,18 @@ exports.compareFieldObservations = async (req, res) => {
     const clientBoundary = req.body?.boundary || req.body?.points || null;
     const clientCentroid = req.body?.centroid || (req.body?.latitude && req.body?.longitude ? { lat: Number(req.body.latitude), lng: Number(req.body.longitude) } : null);
 
-    // Retrieve or assemble field
-    let field = await getFarmerField(fieldId, req.user?._id);
-    if (!field) {
-      field = persistentStore.getFieldById(req.user?._id, fieldId);
+    const userId = req.user?._id || req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
     }
+
+    // Retrieve and verify field ownership
+    let field = await getFarmerField(fieldId, userId);
     if (!field) {
-      const stateless = getStatelessFields(req.user?._id);
-      field = stateless.find(f => String(f._id) === String(fieldId) || String(f.id) === String(fieldId));
-    }
-    if (!field) {
-      // Create ad-hoc field record from client geometry so newly mapped local farms work immediately
-      field = {
-        _id: fieldId,
-        fieldName: req.body?.fieldName || req.body?.name || 'Active Farm',
-        crop: req.body?.crop || 'Paddy',
-        areaAcres: Number(req.body?.areaAcres || 3.85),
-        center: clientCentroid || { lat: 26.7683, lng: 83.2303 },
-        boundary: clientBoundary || []
-      };
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: Field not found or you do not have permission to view it.'
+      });
     }
 
     const centroid = clientCentroid || field.center || { lat: Number(field.latitude || 20.174), lng: Number(field.longitude || 73.985) };
@@ -897,9 +855,12 @@ exports.uploadSoilTest = async (req, res) => {
 // @access  Private (Farmer)
 exports.getMonitoringDashboardSummary = async (req, res) => {
   try {
-    const farmerId = req.user?._id || req.user?.id || 'usr_farmer_demo_01';
+    const farmerId = req.user?._id || req.user?.id;
+    if (!farmerId) {
+      return res.status(200).json({ success: true, count: 0, summaries: [], data: [] });
+    }
 
-    // Retrieve disk fields from persistentStore (guaranteed to include KIPM Paddy Farm)
+    // Retrieve disk fields from persistentStore for this farmer
     const diskFields = persistentStore.getFields(farmerId);
 
     let fields = [];
@@ -920,6 +881,15 @@ exports.getMonitoringDashboardSummary = async (req, res) => {
     (fields || []).forEach(f => fieldMap.set(String(f.id || f._id), f));
 
     const combinedFields = Array.from(fieldMap.values());
+    if (combinedFields.length === 0) {
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        summaries: [],
+        data: []
+      });
+    }
+
     const summaryList = [];
 
     for (const field of combinedFields) {
@@ -1034,7 +1004,8 @@ exports.getFieldActions = async (req, res) => {
   try {
     const { fieldId } = req.params;
     if (!isDbConnected()) {
-      const actions = getStatelessFieldActions(fieldId || 'all');
+      const farmerId = req.user?._id || req.user?.id;
+      const actions = getStatelessFieldActions(fieldId || 'all', farmerId);
       return res.status(200).json({
         success: true,
         data: actions

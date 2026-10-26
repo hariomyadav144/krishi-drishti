@@ -55,12 +55,19 @@ const loadInitialSession = () => {
     if (rawFasal) {
       const parsed = JSON.parse(rawFasal);
       if (parsed && (parsed.token || parsed.user || parsed.refreshToken)) {
-        console.log('[AuthContext] Restored permanent session from fasal_user_session for:', parsed.user?.phone || parsed.user?.name);
+        const uid = parsed.user?.id || parsed.user?._id;
+        const isDemo = parsed.user?.phone === '9876543210' || parsed.user?.id === 'usr_farmer_demo_01';
+        let userFarm = parsed.farm;
+        if (!userFarm && uid) {
+          const userFarms = safeParse(`farms_data_usr_${uid}`) || [];
+          if (userFarms.length > 0) userFarm = userFarms[0];
+          else if (isDemo) userFarm = safeParse('krishi_farm');
+        }
         return {
           ...parsed,
-          farm: parsed.farm || safeParse('krishi_active_field') || safeParse('krishi_farm') || safeParse('farm_data'),
-          profile: parsed.profile || safeParse('krishi_profile'),
-          currentCrop: parsed.currentCrop || safeParse('krishi_current_crop'),
+          farm: userFarm || null,
+          profile: parsed.profile || (uid ? safeParse(`krishi_profile_${uid}`) : null) || (isDemo ? safeParse('krishi_profile') : null),
+          currentCrop: parsed.currentCrop || (userFarm?.crop ? { name: userFarm.crop, cropName: userFarm.crop } : null),
         };
       }
     }
@@ -74,13 +81,21 @@ const loadInitialSession = () => {
     const legacyRefresh = localStorage.getItem('fasal_refresh_token');
     const legacyUser = safeParse('krishi_user');
     if (legacyToken || legacyUser || legacyRefresh) {
+      const uid = legacyUser?.id || legacyUser?._id;
+      const isDemo = legacyUser?.phone === '9876543210' || legacyUser?.id === 'usr_farmer_demo_01';
+      let userFarm = null;
+      if (uid) {
+        const userFarms = safeParse(`farms_data_usr_${uid}`) || [];
+        if (userFarms.length > 0) userFarm = userFarms[0];
+        else if (isDemo) userFarm = safeParse('krishi_farm');
+      }
       return {
         token: legacyToken || null,
         refreshToken: legacyRefresh || null,
         user: legacyUser || null,
-        profile: safeParse('krishi_profile'),
-        farm: safeParse('krishi_active_field') || safeParse('krishi_farm') || safeParse('farm_data'),
-        currentCrop: safeParse('krishi_current_crop'),
+        profile: uid ? safeParse(`krishi_profile_${uid}`) : (isDemo ? safeParse('krishi_profile') : null),
+        farm: userFarm || null,
+        currentCrop: userFarm?.crop ? { name: userFarm.crop, cropName: userFarm.crop } : null,
       };
     }
   } catch (_) {}
@@ -89,21 +104,38 @@ const loadInitialSession = () => {
 };
 
 /**
- * 2. Save session permanently to both fasal_user_session and legacy krishi_* keys
- * IMPORTANT: Logout only clears auth session credentials; NEVER deletes farmer data!
+ * 2. Save session permanently with strict user isolation
+ * Clearing authentication credentials removes shared cache keys while preserving all user-scoped farms
  */
 const persistSession = (token, user, profile, farm, currentCrop, refreshToken = null) => {
   if (typeof window === 'undefined') return;
   try {
     if (!token && !user) {
-      // Clear ONLY authentication credentials
+      // Clear ONLY authentication credentials and temporary active keys
       localStorage.removeItem('fasal_user_session');
       localStorage.removeItem('krishi_token');
       localStorage.removeItem('fasal_refresh_token');
       localStorage.removeItem('krishi_user');
       localStorage.removeItem('krishi_demo_role');
-      // DO NOT delete krishi_farm, krishi_current_crop, krishi_profile, or farm boundary records!
+      localStorage.removeItem('krishi_active_field');
+      localStorage.removeItem('active_farm_id');
+      localStorage.removeItem('farm_data');
+      localStorage.removeItem('krishi_farm');
+      localStorage.removeItem('krishi_current_crop');
+      localStorage.removeItem('krishi_crop_health_cache');
+      localStorage.removeItem('krishi_dash_cache');
+      localStorage.removeItem('krishi_farm_coords');
       return;
+    }
+
+    const uid = user?.id || user?._id;
+    const isDemo = user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01';
+    if (!isDemo) {
+      localStorage.removeItem('krishi_demo_role');
+      localStorage.removeItem('krishi_farm');
+      localStorage.removeItem('krishi_current_crop');
+      localStorage.removeItem('krishi_active_field');
+      localStorage.removeItem('farm_data');
     }
 
     const existingSession = safeParse('fasal_user_session') || {};
@@ -123,9 +155,14 @@ const persistSession = (token, user, profile, farm, currentCrop, refreshToken = 
     if (token) localStorage.setItem('krishi_token', token);
     if (effectiveRefreshToken) localStorage.setItem('fasal_refresh_token', effectiveRefreshToken);
     if (user) safeSet('krishi_user', user);
-    if (profile) safeSet('krishi_profile', profile);
-    if (farm) safeSet('krishi_farm', farm);
-    if (currentCrop) safeSet('krishi_current_crop', currentCrop);
+    if (profile && uid) safeSet(`krishi_profile_${uid}`, profile);
+    if (farm && uid) safeSet(`krishi_farm_${uid}`, farm);
+    if (currentCrop && uid) safeSet(`krishi_current_crop_${uid}`, currentCrop);
+    if (isDemo) {
+      if (profile) safeSet('krishi_profile', profile);
+      if (farm) safeSet('krishi_farm', farm);
+      if (currentCrop) safeSet('krishi_current_crop', currentCrop);
+    }
   } catch (err) {
     console.warn('[AuthContext] Error persisting session:', err);
   }
@@ -338,9 +375,23 @@ export const AuthProvider = ({ children }) => {
         const uid = newUser?.id || newUser?._id;
         console.log('[AUTH:LOGIN] 4. Authentication successful. UID:', uid);
 
-        let restoredProfile = res.data.profile || profile || safeParse('krishi_profile');
-        let restoredFarm = res.data.farm || farm || safeParse('krishi_farm') || safeParse('krishi_active_field') || safeParse('farm_data');
-        let restoredCrop = res.data.currentCrop || currentCrop || safeParse('krishi_current_crop');
+        let restoredProfile = res.data.profile || null;
+        let restoredFarm = res.data.farm || null;
+        let restoredCrop = res.data.currentCrop || null;
+
+        // Clear previous in-memory state and global cached keys first
+        setFarmState(null);
+        setCurrentCropState(null);
+        setProfileState(null);
+        localStorage.removeItem('krishi_demo_role');
+        localStorage.removeItem('krishi_active_field');
+        localStorage.removeItem('active_farm_id');
+        localStorage.removeItem('farm_data');
+        localStorage.removeItem('krishi_farm');
+        localStorage.removeItem('krishi_current_crop');
+        localStorage.removeItem('krishi_crop_health_cache');
+        localStorage.removeItem('krishi_dash_cache');
+        localStorage.removeItem('krishi_farm_coords');
 
         setToken(newToken);
         setUserState(newUser);
@@ -353,18 +404,24 @@ export const AuthProvider = ({ children }) => {
         try {
           const userFields = await fetchSavedFields(uid);
           if (Array.isArray(userFields) && userFields.length > 0) {
-            const activeId = localStorage.getItem('active_farm_id');
+            const activeId = getActiveFarmId(uid);
             const targetFarm = (activeId && userFields.find(f => f.id === activeId || f._id === activeId)) || userFields[0];
             activateFarm(targetFarm.id, uid);
             restoredFarm = targetFarm;
+            if (targetFarm.crop) {
+              restoredCrop = { name: targetFarm.crop, cropName: targetFarm.crop };
+              setCurrentCropState(restoredCrop);
+            }
+          } else {
+            restoredFarm = null;
+            restoredCrop = null;
+            setCurrentCropState(null);
           }
         } catch (err) {
           console.warn('[AUTH:LOGIN] Field fetch note:', err.message);
         }
 
-        if (restoredFarm) {
-          setFarmState(restoredFarm);
-        }
+        setFarmState(restoredFarm);
 
         persistSession(newToken, newUser, restoredProfile, restoredFarm, restoredCrop, newRefreshToken);
         refreshUser().catch(err => console.warn('[AUTH:LOGIN] Background hydration:', err.message));
@@ -447,14 +504,26 @@ export const AuthProvider = ({ children }) => {
         const uid = newUser?.id || newUser?._id;
         console.log('[AUTH:REGISTER] 4. Account created successfully. UID:', uid);
 
-        let restoredProfile = res.data.profile || profile || safeParse('krishi_profile');
-        let restoredFarm = res.data.farm || farm || safeParse('krishi_farm') || safeParse('krishi_active_field') || safeParse('farm_data');
-        let restoredCrop = res.data.currentCrop || currentCrop || safeParse('krishi_current_crop');
+        // Fresh clean state for new registrant - explicitly clear any previous caches
+        setFarmState(null);
+        setCurrentCropState(null);
+        setProfileState(null);
+        localStorage.removeItem('krishi_demo_role');
+        localStorage.removeItem('krishi_active_field');
+        localStorage.removeItem('active_farm_id');
+        localStorage.removeItem('farm_data');
+        localStorage.removeItem('krishi_farm');
+        localStorage.removeItem('krishi_current_crop');
+        localStorage.removeItem('krishi_crop_health_cache');
+        localStorage.removeItem('krishi_dash_cache');
+        localStorage.removeItem('krishi_farm_coords');
 
         setToken(newToken);
         setUserState(newUser);
+        let restoredProfile = res.data.profile || null;
+        let restoredFarm = null;
+        let restoredCrop = null;
         if (restoredProfile) setProfileState(restoredProfile);
-        if (restoredCrop) setCurrentCropState(restoredCrop);
         saveRegisteredUserLocally(newUser, newToken);
 
         // Background mirror to alternate server if reachable so account exists everywhere
@@ -469,14 +538,21 @@ export const AuthProvider = ({ children }) => {
             const targetFarm = userFields[0];
             activateFarm(targetFarm.id, uid);
             restoredFarm = targetFarm;
+            if (targetFarm.crop) {
+              restoredCrop = { name: targetFarm.crop, cropName: targetFarm.crop };
+              setCurrentCropState(restoredCrop);
+            }
+          } else {
+            restoredFarm = null;
+            restoredCrop = null;
+            setCurrentCropState(null);
           }
         } catch (err) {
           console.warn('[AUTH:REGISTER] Field fetch note:', err.message);
         }
 
-        if (restoredFarm) {
-          setFarmState(restoredFarm);
-        }
+        setFarmState(restoredFarm);
+        setCurrentCropState(restoredCrop);
 
         persistSession(newToken, newUser, restoredProfile, restoredFarm, restoredCrop, newRefreshToken);
         refreshUser().catch(err => console.warn('[AUTH:REGISTER] Background hydration:', err.message));
@@ -563,7 +639,28 @@ export const AuthProvider = ({ children }) => {
     setToken(null);
     setUserState(null);
     setProfileState(null);
-    // CRITICAL: NEVER delete or clear farm state/storage on logout!
+    setFarmState(null);
+    setCurrentCropState(null);
+
+    // Clear user-specific cached dashboard, health, and active field so next user sees a clean state
+    try {
+      const keysToRemove = [
+        'krishi_active_field',
+        'active_farm_id',
+        'farm_data',
+        'krishi_farm',
+        'krishi_current_crop',
+        'krishi_profile',
+        'krishi_crop_health_cache',
+        'krishi_dash_cache',
+        'krishi_outbreak_cache',
+        'krishi_recent_scans'
+      ];
+      keysToRemove.forEach(k => {
+        localStorage.removeItem(k);
+        sessionStorage.removeItem(k);
+      });
+    } catch (_) {}
   };
 
   const refreshUser = async () => {

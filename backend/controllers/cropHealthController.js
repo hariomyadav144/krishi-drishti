@@ -10,34 +10,105 @@ const {
 } = require('../utils/statelessStore');
 
 /**
+ * Verify if a farmer owns a specific field
+ */
+async function verifyFieldOwnership(farmerId, fieldId) {
+  if (!farmerId || !fieldId) return null;
+
+  if (isDbConnected()) {
+    try {
+      const field = await Field.findOne({
+        _id: fieldId,
+        $or: [{ farmerId }, { user: farmerId }]
+      });
+      if (field) return field.toObject ? field.toObject() : field;
+    } catch (_) {}
+  }
+
+  // Check persistent store
+  const diskField = persistentStore.getFieldById(farmerId, fieldId);
+  if (diskField) return diskField;
+
+  // Check stateless store
+  const statelessFields = getStatelessFields(farmerId);
+  const matched = statelessFields.find(f => (f._id === fieldId || f.id === fieldId) && f.farmerId === farmerId);
+  return matched || null;
+}
+
+/**
  * @desc Get latest real-time calculated crop health snapshot for a field
  * @route GET /api/crop-health/latest/:fieldId?
  */
 const getLatestCropHealth = async (req, res) => {
   try {
-    const farmerId = req.user._id;
+    const farmerId = req.user?._id || req.user?.id;
+    if (!farmerId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
     let { fieldId } = req.params;
 
+    // Resolve field for default or unspecified request
+    let targetField = null;
     if (fieldId === 'default' || !fieldId) {
       if (isDbConnected()) {
-        const firstField = await Field.findOne({ farmerId }).sort({ updatedAt: -1 });
-        fieldId = firstField?._id || 'field_kipm_paddy_01';
-      } else {
-        const fields = persistentStore.getFields(farmerId);
-        fieldId = fields[0]?._id || fields[0]?.id || 'field_kipm_paddy_01';
+        try {
+          targetField = await Field.findOne({ farmerId }).sort({ updatedAt: -1 }).lean();
+        } catch (_) {}
+      }
+      if (!targetField) {
+        const userFields = persistentStore.getFields(farmerId);
+        targetField = userFields && userFields.length > 0 ? userFields[0] : null;
+      }
+      if (!targetField) {
+        const statelessFields = getStatelessFields(farmerId);
+        targetField = statelessFields && statelessFields.length > 0 ? statelessFields[0] : null;
+      }
+
+      // If farmer has no registered fields, return clean no-field response (do NOT inject Kipm paddy)
+      if (!targetField) {
+        return res.status(200).json({
+          success: true,
+          data: {
+            hasField: false,
+            fieldId: null,
+            fieldName: null,
+            crop: null,
+            healthScore: null,
+            status: null,
+            statusHi: 'डेटा अनुपलब्ध',
+            confidence: 'Low',
+            message: 'Insufficient data to calculate crop health. Add your first farm to begin.',
+            reasons: [],
+            reasonsHi: ['फसल स्वास्थ्य की गणना के लिए खेत जोड़ें।'],
+            dataSources: []
+          }
+        });
+      }
+      fieldId = targetField._id || targetField.id;
+    } else {
+      // Specific fieldId requested: Strictly verify ownership
+      targetField = await verifyFieldOwnership(farmerId, fieldId);
+      if (!targetField) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not own this farm parcel.'
+        });
       }
     }
 
     let record = null;
     if (isDbConnected()) {
-      record = await CropHealthRecord.findOne({ farmerId, fieldId }).sort({ calculatedAt: -1 });
+      try {
+        record = await CropHealthRecord.findOne({ farmerId, fieldId }).sort({ calculatedAt: -1 }).lean();
+      } catch (_) {}
     } else {
       record = getStatelessLatestHealthRecord(fieldId, farmerId);
     }
 
-    // If no calculation snapshot exists yet, calculate dynamically now
+    // If no calculation snapshot exists yet, calculate dynamically using the verified field
     if (!record) {
-      record = await calculateCropHealth({ farmerId, fieldId });
+      record = await calculateCropHealth({ farmerId, fieldId, fieldDoc: targetField });
     }
 
     return res.status(200).json({
@@ -46,23 +117,11 @@ const getLatestCropHealth = async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching latest crop health:', error);
-    // Safe graceful calculation fallback
-    try {
-      const fallbackRecord = await calculateCropHealth({ 
-        farmerId: req.user?._id || 'usr_farmer_demo_01', 
-        fieldId: req.params?.fieldId || 'field_kipm_paddy_01' 
-      });
-      return res.status(200).json({
-        success: true,
-        data: fallbackRecord
-      });
-    } catch (e) {
-      return res.status(500).json({
-        success: false,
-        message: 'Unable to calculate crop health',
-        error: error.message
-      });
-    }
+    return res.status(500).json({
+      success: false,
+      message: 'Unable to calculate crop health',
+      error: error.message
+    });
   }
 };
 
@@ -72,12 +131,20 @@ const getLatestCropHealth = async (req, res) => {
  */
 const getCropHealthSummary = async (req, res) => {
   try {
-    const farmerId = req.user._id;
+    const farmerId = req.user?._id || req.user?.id;
+    if (!farmerId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
     let fields = [];
 
     if (isDbConnected()) {
-      fields = await Field.find({ farmerId }).lean();
-    } else {
+      try {
+        fields = await Field.find({ farmerId }).lean();
+      } catch (_) {}
+    }
+
+    if (!fields || fields.length === 0) {
       fields = persistentStore.getFields(farmerId);
       if (!fields || fields.length === 0) {
         fields = getStatelessFields(farmerId);
@@ -93,14 +160,13 @@ const getCropHealthSummary = async (req, res) => {
       return true;
     });
 
+    // Clean empty response if farmer has no registered fields
     if (!fields || fields.length === 0) {
-      fields = [{
-        _id: 'field_kipm_paddy_01',
-        id: 'field_kipm_paddy_01',
-        fieldName: 'Kipm paddy',
-        crop: 'Paddy',
-        cropStage: 'Tillering Stage'
-      }];
+      return res.status(200).json({
+        success: true,
+        count: 0,
+        data: []
+      });
     }
 
     const summaries = await Promise.all(
@@ -109,7 +175,9 @@ const getCropHealthSummary = async (req, res) => {
         let latestRecord = null;
 
         if (isDbConnected()) {
-          latestRecord = await CropHealthRecord.findOne({ farmerId, fieldId }).sort({ calculatedAt: -1 }).lean();
+          try {
+            latestRecord = await CropHealthRecord.findOne({ farmerId, fieldId }).sort({ calculatedAt: -1 }).lean();
+          } catch (_) {}
         } else {
           latestRecord = getStatelessLatestHealthRecord(fieldId, farmerId);
         }
@@ -120,10 +188,10 @@ const getCropHealthSummary = async (req, res) => {
 
         return {
           fieldId,
-          fieldName: f.fieldName || latestRecord?.fieldName || 'Kipm paddy',
-          crop: f.crop || latestRecord?.crop || 'Paddy',
-          cropStage: f.cropStage || latestRecord?.cropStage || 'Tillering Stage',
-          healthScore: latestRecord?.healthScore || 88,
+          fieldName: f.fieldName || f.name || latestRecord?.fieldName || 'Farm',
+          crop: f.crop || latestRecord?.crop || '',
+          cropStage: f.cropStage || latestRecord?.cropStage || 'Vegetative Stage',
+          healthScore: latestRecord?.healthScore !== undefined ? latestRecord.healthScore : null,
           status: latestRecord?.status || 'Healthy',
           statusHi: latestRecord?.statusHi || 'स्वस्थ',
           confidence: latestRecord?.confidence || 'High',
@@ -153,8 +221,22 @@ const getCropHealthSummary = async (req, res) => {
  */
 const getCropHealthHistory = async (req, res) => {
   try {
-    const farmerId = req.user._id;
+    const farmerId = req.user?._id || req.user?.id;
+    if (!farmerId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
     const { fieldId } = req.params;
+
+    // Strict ownership verification
+    const field = await verifyFieldOwnership(farmerId, fieldId);
+    if (!field) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied: You do not own this farm parcel.'
+      });
+    }
+
     const { period = '30d' } = req.query;
 
     if (!isDbConnected()) {
@@ -182,7 +264,7 @@ const getCropHealthHistory = async (req, res) => {
 
     // If very few records exist, generate initial point so farmer immediately sees a chart
     if (records.length === 0) {
-      const initial = await calculateCropHealth({ farmerId, fieldId });
+      const initial = await calculateCropHealth({ farmerId, fieldId, fieldDoc: field });
       records = [initial];
     }
 
@@ -208,20 +290,40 @@ const getCropHealthHistory = async (req, res) => {
  */
 const recalculateCropHealth = async (req, res) => {
   try {
-    const farmerId = req.user._id;
+    const farmerId = req.user?._id || req.user?.id;
+    if (!farmerId) {
+      return res.status(401).json({ success: false, message: 'Authentication required' });
+    }
+
     let { fieldId } = req.params;
 
+    let targetField = null;
     if (fieldId === 'default' || !fieldId) {
       if (isDbConnected()) {
-        const firstField = await Field.findOne({ farmerId }).sort({ updatedAt: -1 });
-        fieldId = firstField?._id || 'field_kipm_paddy_01';
-      } else {
+        targetField = await Field.findOne({ farmerId }).sort({ updatedAt: -1 }).lean();
+      }
+      if (!targetField) {
         const fields = persistentStore.getFields(farmerId);
-        fieldId = fields[0]?._id || fields[0]?.id || 'field_kipm_paddy_01';
+        targetField = fields && fields.length > 0 ? fields[0] : null;
+      }
+      if (!targetField) {
+        return res.status(400).json({
+          success: false,
+          message: 'No farm registered. Please add a farm before calculating crop health.'
+        });
+      }
+      fieldId = targetField._id || targetField.id;
+    } else {
+      targetField = await verifyFieldOwnership(farmerId, fieldId);
+      if (!targetField) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied: You do not own this farm parcel.'
+        });
       }
     }
 
-    const newSnapshot = await calculateCropHealth({ farmerId, fieldId });
+    const newSnapshot = await calculateCropHealth({ farmerId, fieldId, fieldDoc: targetField });
 
     return res.status(201).json({
       success: true,

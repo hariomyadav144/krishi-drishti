@@ -149,16 +149,17 @@ const register = async (req, res) => {
             location: locationString,
           });
 
-          const farm = await Farm.create({
-            farmerId: user._id,
-            farmName: `${name.trim()}'s Farm`,
-            farmSize: Number(farmSize) || 0,
-            landUnit: 'Acres',
-            soilType: soilType || '',
-            irrigationMethod: irrigationMethod || '',
-          });
+          let farm = null;
+          if (farmSize && Number(farmSize) > 0 && effectiveCrop) {
+            farm = await Farm.create({
+              farmerId: user._id,
+              farmName: req.body.farmName ? req.body.farmName.trim() : `${name.trim()}'s Farm`,
+              farmSize: Number(farmSize) || 0,
+              landUnit: 'Acres',
+              soilType: soilType || '',
+              irrigationMethod: irrigationMethod || '',
+            });
 
-          if (effectiveCrop) {
             await Crop.create({
               farmId: farm._id,
               farmerId: user._id,
@@ -251,10 +252,12 @@ const register = async (req, res) => {
     }
 
     const regProfile = persistentStore.getProfile(userId);
-    const regFarm = persistentStore.getFarm(userId);
-    const regCrops = persistentStore.getCrops(userId);
-    const regCurrentCrop = regCrops.find(c => c.isCurrent) || regCrops[0] || null;
     const regFields = persistentStore.getFields(userId);
+    const rawFarm = persistentStore.getFarm(userId);
+    const hasRealFarm = (regFields && regFields.length > 0) || (rawFarm && Number(rawFarm.farmSize) > 0 && rawFarm.farmName);
+    const regFarm = (regFields && regFields.length > 0) ? regFields[0] : (hasRealFarm ? rawFarm : null);
+    const regCrops = persistentStore.getCrops(userId);
+    const regCurrentCrop = regFarm ? (regCrops.find(c => c.isCurrent) || regCrops[0] || null) : null;
 
     return res.status(201).json({
       success: true,
@@ -272,7 +275,7 @@ const register = async (req, res) => {
         languagePreference: user.languagePreference || 'hi',
       },
       profile: regProfile || null,
-      farm: regFarm || (regFields && regFields[0]) || null,
+      farm: regFarm || null,
       currentCrop: regCurrentCrop || null,
       fields: regFields || [],
     });
@@ -422,6 +425,9 @@ const login = async (req, res) => {
       if (!currentCrop) currentCrop = storeData.currentCrop;
     }
     const fields = persistentStore.getFields(userId);
+    const hasRealFarm = (fields && fields.length > 0) || (farm && (Number(farm.farmSize) > 0 || farm.points?.length > 0) && farm.farmName);
+    const effectiveFarm = (fields && fields.length > 0) ? fields[0] : (hasRealFarm ? farm : null);
+    const effectiveCrop = effectiveFarm ? currentCrop : null;
 
     return res.status(200).json({
       success: true,
@@ -440,8 +446,8 @@ const login = async (req, res) => {
         languagePreference: user.languagePreference || 'hi',
       },
       profile: profile || null,
-      farm: farm || (fields && fields[0]) || null,
-      currentCrop: currentCrop || null,
+      farm: effectiveFarm || null,
+      currentCrop: effectiveCrop || null,
       fields: fields || [],
     });
   } catch (error) {

@@ -10,7 +10,7 @@ async function runCompleteUserSpecificationTests() {
   console.log('  FASAL DRISHTI: COMPREHENSIVE AUTH & FARM DATA PERSISTENCE TESTS');
   console.log('================================================================\n');
 
-  const testPhone = '9870011223';
+  const testPhone = '987' + Math.floor(1000000 + Math.random() * 9000000);
   const testPassword = 'FasalSecurePassword2026';
   let userId = null;
   let authToken = null;
@@ -121,14 +121,14 @@ async function runCompleteUserSpecificationTests() {
   console.log('  ✓ User account safely persisted in DB. Re-registration NOT required.');
 
   // -------------------------------------------------------------------------
-  // TEST 4 & 5: KIPM Paddy Farm Data, Boundary & Coordinates Permanence
+  // TEST 4 & 5: KIPM Paddy Farm Data & Boundary Persistence for Demo Farmer:
   // -------------------------------------------------------------------------
   console.log('\n[TEST 4 & 5] KIPM Paddy Farm Data & Boundary Persistence:');
-  const userFields = persistentStore.getFields(userId);
-  assert(Array.isArray(userFields) && userFields.length > 0, 'User must have fields');
+  const demoFields = persistentStore.getFields('usr_farmer_demo_01');
+  assert(Array.isArray(demoFields) && demoFields.length > 0, 'Demo user must have fields');
 
-  const kipmField = userFields.find(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'));
-  assert(kipmField, 'KIPM Paddy Farm must be permanently associated with user');
+  const kipmField = demoFields.find(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'));
+  assert(kipmField, 'KIPM Paddy Farm must be permanently associated with demo owner usr_farmer_demo_01');
   assert.strictEqual(kipmField.crop, 'Paddy');
   assert(Array.isArray(kipmField.points) && kipmField.points.length >= 4, 'KIPM boundary must have at least 4 corners');
   
@@ -140,8 +140,14 @@ async function runCompleteUserSpecificationTests() {
   console.log(`  ✓ KIPM Paddy Farm found with ${kipmField.points.length} boundary points:`, kipmField.points[0]);
   console.log(`  ✓ Area: ${kipmField.areaAcres || kipmField.farmArea} acres | Crop: ${kipmField.crop} | Stage: ${kipmField.cropStage}`);
 
+  // Verify new user has clean zero fields initially
+  const newUserInitialFields = persistentStore.getFields(userId);
+  assert.strictEqual(newUserInitialFields.length, 0, 'Newly registered user must have 0 fields initially');
+  assert(!newUserInitialFields.some(f => f.fieldName?.toLowerCase().includes('kipm')), 'Kipm paddy must NOT leak to new user');
+  console.log('  ✓ Verified: New user starts with clean 0 fields (no Kipm paddy leakage).');
+
   // -------------------------------------------------------------------------
-  // TEST 6: Save Custom Farm -> Logout -> Login -> Custom Farm & KIPM Intact
+  // TEST 6: Save Custom Farm -> Logout -> Login -> Custom Farm Intact & Isolated
   // -------------------------------------------------------------------------
   console.log('\n[TEST 6] Create Custom Field -> Logout -> Login -> Verify All Fields:');
   const customField = {
@@ -169,12 +175,12 @@ async function runCompleteUserSpecificationTests() {
   assert.strictEqual(reLoginRes.getStatusCode(), 200);
 
   const reloadedFields = persistentStore.getFields(userId);
-  assert(reloadedFields.length >= 2, 'Must have at least 2 fields after re-login');
+  assert.strictEqual(reloadedFields.length, 1, 'User must have exactly 1 field after re-login');
   const hasCustom = reloadedFields.some(f => f.fieldName === 'Sector B Basmati Block' || f.name === 'Sector B Basmati Block');
   const hasKipm = reloadedFields.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm'));
   assert(hasCustom, 'Custom farm must be preserved after logout and login');
-  assert(hasKipm, 'KIPM Paddy Farm must remain preserved after logout and login');
-  console.log('  ✓ Both KIPM Paddy Farm and user custom farm are preserved across logout/login cycle!');
+  assert(!hasKipm, 'KIPM Paddy Farm must NEVER leak into custom user account');
+  console.log('  ✓ User custom farm preserved across logout/login and strictly isolated from Kipm paddy!');
 
   // -------------------------------------------------------------------------
   // TEST 7: Wrong Password Fails Normally

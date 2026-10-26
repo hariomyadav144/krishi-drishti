@@ -649,7 +649,7 @@ function getStatelessMandiRates({ commodity, state, district }) {
 let STATELESS_FIELDS = [];
 
 function getStatelessFields(farmerId) {
-  if (!farmerId) return [...STATELESS_FIELDS];
+  if (!farmerId) return [];
   return STATELESS_FIELDS.filter(f => f.farmerId === farmerId);
 }
 
@@ -1397,7 +1397,9 @@ function getStatelessLatestObservation(fieldId) {
 }
 
 function getStatelessFieldMonitoringSummary(farmerId) {
-  return STATELESS_FIELDS.map(field => {
+  if (!farmerId) return [];
+  const fields = STATELESS_FIELDS.filter(f => f.farmerId === farmerId);
+  return fields.map(field => {
     const fieldObs = STATELESS_FIELD_OBSERVATIONS
       .filter(o => o.fieldId === field._id)
       .sort((a, b) => new Date(b.observationDate).getTime() - new Date(a.observationDate).getTime())[0];
@@ -1759,9 +1761,13 @@ const STATELESS_ACTION_ITEMS = [
   }
 ];
 
-function getStatelessFieldActions(fieldId) {
-  if (!fieldId) return STATELESS_ACTION_ITEMS;
-  return STATELESS_ACTION_ITEMS.filter(a => a.fieldId === fieldId);
+function getStatelessFieldActions(fieldId, farmerId) {
+  let list = STATELESS_ACTION_ITEMS;
+  if (farmerId) {
+    list = list.filter(a => a.farmerId === farmerId);
+  }
+  if (!fieldId || fieldId === 'all') return list;
+  return list.filter(a => a.fieldId === fieldId);
 }
 
 function updateStatelessActionStatus(actionId, status, completedNotes) {

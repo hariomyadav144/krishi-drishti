@@ -1,5 +1,5 @@
 import api from './api';
-import { getFarms, getActiveFarm } from './fieldService';
+import { getFarms, getActiveFarm, getCurrentUserId } from './fieldService';
 
 /**
  * Fasal Drishti - Autonomous Field Monitoring & Real-Time Satellite Remote Sensing Service
@@ -224,41 +224,38 @@ export async function scanLandWithSatellite(payload) {
 
 // Fetch latest observation for a specific field (with autonomous fallback)
 export async function fetchLatestObservation(fieldId) {
+  const uid = getCurrentUserId();
+  const isDemo = uid === 'usr_farmer_demo_01';
   let farms = getFarms();
-  if (!Array.isArray(farms) || farms.length === 0) {
-    try {
-      const raw = localStorage.getItem('krishi_saved_fields') || localStorage.getItem('krishi_farms_v2');
-      if (raw) farms = JSON.parse(raw);
-    } catch (_) {}
-  }
   if (!Array.isArray(farms)) farms = [];
 
-  let farm = farms.find(f => String(f.id) === String(fieldId) || String(f._id) === String(fieldId) || f.fieldName === fieldId || f.name === fieldId) 
-    || getActiveFarm();
-
-  if (!farm && typeof localStorage !== 'undefined') {
-    try {
-      const rawActive = localStorage.getItem('krishi_active_field');
-      if (rawActive) {
-        const parsed = JSON.parse(rawActive);
-        if (parsed && (String(parsed.id) === String(fieldId) || String(parsed._id) === String(fieldId) || !fieldId)) {
-          farm = parsed;
-        }
-      }
-    } catch (_) {}
+  let farm = null;
+  if (fieldId && fieldId !== 'default') {
+    farm = farms.find(f => String(f.id) === String(fieldId) || String(f._id) === String(fieldId) || f.fieldName === fieldId || f.name === fieldId);
   }
-
   if (!farm && farms.length > 0) {
     farm = farms[0];
   }
 
+  // If user has no registered farms and no target fieldId, do not fabricate an observation!
+  if (!farm && (!fieldId || fieldId === 'default')) {
+    if (!isDemo) {
+      return {
+        success: false,
+        message: 'No registered field available for monitoring',
+        data: null,
+        field: null
+      };
+    }
+  }
+
   // If local mapped farm exists or we have a valid fieldId, compute coordinate-specific real-time satellite observation
-  if (farm || fieldId) {
+  if (farm || (fieldId && fieldId !== 'default') || isDemo) {
     const safeFarm = farm || {
-      id: fieldId || 'field_01',
-      _id: fieldId || 'field_01',
+      id: fieldId || 'field_kipm_paddy_01',
+      _id: fieldId || 'field_kipm_paddy_01',
       fieldName: 'Farmer Field',
-      crop: 'Wheat',
+      crop: 'Paddy',
       areaAcres: 1.5,
       boundary: []
     };
@@ -812,10 +809,12 @@ export async function uploadSoilTest(fieldId, soilData) {
 
 // Get quick monitoring indicators for all farmer fields
 export async function fetchMonitoringDashboardSummary() {
+  const uid = getCurrentUserId();
+  const isDemo = uid === 'usr_farmer_demo_01';
   let localFarms = getFarms();
   if (!Array.isArray(localFarms) || localFarms.length === 0) {
     const active = getActiveFarm();
-    if (active) localFarms = [active];
+    if (active && (isDemo || active.userId === uid || active.farmerId === uid)) localFarms = [active];
   }
   if (!Array.isArray(localFarms)) localFarms = [];
   let backendFields = [];
@@ -826,6 +825,11 @@ export async function fetchMonitoringDashboardSummary() {
       backendFields = res.data.data;
     }
   } catch (_) {}
+
+  // If farmer is non-demo and has zero farms locally and remotely, return empty array
+  if (!isDemo && localFarms.length === 0 && backendFields.length === 0) {
+    return [];
+  }
 
   const merged = [];
   const seenIds = new Set();
@@ -892,33 +896,6 @@ export async function fetchMonitoringDashboardSummary() {
         soilMoisture: bf.moistureScore ? `${bf.moistureScore}%` : '32%'
       });
     }
-  }
-
-  // 3. Multi-layer guarantee: If KIPM Paddy Farm is missing from merged, append it
-  if (!merged.some(f => f.fieldId === 'field_kipm_paddy_01' || (f.fieldName && f.fieldName.toLowerCase().includes('kipm')))) {
-    merged.unshift({
-      fieldId: 'field_kipm_paddy_01',
-      fieldName: 'KIPM Paddy Farm',
-      crop: 'Paddy',
-      areaAcres: 3.85,
-      areaUnit: 'Acres',
-      soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
-      season: 'Kharif',
-      boundary: [
-        { lat: 26.76920, lng: 83.22950 },
-        { lat: 26.76950, lng: 83.23120 },
-        { lat: 26.76780, lng: 83.23160 },
-        { lat: 26.76740, lng: 83.22980 }
-      ],
-      latitude: 26.7683,
-      longitude: 83.2303,
-      healthScore: 94,
-      ndviMean: 0.82,
-      status: 'सक्रिय फसल (कल्ले फूट रहे हैं)',
-      statusColor: '#10B981',
-      lastScan: 'आज, लाइव उपग्रह',
-      soilMoisture: '72%'
-    });
   }
 
   return merged;

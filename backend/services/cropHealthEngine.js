@@ -3,6 +3,7 @@ const Field = require('../models/Field');
 const CropScan = require('../models/CropScan');
 const FieldMonitoringObservation = require('../models/FieldMonitoringObservation');
 const CropHealthRecord = require('../models/CropHealthRecord');
+const persistentStore = require('../utils/persistentStore');
 const { 
   isDbConnected,
   getStatelessFields, 
@@ -443,28 +444,43 @@ async function calculateCropHealth({ farmerId, fieldId, fieldDoc = null }) {
         field = await Field.findOne({ farmerId }).sort({ updatedAt: -1 });
       }
     } else {
-      const statelessFields = getStatelessFields();
+      const userFields = persistentStore.getFields(farmerId);
       field = fieldId 
-        ? statelessFields.find(f => f._id === fieldId || f.id === fieldId)
-        : statelessFields[0];
+        ? userFields.find(f => f._id === fieldId || f.id === fieldId)
+        : userFields[0];
+      if (!field) {
+        const statelessFields = getStatelessFields(farmerId);
+        field = fieldId 
+          ? statelessFields.find(f => f._id === fieldId || f.id === fieldId)
+          : statelessFields[0];
+      }
     }
   }
 
-  // Fallback virtual field definition if none registered
+  // If no field registered, return clean insufficient data structure
   if (!field) {
-    field = {
-      _id: fieldId || 'field_demo_01',
-      fieldName: 'Primary Crop Plot',
-      crop: 'Wheat',
-      cropStage: 'Vegetative Stage',
-      soilType: 'Black Soil / Regur',
-      irrigationMethod: 'Drip Irrigation',
-      soilTestReports: []
+    return {
+      hasField: false,
+      fieldId: fieldId || null,
+      fieldName: null,
+      crop: null,
+      cropStage: null,
+      healthScore: null,
+      status: 'Insufficient Data',
+      statusHi: 'डेटा अनुपलब्ध',
+      confidence: 'Low',
+      message: 'Insufficient data to calculate crop health',
+      reasons: ['No registered field found for crop health calculation.'],
+      reasonsHi: ['फसल स्वास्थ्य की गणना के लिए कोई पंजीकृत खेत नहीं मिला।'],
+      actionableRecommendations: [],
+      factors: {},
+      dataSources: [],
+      calculatedAt: new Date().toISOString()
     };
   }
 
-  const cropName = field.crop || 'Wheat';
-  const effectiveFieldId = field._id || fieldId || 'field_demo_01';
+  const cropName = field.crop || '';
+  const effectiveFieldId = field._id || field.id || fieldId;
 
   // 2. Fetch Latest Telemetry & Records
   let latestScan = null;
@@ -473,13 +489,13 @@ async function calculateCropHealth({ farmerId, fieldId, fieldDoc = null }) {
   if (isDbConnected()) {
     // Attempt query by fieldId first, fallback to farmerId + cropName
     latestScan = await CropScan.findOne({ farmerId, fieldId: effectiveFieldId }).sort({ createdAt: -1 });
-    if (!latestScan) {
+    if (!latestScan && cropName) {
       latestScan = await CropScan.findOne({ farmerId, cropName }).sort({ createdAt: -1 });
     }
     latestObservation = await FieldMonitoringObservation.findOne({ fieldId: effectiveFieldId }).sort({ observationDate: -1 });
   } else {
-    const scans = getStatelessCropScans();
-    latestScan = scans.find(s => s.fieldId === effectiveFieldId || s.cropName === cropName) || scans[0];
+    const scans = persistentStore.getCropScans(farmerId) || getStatelessCropScans();
+    latestScan = Array.isArray(scans) ? scans.find(s => s.fieldId === effectiveFieldId || (cropName && s.cropName === cropName)) : null;
     latestObservation = getStatelessLatestObservation(effectiveFieldId);
   }
 

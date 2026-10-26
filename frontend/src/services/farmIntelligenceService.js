@@ -6,6 +6,8 @@
  * and produces unified, non-isolated advisory structures.
  */
 
+import { getFarms, getCurrentUserId } from './fieldService';
+
 const safeParse = (key) => {
   if (typeof window === 'undefined') return null;
   try {
@@ -15,10 +17,11 @@ const safeParse = (key) => {
 };
 
 export function assembleClientFarmContext(fieldId = 'default', overrides = {}) {
-  const userFields = safeParse('krishi_farm_fields') || safeParse('krishi_fields') || [];
-  const farm = safeParse('krishi_farm') || {};
-  const currentCrop = safeParse('krishi_current_crop') || {};
-  const profile = safeParse('krishi_profile') || {};
+  const uid = getCurrentUserId();
+  const userFields = getFarms();
+  const farm = (uid ? safeParse(`krishi_farm_${uid}`) : null) || {};
+  const currentCrop = (uid ? safeParse(`krishi_current_crop_${uid}`) : null) || {};
+  const profile = (uid ? safeParse(`krishi_profile_${uid}`) : null) || safeParse('krishi_profile') || {};
   const weatherCache = safeParse('krishi_weather_cache') || {};
   const recentScans = safeParse('krishi_recent_scans') || [];
   const monitoringObs = safeParse('krishi_latest_observation') || {};
@@ -32,11 +35,12 @@ export function assembleClientFarmContext(fieldId = 'default', overrides = {}) {
     }
   }
 
-  const crop = overrides.crop || targetField?.crop || currentCrop?.cropName || farm?.mainCrop || 'Wheat';
-  const cropStage = overrides.cropStage || targetField?.cropStage || currentCrop?.cropStage || 'Tillering / Vegetative';
-  const fieldName = targetField?.fieldName || (farm?.farmSize ? `Main Field (${farm.farmSize} ${farm.landUnit || 'Acres'})` : 'North Plot - Main Field');
-  const areaAcres = targetField?.areaAcres || farm?.farmSize || 4.5;
-  const soilType = targetField?.soilType || farm?.soilType || 'Black Soil / Regur';
+  const hasFarm = Boolean(targetField || (farm && farm.farmName));
+  const crop = overrides.crop || targetField?.crop || currentCrop?.cropName || farm?.crop || (hasFarm ? 'Paddy' : 'General Crop');
+  const cropStage = overrides.cropStage || targetField?.cropStage || currentCrop?.cropStage || (hasFarm ? 'Vegetative' : 'N/A');
+  const fieldName = targetField?.fieldName || targetField?.name || farm?.farmName || (hasFarm ? 'Farm Parcel' : 'No Field Mapped Yet');
+  const areaAcres = targetField?.areaAcres || farm?.farmSize || (hasFarm ? 1.0 : 0);
+  const soilType = targetField?.soilType || farm?.soilType || 'Alluvial Soil';
 
   // Extract soil test values
   const soilTest = targetField?.soilTestReport || {};

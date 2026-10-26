@@ -55,19 +55,26 @@ export default function CropHealthCircle({
     requestAnimationFrame(step);
   }, [targetScore, hasValidData]);
 
+  const cleanFieldsSummary = (fieldsSummary || []).filter(f => {
+    const n = (f.fieldName || f.name || '').toLowerCase();
+    return !n.includes('plot a') && !n.includes('main wheat') && f.fieldId !== 'field_demo_01' && f._id !== 'field_demo_01';
+  });
+
   // If farmer has NOT added a field/crop yet:
-  if (!hasValidData && fieldsSummary.length === 0) {
+  if (healthData?.hasField === false || (!hasValidData && cleanFieldsSummary.length === 0)) {
     return (
-      <div className="agri-card p-5 sm:p-7 bg-gradient-to-br from-emerald-50/90 via-white to-agri-50/90 border-2 border-dashed border-emerald-300 text-center rounded-2xl sm:rounded-3xl shadow-xs space-y-3.5 w-full max-w-full overflow-hidden">
+      <div className="agri-card p-6 sm:p-8 bg-gradient-to-br from-emerald-50/90 via-white to-agri-50/90 border-2 border-dashed border-emerald-300 text-center rounded-2xl sm:rounded-3xl shadow-xs space-y-3.5 w-full max-w-full overflow-hidden">
         <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-emerald-600 to-emerald-400 text-white flex items-center justify-center mx-auto text-2xl shadow-sm">
           <Sprout className="w-7 h-7" />
         </div>
         <div>
           <h3 className="text-lg font-black text-slate-900 tracking-tight">
-            🌱 {t('dashboard.cropHealth', 'फसल स्वास्थ्य')}
+            🌱 {lang === 'hi' ? 'फसल दृष्टि में आपका स्वागत है!' : 'Welcome to Fasal Drishti!'}
           </h3>
-          <p className="text-xs text-slate-600 max-w-md mx-auto mt-1 leading-relaxed font-medium">
-            {t('dashboard.addInfoPrompt', 'फसल स्वास्थ्य निगरानी शुरू करने के लिए अपने खेत और फसल की जानकारी जोड़ें।')}
+          <p className="text-xs text-slate-600 max-w-md mx-auto mt-1 leading-relaxed font-semibold">
+            {lang === 'hi'
+              ? 'शुरू करने के लिए अपना पहला खेत जोड़ें।'
+              : 'Add your first farm to begin.'}
           </p>
         </div>
         <button
@@ -75,7 +82,7 @@ export default function CropHealthCircle({
           className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-600 text-white font-black text-xs shadow-xs transition transform active:scale-95 inline-flex items-center gap-2"
         >
           <PlusCircle className="w-4 h-4" />
-          <span>{t('farm.addField', 'खेत जोड़ें')}</span>
+          <span>{lang === 'hi' ? 'खेत जोड़ें / फ़ील्ड मैप करें' : 'Add Farm / Map Your Field'}</span>
         </button>
       </div>
     );
@@ -193,13 +200,9 @@ export default function CropHealthCircle({
                   (activeFarm?.name || activeFarm?.fieldName || '').toLowerCase().includes('paddy') ||
                   (healthData?.fieldName || '').toLowerCase().includes('paddy');
   const displayCrop = isPaddy ? 'धान / Paddy' : (tCrop(rawCrop) || rawCrop);
-  const displayFieldName = activeFarm?.name || activeFarm?.fieldName || (healthData?.fieldName && !healthData.fieldName.toLowerCase().includes('plot a') ? healthData.fieldName : 'Kipm paddy');
+  const displayFieldName = activeFarm?.name || activeFarm?.fieldName || (healthData?.fieldName && !healthData.fieldName.toLowerCase().includes('plot a') ? healthData.fieldName : (lang === 'hi' ? 'मेरा खेत' : 'My Farm'));
 
-  // Filter out any obsolete Plot A from fieldsSummary
-  const cleanFieldsSummary = fieldsSummary.filter(f => {
-    const n = (f.fieldName || f.name || '').toLowerCase();
-    return !n.includes('plot a') && !n.includes('main wheat') && f.fieldId !== 'field_demo_01' && f._id !== 'field_demo_01';
-  });
+
 
   return (
     <div className={`agri-card p-4 sm:p-5 bg-gradient-to-br ${theme.bgGradient} ${theme.borderColor} border-2 shadow-sm rounded-2xl sm:rounded-3xl transition-all duration-300 w-full max-w-full overflow-hidden`}>
@@ -300,10 +303,10 @@ export default function CropHealthCircle({
             {/* Content inside the Circle */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
               <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 leading-none">
-                {animatedScore}%
+                {hasValidData ? `${animatedScore}%` : '--'}
               </span>
               <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border mt-1.5 shadow-2xs ${theme.badgeBg}`}>
-                {statusLabel}
+                {hasValidData ? statusLabel : (lang === 'hi' ? 'अपर्याप्त डेटा' : 'Insufficient Data')}
               </span>
               <span className="text-[9px] text-emerald-700 font-bold mt-1 group-hover:underline flex items-center gap-0.5">
                 <span>{t('dashboard.tapForDetails', 'विवरण देखें')}</span>
@@ -337,7 +340,7 @@ export default function CropHealthCircle({
               {t('dashboard.primaryFactors', 'मुख्य कारण')}
             </span>
 
-            {displayReasons.length > 0 ? (
+            {hasValidData && displayReasons.length > 0 ? (
               <div className="space-y-1.5">
                 {displayReasons.slice(0, 2).map((reason, idx) => (
                   <div 
@@ -353,7 +356,9 @@ export default function CropHealthCircle({
               </div>
             ) : (
               <div className="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 text-xs text-slate-600 font-medium">
-                {t('dashboard.allStable', 'फसल की स्थिति सामान्य व स्थिर है।')}
+                {hasValidData 
+                  ? t('dashboard.allStable', 'फसल की स्थिति सामान्य व स्थिर है।')
+                  : (lang === 'hi' ? 'फसल स्वास्थ्य की गणना के लिए अपर्याप्त डेटा' : 'Insufficient data to calculate crop health')}
               </div>
             )}
           </div>

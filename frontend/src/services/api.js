@@ -27,6 +27,25 @@ import { RecoveryManager, LogLevel } from '../selfHealing/index.js';
 
 export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
 
+function getAuthUserId() {
+  if (typeof window === 'undefined') return null;
+  try {
+    const rawFasal = localStorage.getItem('fasal_user_session');
+    if (rawFasal) {
+      const parsed = JSON.parse(rawFasal);
+      if (parsed?.user?.id || parsed?.user?._id) return String(parsed.user.id || parsed.user._id);
+    }
+  } catch (_) {}
+  try {
+    const raw = localStorage.getItem('krishi_user');
+    if (raw) {
+      const u = JSON.parse(raw);
+      if (u?.id || u?._id) return String(u.id || u._id);
+    }
+  } catch (_) {}
+  return null;
+}
+
 /**
  * Standardize and normalize any user or environment provided backend URL:
  * - Always targets https://krishi-drishti-pykj.onrender.com/api by default
@@ -223,23 +242,31 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 
     const fasalSession = safeParseStorage('fasal_user_session');
     if (fasalSession && fasalSession.user) {
+      const uid = fasalSession.user.id || fasalSession.user._id;
+      const userFarm = (uid ? safeParseStorage(`krishi_farm_${uid}`) : null) || fasalSession.farm || null;
+      const userProfile = (uid ? safeParseStorage(`krishi_profile_${uid}`) : null) || fasalSession.profile || null;
+      const userCurrentCrop = (uid ? safeParseStorage(`krishi_current_crop_${uid}`) : null) || fasalSession.currentCrop || null;
       return {
         success: true,
         user: fasalSession.user,
-        profile: fasalSession.profile || safeParseStorage('krishi_profile') || null,
-        farm: fasalSession.farm || safeParseStorage('krishi_farm') || null,
-        currentCrop: fasalSession.currentCrop || safeParseStorage('krishi_current_crop') || null,
+        profile: userProfile,
+        farm: userFarm,
+        currentCrop: userCurrentCrop,
       };
     }
 
     const cachedUser = safeParseStorage('krishi_user');
     if (cachedUser) {
+      const uid = cachedUser.id || cachedUser._id;
+      const userFarm = uid ? safeParseStorage(`krishi_farm_${uid}`) : null;
+      const userProfile = uid ? safeParseStorage(`krishi_profile_${uid}`) : null;
+      const userCurrentCrop = uid ? safeParseStorage(`krishi_current_crop_${uid}`) : null;
       return {
         success: true,
         user: cachedUser,
-        profile: safeParseStorage('krishi_profile') || null,
-        farm: safeParseStorage('krishi_farm') || null,
-        currentCrop: safeParseStorage('krishi_current_crop') || null,
+        profile: userProfile,
+        farm: userFarm,
+        currentCrop: userCurrentCrop,
       };
     }
 
@@ -299,8 +326,10 @@ function handleFallbackResponse(url, method = 'get', data = null) {
 
   // Farmer endpoints
   if (cleanUrl.startsWith('/farmer/dashboard')) {
+    const uid = getAuthUserId();
     const isDemoRole = localStorage.getItem('krishi_demo_role');
-    if (isDemoRole === 'farmer') {
+    const isDemoUser = (isDemoRole === 'farmer' && (!uid || uid === 'usr_farmer_demo_01'));
+    if (isDemoUser) {
       return {
         success: true,
         data: {
@@ -326,19 +355,30 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     }
 
     const cachedUser = safeParseStorage('krishi_user');
-    const userProfile = safeParseStorage('krishi_profile');
-    const userFarm = safeParseStorage('krishi_farm');
-    const userCurrentCrop = safeParseStorage('krishi_current_crop');
+    const userProfile = (uid ? safeParseStorage(`krishi_profile_${uid}`) : null) || safeParseStorage('krishi_profile');
+    const userFarm = uid ? safeParseStorage(`krishi_farm_${uid}`) : null;
+    const userCurrentCrop = uid ? safeParseStorage(`krishi_current_crop_${uid}`) : null;
+
+    let userFarms = [];
+    if (uid) {
+      try {
+        const raw = localStorage.getItem(`farms_data_usr_${uid}`);
+        if (raw) userFarms = JSON.parse(raw);
+      } catch (_) {}
+    }
+
+    const hasFarms = Array.isArray(userFarms) && userFarms.length > 0;
+    const resolvedFarm = hasFarms ? (userFarm || userFarms[0]) : null;
 
     return {
       success: true,
       data: {
         farmer: cachedUser || { name: 'Farmer' },
         profile: userProfile || null,
-        farm: userFarm || null,
-        currentCrop: userCurrentCrop || null,
-        crops: userCurrentCrop ? [userCurrentCrop] : [],
-        healthScore: userCurrentCrop?.healthScore || null,
+        farm: resolvedFarm,
+        currentCrop: resolvedFarm ? userCurrentCrop : null,
+        crops: resolvedFarm && userCurrentCrop ? [userCurrentCrop] : [],
+        healthScore: resolvedFarm ? (userCurrentCrop?.healthScore || null) : null,
         pendingTasks: [],
         recentAnalyses: [],
         recentRecommendations: [],
@@ -564,33 +604,21 @@ function handleFallbackResponse(url, method = 'get', data = null) {
       updatedAt: new Date().toISOString()
     };
 
+    const uid = getAuthUserId();
     try {
-      const keys = ['krishi_saved_fields', 'farms_data', 'krishi_farms_v2'];
-      if (typeof localStorage !== 'undefined') {
-        for (let i = 0; i < localStorage.length; i++) {
-          const k = localStorage.key(i);
-          if (k && k.startsWith('farms_data_usr_')) keys.unshift(k);
-        }
-      }
-      for (const k of keys) {
-        if (storedFields.length > 0) break;
-        const raw = localStorage.getItem(k);
+      if (typeof localStorage !== 'undefined' && uid) {
+        const raw = localStorage.getItem(`farms_data_usr_${uid}`);
         if (raw) {
           const parsed = JSON.parse(raw);
           if (Array.isArray(parsed) && parsed.length > 0) {
-            storedFields = parsed.filter(f => {
-              if (!f) return false;
-              if (f.id === 'field_demo_maize_01' || f.id === 'field_demo_01') return false;
-              if (f._id === 'field_demo_maize_01' || f._id === 'field_demo_01') return false;
-              return true;
-            });
+            storedFields = parsed.filter(f => f && f.id !== 'field_demo_01' && f._id !== 'field_demo_01');
           }
         }
       }
     } catch (_) {}
 
-    // Multi-key guarantee: Always ensure KIPM Paddy Farm is included
-    if (!storedFields.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'))) {
+    // Only include defaultKipm if user is specifically demo persona
+    if (uid === 'usr_farmer_demo_01' && !storedFields.some(f => f.id === 'field_kipm_paddy_01')) {
       storedFields.unshift(defaultKipm);
     }
 
@@ -919,42 +947,111 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     };
 
     if (cleanUrl.includes('/dashboard-summary')) {
+      const uid = getAuthUserId();
+      if (uid === 'usr_farmer_demo_01') {
+        return {
+          success: true,
+          count: 1,
+          data: [
+            {
+              fieldId: 'field_kipm_paddy_01',
+              fieldName: 'KIPM Paddy Farm',
+              area: 3.85,
+              areaUnit: 'Acres',
+              crop: 'Paddy',
+              cropVariety: 'Pusa Basmati 1509',
+              cropStage: 'Tillering Stage',
+              soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
+              irrigationMethod: 'Tube Well & Canal',
+              cropHealth: 'उत्कृष्ट व स्वस्थ (Healthy & Vigorous)',
+              healthScore: 94,
+              moistureStatus: 'Adequate Moisture',
+              moistureStatusHi: 'पर्याप्त नमी (3-5 सेमी जल भराव)',
+              moistureScore: 72,
+              rainForecast: 0,
+              rainProbability: 15,
+              irrigationRecommendation: 'Not Required Today',
+              nutrientStatus: 'Tillering Stage - Apply Urea & Zinc',
+              nutrientStatusHi: 'सक्रिय कल्ले फूटने पर यूरिया व जिंक डालें',
+              diseaseRisk: 'Low',
+              lastSatelliteObservation: new Date().toLocaleDateString('hi-IN'),
+              ndviMean: 0.82,
+              whatShouldIDoToday: mockObservation.whatShouldIDoToday,
+              aiSummary: mockObservation.aiSummary,
+              aiSummaryHi: mockObservation.aiSummaryHi
+            }
+          ]
+        };
+      }
+
+      // Real user: return summary only of their own farms
+      let userFields = [];
+      if (uid) {
+        try {
+          const raw = localStorage.getItem(`farms_data_usr_${uid}`);
+          if (raw) userFields = JSON.parse(raw);
+        } catch (_) {}
+      }
+
+      if (!userFields || userFields.length === 0) {
+        return {
+          success: true,
+          count: 0,
+          data: []
+        };
+      }
+
+      const summaries = userFields.map(f => ({
+        fieldId: f.id || f._id,
+        fieldName: f.fieldName || f.name || 'Farm',
+        area: Number(f.areaAcres || f.farmArea || 1.0),
+        areaUnit: 'Acres',
+        crop: f.crop || 'Crop',
+        cropVariety: f.cropVariety || '',
+        cropStage: f.cropStage || 'Vegetative Stage',
+        soilType: f.soilType || 'Alluvial Soil',
+        healthScore: null,
+        cropHealth: 'Active Parcel'
+      }));
+
       return {
         success: true,
-        count: 1,
-        data: [
-          {
-            fieldId: 'field_kipm_paddy_01',
-            fieldName: 'KIPM Paddy Farm',
-            area: 3.85,
-            areaUnit: 'Acres',
-            crop: 'Paddy',
-            cropVariety: 'Pusa Basmati 1509',
-            cropStage: 'Tillering Stage',
-            soilType: 'Alluvial Loam / बलुई दोमट मिट्टी',
-            irrigationMethod: 'Tube Well & Canal',
-            cropHealth: 'उत्कृष्ट व स्वस्थ (Healthy & Vigorous)',
-            healthScore: 94,
-            moistureStatus: 'Adequate Moisture',
-            moistureStatusHi: 'पर्याप्त नमी (3-5 सेमी जल भराव)',
-            moistureScore: 72,
-            rainForecast: 0,
-            rainProbability: 15,
-            irrigationRecommendation: 'Not Required Today',
-            nutrientStatus: 'Tillering Stage - Apply Urea & Zinc',
-            nutrientStatusHi: 'सक्रिय कल्ले फूटने पर यूरिया व जिंक डालें',
-            diseaseRisk: 'Low',
-            lastSatelliteObservation: new Date().toLocaleDateString('hi-IN'),
-            ndviMean: 0.82,
-            whatShouldIDoToday: mockObservation.whatShouldIDoToday,
-            aiSummary: mockObservation.aiSummary,
-            aiSummaryHi: mockObservation.aiSummaryHi
-          }
-        ]
+        count: summaries.length,
+        data: summaries
       };
     }
 
     if (cleanUrl.includes('/latest/')) {
+      const uid = getAuthUserId();
+      if (uid && uid !== 'usr_farmer_demo_01') {
+        let userFields = [];
+        try {
+          const raw = localStorage.getItem(`farms_data_usr_${uid}`);
+          if (raw) userFields = JSON.parse(raw);
+        } catch (_) {}
+        const targetFieldId = cleanUrl.split('/latest/')[1]?.split('?')[0];
+        const matchedField = (userFields || []).find(f => f.id === targetFieldId || f._id === targetFieldId) || (userFields && userFields[0]);
+        if (!matchedField) {
+          return {
+            success: false,
+            message: 'No field registered for this farmer',
+            field: null,
+            data: null,
+            alerts: []
+          };
+        }
+        return {
+          success: true,
+          field: matchedField,
+          data: {
+            ...mockObservation,
+            fieldId: matchedField.id || matchedField._id,
+            cropName: matchedField.crop || 'Crop',
+            cropStage: matchedField.cropStage || 'Vegetative Stage',
+          },
+          alerts: []
+        };
+      }
       return {
         success: true,
         field: defaultField,
@@ -964,6 +1061,23 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     }
 
     if (cleanUrl.includes('/history/')) {
+      const uid = getAuthUserId();
+      if (uid && uid !== 'usr_farmer_demo_01') {
+        let userFields = [];
+        try {
+          const raw = localStorage.getItem(`farms_data_usr_${uid}`);
+          if (raw) userFields = JSON.parse(raw);
+        } catch (_) {}
+        if (!userFields || userFields.length === 0) {
+          return {
+            success: true,
+            field: null,
+            count: 0,
+            history: [],
+            chartData: []
+          };
+        }
+      }
       const days = [14, 12, 10, 8, 6, 4, 2, 0];
       const chartData = days.map((d, i) => ({
         date: new Date(Date.now() - d * 24 * 60 * 60 * 1000).toISOString(),
@@ -989,6 +1103,21 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     }
 
     if (cleanUrl.includes('/compare/')) {
+      const uid = getAuthUserId();
+      if (uid && uid !== 'usr_farmer_demo_01') {
+        let userFields = [];
+        try {
+          const raw = localStorage.getItem(`farms_data_usr_${uid}`);
+          if (raw) userFields = JSON.parse(raw);
+        } catch (_) {}
+        if (!userFields || userFields.length === 0) {
+          return {
+            success: false,
+            canCompare: false,
+            message: 'No field available to compare'
+          };
+        }
+      }
       const period = cleanUrl.includes('15d') ? '15d' : (cleanUrl.includes('30d') ? '30d' : '7d');
       const prevNdvi = period === '30d' ? 0.58 : (period === '15d' ? 0.71 : 0.77);
       const prevHealth = period === '30d' ? 76 : (period === '15d' ? 82 : 88);
@@ -1122,7 +1251,30 @@ function handleFallbackResponse(url, method = 'get', data = null) {
         };
       }
 
-      // Default: Kipm paddy - Paddy
+      // Check if user has farms
+      const uid = getAuthUserId();
+      let userFields = [];
+      if (uid) {
+        try {
+          const raw = localStorage.getItem(`farms_data_usr_${uid}`);
+          if (raw) userFields = JSON.parse(raw);
+        } catch (_) {}
+      }
+
+      if (uid !== 'usr_farmer_demo_01' && (!userFields || userFields.length === 0)) {
+        return {
+          hasField: false,
+          healthScore: null,
+          status: null,
+          confidence: 'Low',
+          message: 'Insufficient data to calculate crop health',
+          reasons: [],
+          reasonsHi: ['फसल स्वास्थ्य की गणना के लिए खेत जोड़ें।'],
+          dataSources: []
+        };
+      }
+
+      // Default: Kipm paddy - Paddy (demo only)
       return {
         fieldId: 'field_kipm_paddy_01',
         fieldName: 'Kipm paddy',
@@ -1172,6 +1324,47 @@ function handleFallbackResponse(url, method = 'get', data = null) {
     };
 
     if (cleanUrl.includes('/summary')) {
+      const uid = getAuthUserId();
+      let userFields = [];
+      if (uid) {
+        try {
+          const raw = localStorage.getItem(`farms_data_usr_${uid}`);
+          if (raw) userFields = JSON.parse(raw);
+        } catch (_) {}
+      }
+
+      if (uid !== 'usr_farmer_demo_01' && (!userFields || userFields.length === 0)) {
+        return {
+          success: true,
+          count: 0,
+          data: []
+        };
+      }
+
+      if (userFields && userFields.length > 0 && uid !== 'usr_farmer_demo_01') {
+        const userSummaries = userFields.map(f => {
+          const h = calculateFieldHealth(f.id || f._id);
+          return {
+            fieldId: f.id || f._id,
+            fieldName: f.farmName || f.name || f.fieldName || 'Farm',
+            crop: f.crop || 'Crop',
+            cropVariety: f.cropVariety || '',
+            healthScore: h.healthScore,
+            status: h.status,
+            confidence: h.confidence,
+            calculatedAt: h.calculatedAt || new Date().toISOString(),
+            reasons: h.reasons || [],
+            reasonsHi: h.reasonsHi || []
+          };
+        });
+        return {
+          success: true,
+          count: userSummaries.length,
+          data: userSummaries
+        };
+      }
+
+      // Demo farmer only (usr_farmer_demo_01)
       const paddyData = calculateFieldHealth('field_kipm_paddy_01');
       return {
         success: true,

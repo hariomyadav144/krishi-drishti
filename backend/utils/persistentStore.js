@@ -379,35 +379,42 @@ const persistentStore = {
         experienceYears: 0,
       };
 
-      dbState.farms[newId] = {
-        _id: `farm_${newId}`,
-        farmerId: newId,
-        farmName: userData.farmName || `${userData.name.trim()}'s Farm`,
-        farmSize: Number(userData.farmSize) || 0,
-        landUnit: userData.landUnit || 'Acres',
-        soilType: userData.soilType || '',
-        irrigationMethod: userData.irrigationMethod || '',
-      };
+      const hasFarmInfo = !!(userData.farmName || userData.farmSize || effectiveCrop);
+      if (hasFarmInfo) {
+        dbState.farms[newId] = {
+          _id: `farm_${newId}`,
+          farmerId: newId,
+          farmName: userData.farmName ? userData.farmName.trim() : (userData.farmSize ? `${userData.name.trim()}'s Farm` : ''),
+          farmSize: Number(userData.farmSize) || 0,
+          landUnit: userData.landUnit || 'Acres',
+          soilType: userData.soilType || '',
+          irrigationMethod: userData.irrigationMethod || '',
+        };
 
-      if (effectiveCrop) {
-        dbState.crops[newId] = [
-          {
-            _id: `crop_${newId}_01`,
-            farmId: `farm_${newId}`,
-            farmerId: newId,
-            cropName: effectiveCrop,
-            variety: 'High Yield Standard',
-            cropStage: 'Vegetative Stage',
-            healthStatus: 'Good',
-            healthScore: 88,
-            areaAllocated: Number(userData.farmSize) || 0,
-            isCurrent: true,
-            createdAt: new Date().toISOString(),
-          }
-        ];
+        if (effectiveCrop) {
+          dbState.crops[newId] = [
+            {
+              _id: `crop_${newId}_01`,
+              farmId: `farm_${newId}`,
+              farmerId: newId,
+              cropName: effectiveCrop,
+              variety: 'Standard Variety',
+              cropStage: 'Vegetative Stage',
+              healthStatus: 'Calculating',
+              healthScore: null,
+              areaAllocated: Number(userData.farmSize) || 0,
+              isCurrent: true,
+              createdAt: new Date().toISOString(),
+            }
+          ];
+        } else {
+          dbState.crops[newId] = [];
+        }
       } else {
+        delete dbState.farms[newId];
         dbState.crops[newId] = [];
       }
+      dbState.fields[newId] = [];
 
       // Welcome Alert
       dbState.alerts.unshift({
@@ -483,15 +490,15 @@ const persistentStore = {
   // FIELDS & GPS BOUNDARY MAPPINGS (PERMANENT MULTI-FARM STORAGE)
   // -------------------------------------------------------------
   getFields(farmerId) {
+    if (!farmerId) return [];
     if (!dbState.fields) dbState.fields = {};
-    const targetId = farmerId || 'usr_farmer_demo_01';
-    let userFields = dbState.fields[targetId] || [];
+    let userFields = dbState.fields[farmerId] || [];
     
-    // Always guarantee KIPM Paddy Farm is available for demo persona (usr_farmer_demo_01)
-    if (targetId === 'usr_farmer_demo_01') {
+    // Always guarantee KIPM Paddy Farm is preserved for demo persona (usr_farmer_demo_01)
+    if (farmerId === 'usr_farmer_demo_01') {
       if (!userFields.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'))) {
-        userFields = [{ ...DEFAULT_KIPM_PADDY_FIELD, farmerId: targetId }, ...userFields];
-        dbState.fields[targetId] = userFields;
+        userFields = [{ ...DEFAULT_KIPM_PADDY_FIELD, farmerId: 'usr_farmer_demo_01' }, ...userFields];
+        dbState.fields[farmerId] = userFields;
         persistDatabase();
       }
     }
@@ -499,10 +506,7 @@ const persistentStore = {
   },
 
   getFieldById(farmerId, fieldId) {
-    if (!fieldId) return null;
-    if (fieldId === 'field_kipm_paddy_01') {
-      return { ...DEFAULT_KIPM_PADDY_FIELD, farmerId: farmerId || 'usr_farmer_demo_01' };
-    }
+    if (!fieldId || !farmerId) return null;
     const fields = this.getFields(farmerId);
     return fields.find(f => f.id === fieldId || f._id === fieldId) || null;
   },
@@ -754,11 +758,7 @@ const persistentStore = {
     const farm = this.getFarm(userId);
     const userFields = this.getFields(userId);
 
-    let resolvedFarm = farm ? {
-      ...farm,
-      farmSize: Number(farm.farmSize !== undefined ? farm.farmSize : 0),
-      totalArea: Number(farm.farmSize !== undefined ? farm.farmSize : 0),
-    } : null;
+    let resolvedFarm = null;
 
     if (userFields && userFields.length > 0) {
       const primary = userFields[0];
@@ -766,26 +766,32 @@ const persistentStore = {
         _id: primary.id || primary._id,
         id: primary.id || primary._id,
         farmerId: userId,
-        farmName: primary.fieldName || primary.name || farm?.farmName || (user.name ? `${user.name}'s Farm` : 'Farm'),
-        name: primary.fieldName || primary.name || farm?.farmName || (user.name ? `${user.name}'s Farm` : 'Farm'),
+        farmName: primary.fieldName || primary.name || 'Farm',
+        name: primary.fieldName || primary.name || 'Farm',
         farmSize: Number(primary.farmArea || primary.areaAcres !== undefined ? (primary.farmArea || primary.areaAcres) : (farm?.farmSize || 0)),
         totalArea: Number(primary.farmArea || primary.areaAcres !== undefined ? (primary.farmArea || primary.areaAcres) : (farm?.farmSize || 0)),
         landUnit: 'Acres',
         soilType: primary.soilType || farm?.soilType || '',
         irrigationMethod: primary.irrigationMethod || farm?.irrigationMethod || '',
-        latitude: primary.latitude || primary.center?.lat || 26.7683,
-        longitude: primary.longitude || primary.center?.lng || 83.2303,
-        center: primary.center || { lat: 26.7683, lng: 83.2303 },
+        latitude: primary.latitude || primary.center?.lat || null,
+        longitude: primary.longitude || primary.center?.lng || null,
+        center: primary.center || (primary.latitude && primary.longitude ? { lat: primary.latitude, lng: primary.longitude } : null),
         boundary: primary.boundary || primary.points || [],
         points: primary.points || primary.boundary || [],
         crop: primary.crop || farm?.crop || '',
         cropVariety: primary.cropVariety || farm?.cropVariety || '',
         cropStage: primary.cropStage || farm?.cropStage || '',
       };
+    } else if (farm && farm.farmName && (Number(farm.farmSize) > 0 || (farm.points && farm.points.length > 0))) {
+      resolvedFarm = {
+        ...farm,
+        farmSize: Number(farm.farmSize !== undefined ? farm.farmSize : 0),
+        totalArea: Number(farm.farmSize !== undefined ? farm.farmSize : 0),
+      };
     }
 
-    const userCrops = this.getCrops(userId);
-    if (userCrops.length === 0 && resolvedFarm?.crop) {
+    const userCrops = resolvedFarm ? this.getCrops(userId) : [];
+    if (resolvedFarm && userCrops.length === 0 && resolvedFarm?.crop) {
       userCrops.push({
         _id: `crop_${userId}_01`,
         farmId: resolvedFarm._id,
@@ -794,13 +800,13 @@ const persistentStore = {
         variety: resolvedFarm.cropVariety || 'Standard Variety',
         cropStage: resolvedFarm.cropStage || 'Vegetative Stage',
         healthStatus: 'Good',
-        healthScore: 88,
+        healthScore: null,
         areaAllocated: Number(resolvedFarm.farmSize) || 1.0,
         isCurrent: true,
       });
     }
 
-    const currentCrop = userCrops.find(c => c.isCurrent) || userCrops[0] || null;
+    const currentCrop = resolvedFarm ? (userCrops.find(c => c.isCurrent) || userCrops[0] || null) : null;
     const userTasks = dbState.actionPlans.filter(p => p.farmerId === userId);
     const userScans = dbState.cropScans.filter(s => s.farmerId === userId);
     const userAlerts = dbState.alerts.filter(a => a.userId === userId);
@@ -820,7 +826,7 @@ const persistentStore = {
       fields: userFields,
       crops: userCrops,
       currentCrop,
-      healthScore: currentCrop ? (currentCrop.healthScore || 88) : 85,
+      healthScore: currentCrop && typeof currentCrop.healthScore === 'number' ? currentCrop.healthScore : null,
       pendingTasks: userTasks.filter(p => !p.isCompleted),
       recentAnalyses: userScans.slice(0, 5),
       recentRecommendations: [],

@@ -6,6 +6,7 @@ import VoiceReader from '../components/VoiceReader';
 import FeedbackModal from '../components/FeedbackModal';
 import FarmerActionDashboard from '../components/FarmerActionDashboard';
 import { assembleClientFarmContext } from '../services/farmIntelligenceService';
+import { getFarms } from '../services/fieldService';
 import { generateStandardStructuredAdvice } from '../services/universalCropEngine';
 import { RecoveryManager, LogLevel, FeatureRecoveryStrategy, ValidationManager } from '../selfHealing/index.js';
 import { 
@@ -118,9 +119,11 @@ export default function AiAdvisor({ setActiveTab }) {
 
   useEffect(() => {
     try {
-      const savedFields = JSON.parse(localStorage.getItem('krishi_farm_fields') || '[]');
+      const savedFields = getFarms();
       if (Array.isArray(savedFields) && savedFields.length > 0) {
         setUserFields(savedFields);
+      } else {
+        setUserFields([]);
       }
     } catch (_) {}
   }, []);

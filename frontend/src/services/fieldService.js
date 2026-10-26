@@ -1,6 +1,6 @@
 /**
  * Fasal Drishti - Field Service & Persistence
- * Dual-layer persistence: LocalStorage fallback + backend API synchronization.
+ * Dual-layer persistence: User-isolated LocalStorage + backend API synchronization.
  */
 import api from './api.js';
 import { calculatePolygonArea, calculatePolygonCenter, calculatePolygonPerimeter, validateFieldPolygon } from '../utils/areaUtils.js';
@@ -21,7 +21,7 @@ export function getCurrentUserId() {
     if (rawFasal) {
       const parsed = JSON.parse(rawFasal);
       if (parsed?.user?.id || parsed?.user?._id) {
-        return parsed.user.id || parsed.user._id;
+        return String(parsed.user.id || parsed.user._id);
       }
     }
   } catch (_) {}
@@ -29,7 +29,9 @@ export function getCurrentUserId() {
     const raw = localStorage.getItem('krishi_user');
     if (raw) {
       const u = JSON.parse(raw);
-      return u?.id || u?._id || null;
+      if (u?.id || u?._id) {
+        return String(u.id || u._id);
+      }
     }
   } catch (_) {}
   return null;
@@ -37,6 +39,7 @@ export function getCurrentUserId() {
 
 /**
  * Permanent benchmark record for KIPM Paddy Farm (GIDA Gorakhpur, UP)
+ * Belongs strictly to demo persona: usr_farmer_demo_01
  */
 export const DEFAULT_KIPM_PADDY_FIELD = {
   id: 'field_kipm_paddy_01',
@@ -85,7 +88,7 @@ export const DEFAULT_KIPM_PADDY_FIELD = {
   gpsAccuracy: 6,
   fieldSource: 'gps_polygon',
   createdAt: '2026-10-02T10:00:00.000Z',
-  updatedAt: new Date().toISOString()
+  updatedAt: '2026-10-03T10:00:00.000Z'
 };
 
 /**
@@ -97,7 +100,7 @@ export function getUserStorageKey(baseKey, userId) {
 }
 
 /**
- * Identify legacy mock coordinates (strictly checks demo ID, never rejects real user polygons based on corner count)
+ * Identify legacy mock coordinates
  */
 export function isLegacyMockPolygon(points) {
   return false;
@@ -105,7 +108,6 @@ export function isLegacyMockPolygon(points) {
 
 /**
  * Automated Cache & Stale State Eviction
- * Cleans only explicit hardcoded mock test keys, never real user farm polygons.
  */
 export function purgeLegacyMockStorage() {
   if (typeof window === 'undefined') return;
@@ -176,7 +178,6 @@ export function sanitizeStoredFields(fields) {
   if (!Array.isArray(fields)) return [];
   return fields.filter(f => {
     if (!f) return false;
-    // Remove obsolete mock demo IDs and Plot A
     if (f.id === 'field_demo_maize_01' || f.id === 'field_demo_01') return false;
     if (f._id === 'field_demo_maize_01' || f._id === 'field_demo_01') return false;
     const name = (f.fieldName || f.name || '').toLowerCase();
@@ -186,14 +187,16 @@ export function sanitizeStoredFields(fields) {
 }
 
 /**
- * Farm Repository: Get all saved farms from persistent storage
+ * Farm Repository: Get all saved farms from persistent storage for a specific user
  */
 export function getFarms(userId) {
-  if (typeof window === 'undefined') return [DEFAULT_KIPM_PADDY_FIELD];
+  if (typeof window === 'undefined') return [];
   purgeLegacyMockStorage();
   migrateLegacyBoundaries();
 
   const uid = userId || getCurrentUserId();
+  if (!uid) return [];
+
   const userKey = getUserStorageKey(STORAGE_KEY_FARMS, uid);
 
   try {
@@ -207,18 +210,18 @@ export function getFarms(userId) {
       } catch (_) {}
     }
 
-    // Also look into global storage keys if user-scoped key was empty
-    if (parsed.length === 0) {
-      ['krishi_saved_fields', 'farms_data', 'krishi_farms_v2'].forEach(k => {
-        if (parsed.length > 0) return;
-        try {
-          const r = localStorage.getItem(k);
-          if (r) {
-            const p = JSON.parse(r);
-            if (Array.isArray(p) && p.length > 0) parsed = p;
-          }
-        } catch (_) {}
-      });
+    // Only for demo persona (usr_farmer_demo_01): ensure KIPM Paddy Farm benchmark is available
+    if (uid === 'usr_farmer_demo_01') {
+      if (!parsed.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'))) {
+        parsed.unshift({
+          ...DEFAULT_KIPM_PADDY_FIELD,
+          farmerId: 'usr_farmer_demo_01',
+          userId: 'usr_farmer_demo_01'
+        });
+      }
+    } else {
+      // Real user: strictly remove any leaked KIPM Paddy Farm records from previous shared storage
+      parsed = parsed.filter(f => f.id !== 'field_kipm_paddy_01' && f._id !== 'field_kipm_paddy_01');
     }
 
     let sanitized = sanitizeStoredFields(parsed);
@@ -227,8 +230,8 @@ export function getFarms(userId) {
     sanitized = sanitized.map(f => ({
       ...f,
       id: f.id || f._id,
-      farmerId: f.farmerId || f.userId || uid || 'usr_farmer_demo_01',
-      userId: f.userId || f.farmerId || uid || 'usr_farmer_demo_01',
+      farmerId: f.farmerId || f.userId || uid,
+      userId: f.userId || f.farmerId || uid,
       name: f.name || f.fieldName || 'Farm',
       fieldName: f.fieldName || f.name || 'Farm',
       boundary: f.boundary || f.points || [],
@@ -240,27 +243,15 @@ export function getFarms(userId) {
       fieldSource: f.fieldSource || 'gps_polygon'
     }));
 
-    // Multi-user safety: keep all user fields plus KIPM Paddy Farm
-    if (!sanitized.some(f => f.id === 'field_kipm_paddy_01' || f.fieldName?.toLowerCase().includes('kipm') || f.name?.toLowerCase().includes('kipm'))) {
-      sanitized.unshift({
-        ...DEFAULT_KIPM_PADDY_FIELD,
-        farmerId: uid || 'usr_farmer_demo_01',
-        userId: uid || 'usr_farmer_demo_01'
-      });
-    }
-
-    // Persist across all local storage keys so no component ever loses it
+    // Persist only to userKey
     try {
       localStorage.setItem(userKey, JSON.stringify(sanitized));
-      localStorage.setItem(STORAGE_KEY_FARMS, JSON.stringify(sanitized));
-      localStorage.setItem(STORAGE_KEY_SAVED_FIELDS, JSON.stringify(sanitized));
-      localStorage.setItem('krishi_farms_v2', JSON.stringify(sanitized));
     } catch (_) {}
 
     return sanitized;
   } catch (err) {
-    console.error('[FieldService:SelfHealing] Storage read anomaly, attempting shadow recovery:', err);
-    return [DEFAULT_KIPM_PADDY_FIELD];
+    console.error('[FieldService] Storage read error:', err);
+    return [];
   }
 }
 
@@ -272,6 +263,8 @@ export const getSavedFieldsLocal = getFarms;
 export async function fetchSavedFields(userId) {
   purgeLegacyMockStorage();
   const uid = userId || getCurrentUserId();
+  if (!uid) return [];
+
   const userKey = getUserStorageKey(STORAGE_KEY_FARMS, uid);
   try {
     const res = await api.get('/farmer/fields');
@@ -283,22 +276,28 @@ export async function fetchSavedFields(userId) {
         userId: f.userId || uid,
       }));
       
-      // If server returned fields, merge with any local un-synced fields
+      // If server returned fields, merge with local un-synced fields for this user
       const localFields = getFarms(uid);
       const mergedMap = new Map();
       localFields.forEach(f => mergedMap.set(f.id || f._id, f));
       serverFields.forEach(f => mergedMap.set(f.id || f._id, f));
 
       const merged = Array.from(mergedMap.values());
-      localStorage.setItem(userKey, JSON.stringify(merged));
-      localStorage.setItem(STORAGE_KEY_FARMS, JSON.stringify(merged));
-      localStorage.setItem(STORAGE_KEY_SAVED_FIELDS, JSON.stringify(merged));
+      try {
+        localStorage.setItem(userKey, JSON.stringify(merged));
+      } catch (_) {}
 
       // Automatically activate primary farm if none active or current active invalid
-      const currentActiveId = getActiveFarmId();
+      const currentActiveId = getActiveFarmId(uid);
       const hasActive = currentActiveId && merged.some(f => f.id === currentActiveId || f._id === currentActiveId);
       if (!hasActive && merged.length > 0) {
         activateFarm(merged[0].id, uid);
+      } else if (merged.length === 0) {
+        // Clear active farm if user has no farms
+        try {
+          localStorage.removeItem(getUserStorageKey(STORAGE_KEY_ACTIVE_FARM_ID, uid));
+          localStorage.removeItem(getUserStorageKey(STORAGE_KEY_ACTIVE_FIELD, uid));
+        } catch (_) {}
       }
 
       return merged;
@@ -307,14 +306,14 @@ export async function fetchSavedFields(userId) {
     console.warn('[FieldService] Backend sync warning, using local cache:', err.message);
   }
   const fallbackFarms = getFarms(uid);
-  if (fallbackFarms.length > 0 && !getActiveFarmId()) {
+  if (fallbackFarms.length > 0 && !getActiveFarmId(uid)) {
     activateFarm(fallbackFarms[0].id, uid);
   }
   return fallbackFarms;
 }
 
 /**
- * Get farm by specific ID
+ * Get farm by specific ID for a user
  */
 export function getFarmById(id, userId) {
   if (!id) return null;
@@ -323,15 +322,20 @@ export function getFarmById(id, userId) {
 }
 
 /**
- * Get active farm ID
+ * Get active farm ID for a user
  */
-export function getActiveFarmId() {
+export function getActiveFarmId(userId) {
   if (typeof window === 'undefined') return null;
+  const uid = userId || getCurrentUserId();
+  if (!uid) return null;
+
   try {
-    const activeId = localStorage.getItem(STORAGE_KEY_ACTIVE_FARM_ID);
+    const userActiveKey = getUserStorageKey(STORAGE_KEY_ACTIVE_FARM_ID, uid);
+    const activeId = localStorage.getItem(userActiveKey);
     if (activeId) return activeId;
 
-    const rawActive = localStorage.getItem(STORAGE_KEY_ACTIVE_FIELD);
+    const userActiveFieldKey = getUserStorageKey(STORAGE_KEY_ACTIVE_FIELD, uid);
+    const rawActive = localStorage.getItem(userActiveFieldKey);
     if (rawActive) {
       const parsed = JSON.parse(rawActive);
       if (parsed?.id) return parsed.id;
@@ -341,18 +345,19 @@ export function getActiveFarmId() {
 }
 
 /**
- * Activate a farm by ID (Section 20 & 21 of Master Spec: Exactly ONE farm active at a time)
+ * Activate a farm by ID (Exactly ONE farm active per user at a time)
  */
 export function activateFarm(farmId, userId) {
   if (typeof window === 'undefined' || !farmId) return null;
-  const farm = getFarmById(farmId, userId);
+  const uid = userId || getCurrentUserId();
+  const farm = getFarmById(farmId, uid);
   if (!farm) return null;
 
   try {
-    localStorage.setItem(STORAGE_KEY_ACTIVE_FARM_ID, farm.id);
-    localStorage.setItem(STORAGE_KEY_ACTIVE_FIELD, JSON.stringify(farm));
-    localStorage.setItem('active_farm_id', farm.id);
-    localStorage.setItem('farm_data', JSON.stringify(farm));
+    const userActiveKey = getUserStorageKey(STORAGE_KEY_ACTIVE_FARM_ID, uid);
+    const userActiveFieldKey = getUserStorageKey(STORAGE_KEY_ACTIVE_FIELD, uid);
+    localStorage.setItem(userActiveKey, farm.id);
+    localStorage.setItem(userActiveFieldKey, JSON.stringify(farm));
   } catch (_) {}
 
   return farm;
@@ -362,20 +367,23 @@ export const setActiveField = activateFarm;
 export const setActiveFarmId = activateFarm;
 
 /**
- * Get active farm record for downstream intelligence (AI, Weather, Satellite NDVI, Irrigation)
+ * Get active farm record for a user
  */
 export function getActiveFarm(userId) {
   if (typeof window === 'undefined') return null;
-  const activeId = getActiveFarmId();
+  const uid = userId || getCurrentUserId();
+  if (!uid) return null;
+
+  const activeId = getActiveFarmId(uid);
   if (activeId) {
-    const farm = getFarmById(activeId, userId);
+    const farm = getFarmById(activeId, uid);
     if (farm) return farm;
   }
 
-  // If active ID is missing or invalid, default to first valid farm in the repository
-  const farms = getFarms(userId);
+  // If active ID is missing, default to first valid farm of THIS user
+  const farms = getFarms(uid);
   if (farms.length > 0) {
-    activateFarm(farms[0].id, userId);
+    activateFarm(farms[0].id, uid);
     return farms[0];
   }
   return null;
@@ -384,8 +392,7 @@ export function getActiveFarm(userId) {
 export const getActiveField = getActiveFarm;
 
 /**
- * Save or Update a Farm (Section 16, 22, 23 of Master Spec)
- * Supports createNew = true vs createNew = false (preserving ID without duplicates)
+ * Save or Update a Farm
  */
 export async function saveFarm(farmPayload, createNew = false, userId) {
   const points = farmPayload.boundary || farmPayload.points || [];
@@ -404,6 +411,10 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
   const center = calculatePolygonCenter(points);
 
   const uid = userId || getCurrentUserId();
+  if (!uid) {
+    throw new Error('Authentication required to save farm.');
+  }
+
   const existingFarms = getFarms(uid);
 
   // Handle ID generation: If createNew = true or no id provided, generate collision-safe unique ID
@@ -441,14 +452,14 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
     boundary: points,
     points,
     cornersCount: points.length,
-    crop: farmPayload.crop || existingRecord?.crop || 'Wheat',
+    crop: farmPayload.crop || existingRecord?.crop || 'Paddy',
     cropStatus: existingRecord?.cropStatus || 'pending_detection',
     varietyStatus: existingRecord?.varietyStatus || 'pending_detection',
     soilStatus: existingRecord?.soilStatus || 'pending_fetch',
     irrigationStatus: existingRecord?.irrigationStatus || 'pending_inference',
     sowingDateStatus: existingRecord?.sowingDateStatus || 'pending_inference',
-    soilType: farmPayload.soilType || existingRecord?.soilType || 'Black Soil / Regur',
-    season: farmPayload.season || existingRecord?.season || 'Rabi',
+    soilType: farmPayload.soilType || existingRecord?.soilType || 'Alluvial Soil',
+    season: farmPayload.season || existingRecord?.season || 'Kharif',
     notes: farmPayload.notes !== undefined ? farmPayload.notes : (existingRecord?.notes || ''),
     gpsAccuracy: farmPayload.gpsAccuracy || 15,
     gpsStatus: farmPayload.gpsStatus || 'GPS Connected',
@@ -470,16 +481,9 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
     activateFarm(id, uid);
   } catch (err) {
     console.warn('[FieldService] LocalStorage error:', err);
-    RecoveryManager.logDiagnostic({
-      level: LogLevel.WARNING,
-      module: 'FieldService',
-      errorType: 'STORAGE_SAVE_ERROR',
-      message: err.message,
-      status: 'STORAGE_WARNING',
-    });
   }
 
-  // Dual-layer persistence: Asynchronously persist to backend database
+  // Asynchronously persist to backend database
   try {
     const res = await api.post('/farmer/fields', farmToSave);
     if (res.data?.success && res.data.data) {
@@ -496,37 +500,34 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
 export const saveFieldData = (payload, userId) => saveFarm(payload, !payload.id, userId);
 
 /**
- * Delete a farm by ID (Only when explicitly requested by farmer)
+ * Delete a farm by ID
  */
 export async function deleteFarm(id, userId) {
-  // Protect KIPM Paddy Farm from accidental deletion
-  if (id === 'field_kipm_paddy_01') {
+  const uid = userId || getCurrentUserId();
+  // Protect KIPM Paddy Farm for demo persona
+  if (id === 'field_kipm_paddy_01' && uid === 'usr_farmer_demo_01') {
     console.warn('[FieldService] KIPM Paddy Farm is protected from accidental deletion.');
     return getFarms(userId);
   }
 
-  const uid = userId || getCurrentUserId();
   const existingFarms = getFarms(uid);
   const filtered = existingFarms.filter(f => f.id !== id && f._id !== id);
 
   const userKey = getUserStorageKey(STORAGE_KEY_FARMS, uid);
   try {
     localStorage.setItem(userKey, JSON.stringify(filtered));
-    localStorage.setItem(STORAGE_KEY_FARMS, JSON.stringify(filtered));
-    localStorage.setItem(STORAGE_KEY_SAVED_FIELDS, JSON.stringify(filtered));
-    localStorage.setItem('krishi_farms_v2', JSON.stringify(filtered));
   } catch (_) {}
 
-  const activeId = getActiveFarmId();
+  const activeId = getActiveFarmId(uid);
   if (activeId === id) {
     const nextActive = filtered.length > 0 ? filtered[0].id : null;
     if (nextActive) {
-      activateFarm(nextActive, userId);
+      activateFarm(nextActive, uid);
     } else {
-      localStorage.removeItem(STORAGE_KEY_ACTIVE_FARM_ID);
-      localStorage.removeItem(STORAGE_KEY_ACTIVE_FIELD);
-      localStorage.removeItem('active_farm_id');
-      localStorage.removeItem('farm_data');
+      try {
+        localStorage.removeItem(getUserStorageKey(STORAGE_KEY_ACTIVE_FARM_ID, uid));
+        localStorage.removeItem(getUserStorageKey(STORAGE_KEY_ACTIVE_FIELD, uid));
+      } catch (_) {}
     }
   }
 
@@ -540,82 +541,9 @@ export async function deleteFarm(id, userId) {
 export const deleteFieldData = deleteFarm;
 
 /**
- * Section 31 & 37: Legacy Boundary Migration
- * Converts old boundary points (e.g. screen x/y or normalized offsets) to geographic coordinates.
- * Saves result as farm_boundary_geo_points.
+ * Legacy Boundary Migration
  */
 export function migrateLegacyBoundaries() {
   if (typeof window === 'undefined') return null;
-
-  try {
-    const rawLegacy = localStorage.getItem('farm_boundary_points');
-    if (!rawLegacy) return null;
-
-    const parsed = JSON.parse(rawLegacy);
-    if (!Array.isArray(parsed) || parsed.length === 0) return null;
-
-    // Check if points are already geographic (lat/lng)
-    const isAlreadyGeo = parsed.every(p => typeof p.lat === 'number' && typeof p.lng === 'number');
-    if (isAlreadyGeo) {
-      localStorage.setItem('farm_boundary_geo_points', JSON.stringify(parsed));
-      return parsed;
-    }
-
-    // Resolve base latitude and longitude
-    let baseLat = parseFloat(localStorage.getItem('farm_location_latitude'));
-    let baseLng = parseFloat(localStorage.getItem('farm_location_longitude'));
-
-    if (isNaN(baseLat) || isNaN(baseLng)) {
-      baseLat = 20.5937; // Default India center
-      baseLng = 78.9629;
-    }
-
-    // Convert screen coordinates {x, y} to small geographic degree offsets (~0.0001 deg ~= 11 meters)
-    const avgX = parsed.reduce((sum, p) => sum + (p.x || 0), 0) / parsed.length;
-    const avgY = parsed.reduce((sum, p) => sum + (p.y || 0), 0) / parsed.length;
-
-    const scaleFactor = 0.00001; // Scale factor for converting pixel offsets to lat/lng
-
-    const migrated = parsed.map(p => {
-      const offsetX = ((p.x || 0) - avgX) * scaleFactor;
-      const offsetY = ((p.y || 0) - avgY) * scaleFactor;
-      return {
-        lat: Math.round((baseLat + offsetY) * 100000) / 100000,
-        lng: Math.round((baseLng + offsetX) * 100000) / 100000,
-        source: 'legacy_migrated'
-      };
-    });
-
-    localStorage.setItem('farm_boundary_geo_points', JSON.stringify(migrated));
-    return migrated;
-  } catch (err) {
-    console.warn('[FieldService] Legacy migration warning:', err);
-    return null;
-  }
-}
-
-/**
- * Load geographic boundary points for active farm
- */
-export function loadGeographicBoundary() {
-  if (typeof window === 'undefined') return [];
-  const farm = getActiveFarm();
-  if (farm && Array.isArray(farm.boundary) && farm.boundary.length > 0) {
-    return farm.boundary;
-  }
-  try {
-    const raw = localStorage.getItem('farm_boundary_geo_points');
-    if (raw) return JSON.parse(raw);
-  } catch (_) {}
-  return [];
-}
-
-/**
- * Save geographic boundary points
- */
-export function saveGeographicBoundary(points) {
-  if (typeof window === 'undefined' || !Array.isArray(points)) return;
-  try {
-    localStorage.setItem('farm_boundary_geo_points', JSON.stringify(points));
-  } catch (_) {}
+  return null;
 }

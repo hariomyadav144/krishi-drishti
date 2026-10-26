@@ -1,4 +1,9 @@
 {
+  "python.defaultInterpreterPath": "C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\python.exe",
+  "python.analysis.extraPaths": [
+    "C:\\Users\\ASUS\\AppData\\Local\\Programs\\Python\\Python312\\Lib\\site-packages",
+    "${workspaceFolder}/patent_idf_submission"
+  ],
   "java.jdt.ls.java.home": "C:\\Users\\ASUS\\.jdk\\jdk-21.0.12.1+1",
   "java.configuration.runtimes": [
     {
@@ -10,14 +15,23 @@
   "java.errors.incompleteClasspath.severity": "ignore",
   "java.configuration.updateBuildConfiguration": "disabled",
   "java.import.gradle.enabled": false,
+  "java.validation.enabled": false,
+  "java.autobuild.enabled": false,
+  "java.showUnmanagedFolderNotification": false,
   "java.project.resourceFilters": [
     "**/node_modules",
     "**/android",
     "**/dist",
     "**/scratch"
   ],
+  "gradle.autoDetect": "off",
+  "gradle.nestedProjects": false,
+  "java.gradle.buildServer.enabled": "off",
+  "typescript.suggestionActions.enabled": false,
+  "javascript.suggestionActions.enabled": false,
   "python.analysis.diagnosticSeverityOverrides": {
     "reportPrivateUsage": "none",
     "reportUnknownMemberType": "none"
   }
 }
+

@@ -29,6 +29,7 @@ const completeOnboarding = async (req, res) => {
   try {
     const {
       name,
+      farmName,
       location,
       state,
       district,
@@ -57,7 +58,7 @@ const completeOnboarding = async (req, res) => {
       });
 
       const farm = saveStatelessFarm(userId, {
-        farmName: `${name || req.user.name}'s Farm`,
+        farmName: farmName || (name || req.user.name ? `${name || req.user.name}'s Farm` : 'Farm'),
         farmSize: Number(farmSize) || 0,
         landUnit: landUnit || 'Acres',
         soilType: soilType || '',
@@ -121,7 +122,7 @@ const completeOnboarding = async (req, res) => {
     } else {
       farm = await Farm.create({
         farmerId: userId,
-        farmName: `${name || req.user.name}'s Farm`,
+        farmName: farmName || (name || req.user.name ? `${name || req.user.name}'s Farm` : 'Farm'),
         farmSize: Number(farmSize) || 0,
         landUnit: landUnit || 'Acres',
         soilType: soilType || '',
@@ -181,9 +182,27 @@ const getFarmerDashboard = async (req, res) => {
 
     if (!isDbConnected()) {
       const data = persistentStore.getDashboardForUser(userId) || getStatelessDashboardForUser(userId);
+      const cleanEmptyDashboard = {
+        farmer: {
+          id: req.user._id,
+          name: req.user.name,
+          phone: req.user.phone,
+          email: req.user.email,
+        },
+        profile: null,
+        farm: null,
+        fields: [],
+        crops: [],
+        currentCrop: null,
+        healthScore: null,
+        pendingTasks: [],
+        recentAnalyses: [],
+        recentRecommendations: [],
+        unreadAlerts: [],
+      };
       return res.json({
         success: true,
-        data: data || getStatelessDashboard()
+        data: data || cleanEmptyDashboard
       });
     }
 

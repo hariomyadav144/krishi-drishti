@@ -74,51 +74,47 @@ const safeSet = (key, val) => {
 
 const getInitialDashboardData = (user) => {
   const userId = user?.id || user?._id;
-  const userCacheKey = userId ? `krishi_dash_cache_${userId}` : 'krishi_dash_cache';
-  let cached = safeParse(userCacheKey) || safeParse('krishi_dash_cache');
-  const activeFarm = safeParse('krishi_active_field') || safeParse('farm_data');
-  const isDemo = user?.phone === '9876543210' || (typeof window !== 'undefined' && localStorage.getItem('krishi_demo_role') === 'farmer');
+  const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01' || userId === 'usr_farmer_demo_01') && user?.isDemo !== false;
 
-  // Sanitize cached location & crop if obsolete
-  if (cached) {
-    if (cached.profile?.village?.toLowerCase().includes('pimpalgaon') || cached.profile?.location?.toLowerCase().includes('pimpalgaon')) {
-      cached.profile.village = 'Sahajanwa';
-      cached.profile.district = 'Gorakhpur';
-      cached.profile.state = 'Uttar Pradesh';
-      cached.profile.location = 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
-    }
-    if (cached.farm?.name?.toLowerCase().includes('plot a') || cached.farm?.farmName?.toLowerCase().includes('plot a')) {
-      cached.farm.name = 'Kipm paddy';
-      cached.farm.farmName = 'Kipm paddy';
-      cached.farm.location = 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
-    }
-    if (cached.currentCrop?.cropName?.toLowerCase() === 'wheat' || cached.currentCrop?.name?.toLowerCase() === 'wheat') {
-      cached.currentCrop.cropName = 'Paddy';
-      cached.currentCrop.name = 'Paddy';
-    }
-  }
+  if (!isDemo) {
+    if (user && userId) {
+      const userCacheKey = `krishi_dash_cache_${userId}`;
+      const cached = safeParse(userCacheKey);
+      if (cached && (cached.farmer?.id === userId || cached.farmer?._id === userId)) {
+        return {
+          ...cached,
+          farmer: { ...cached.farmer, name: user.name || cached.farmer?.name || 'Farmer', id: userId }
+        };
+      }
 
-  if (!isDemo && cached && cached.farmer?.id === userId) {
-    const base = { ...cached };
-    if (user?.name) {
-      base.farmer = { ...base.farmer, name: user.name, id: userId };
+      // Check if user has saved farms
+      const userFarms = safeParse(`farms_data_usr_${userId}`) || [];
+      const userFarm = userFarms.length > 0 ? userFarms[0] : null;
+      const userProfile = safeParse(`krishi_profile_${userId}`) || null;
+      const userCurrentCrop = userFarm ? { name: userFarm.crop, cropName: userFarm.crop } : null;
+
+      return {
+        farmer: { id: userId, _id: userId, name: user.name || 'Farmer', phone: user.phone || '' },
+        profile: userProfile || null,
+        farm: userFarm || null,
+        currentCrop: userCurrentCrop || null,
+        crops: userCurrentCrop ? [userCurrentCrop] : [],
+        healthScore: null,
+        pendingTasks: [],
+        recentAnalyses: [],
+        recentRecommendations: [],
+        unreadAlerts: [],
+      };
     }
-    return base;
-  }
 
-  // If real user (not demo) and no cache yet, return clean real user state
-  if (!isDemo && user) {
-    const userProfile = safeParse('krishi_profile');
-    const userFarm = safeParse('krishi_farm');
-    const userCurrentCrop = safeParse('krishi_current_crop');
-
+    // Unauthenticated or freshly registering non-demo user
     return {
-      farmer: { id: userId, name: user.name || 'Farmer', phone: user.phone || '' },
-      profile: userProfile || null,
-      farm: userFarm || null,
-      currentCrop: userCurrentCrop || null,
-      crops: userCurrentCrop ? [userCurrentCrop] : [],
-      healthScore: userCurrentCrop?.healthScore || null,
+      farmer: { name: user?.name || 'Farmer' },
+      profile: null,
+      farm: null,
+      currentCrop: null,
+      crops: [],
+      healthScore: null,
       pendingTasks: [],
       recentAnalyses: [],
       recentRecommendations: [],
@@ -126,7 +122,13 @@ const getInitialDashboardData = (user) => {
     };
   }
 
-  const base = cached || {
+  // Demo Persona (phone === '9876543210')
+  const cached = safeParse('krishi_dash_cache');
+  if (cached) {
+    return cached;
+  }
+
+  return {
     farmer: { name: 'Hariom yadav' },
     profile: {
       ...MOCK_PROFILE,
@@ -148,7 +150,7 @@ const getInitialDashboardData = (user) => {
       name: 'Paddy',
     },
     crops: MOCK_CROPS,
-    healthScore: null,
+    healthScore: 88,
     pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
     recentAnalyses: [generateMockScanResult('Paddy').data],
     recentRecommendations: [
@@ -161,26 +163,6 @@ const getInitialDashboardData = (user) => {
     ],
     unreadAlerts: MOCK_ALERTS,
   };
-
-  if (activeFarm) {
-    base.farm = {
-      ...base.farm,
-      name: activeFarm.name || activeFarm.fieldName || base.farm.name,
-      totalArea: parseFloat(activeFarm.farmArea || activeFarm.areaAcres || base.farm.totalArea),
-      location: activeFarm.location || 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
-      latitude: activeFarm.latitude || activeFarm.center?.lat || base.farm.latitude,
-      longitude: activeFarm.longitude || activeFarm.center?.lng || base.farm.longitude
-    };
-    if (activeFarm.crop) {
-      base.currentCrop = {
-        ...base.currentCrop,
-        name: activeFarm.crop,
-        cropName: activeFarm.crop
-      };
-    }
-  }
-
-  return base;
 };
 
 export default function FarmerDashboard({ setActiveTab }) {
@@ -190,8 +172,24 @@ export default function FarmerDashboard({ setActiveTab }) {
 
   // Re-sync dashboard state immediately when authenticated user changes
   useEffect(() => {
-    if (user) {
-      setDashboardData(getInitialDashboardData(user));
+    const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
+    const newDash = getInitialDashboardData(user);
+    setDashboardData(newDash);
+
+    if (!isDemo) {
+      const userId = user?.id || user?._id;
+      const userFarms = userId ? safeParse(`farms_data_usr_${userId}`) || [] : [];
+      if (userFarms.length === 0) {
+        setCropHealthData({
+          hasField: false,
+          healthScore: null,
+          status: 'Insufficient Data',
+          message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
+        });
+        setMonitoringSummaries([]);
+        setFieldActions([]);
+        setHealthFieldsSummary([]);
+      }
     }
   }, [user?.id, user?._id]);
   const [weatherData, setWeatherData] = useState(() => safeParse('krishi_weather_cache') || MOCK_WEATHER);
@@ -204,17 +202,34 @@ export default function FarmerDashboard({ setActiveTab }) {
   const [isManualRunning, setIsManualRunning] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Real-Time Crop Health States: calculate synchronously on initial load so it renders immediately!
+  // Real-Time Crop Health States: strictly user-isolated
   const [cropHealthData, setCropHealthData] = useState(() => {
+    const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
+    if (!isDemo) {
+      const userId = user?.id || user?._id;
+      const userFarms = userId ? safeParse(`farms_data_usr_${userId}`) || [] : [];
+      if (userFarms.length === 0) {
+        return {
+          hasField: false,
+          healthScore: null,
+          status: 'Insufficient Data',
+          message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
+        };
+      }
+      return {
+        hasField: true,
+        healthScore: null,
+        fieldName: userFarms[0]?.name || userFarms[0]?.fieldName,
+        crop: userFarms[0]?.crop,
+        status: 'Insufficient Data',
+        message: 'Insufficient data to calculate crop health',
+      };
+    }
     const cached = safeParse('krishi_crop_health_cache');
     if (cached && typeof cached.healthScore === 'number') {
-      const fName = (cached.fieldName || '').toLowerCase();
-      const cName = (cached.crop || '').toLowerCase();
-      if (!fName.includes('plot a') && !cName.includes('wheat') && cached.fieldId !== 'field_demo_01') {
-        return cached;
-      }
+      return cached;
     }
-    const initialDash = getInitialDashboardData();
+    const initialDash = getInitialDashboardData(user);
     return calculateCropHealth('default', {
       farm: initialDash.farm,
       currentCrop: initialDash.currentCrop,
@@ -257,10 +272,24 @@ export default function FarmerDashboard({ setActiveTab }) {
         fetchFieldActions('all').catch(() => [])
       ]);
 
-      if (dashRes?.data?.success) {
-        setDashboardData(dashRes.data.data);
-        const currentUid = user?._id || user?.id || '';
-        safeSet(`krishi_dash_cache_${currentUid || 'anonymous'}`, dashRes.data.data);
+      const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
+      const currentUid = user?._id || user?.id || '';
+      const userFarms = currentUid ? safeParse(`farms_data_usr_${currentUid}`) || [] : [];
+      const hasUserFarms = userFarms.length > 0;
+
+      if (dashRes?.data?.success && dashRes.data?.data) {
+        let respData = dashRes.data.data;
+        if (!isDemo && !hasUserFarms) {
+          respData = {
+            ...respData,
+            farm: null,
+            currentCrop: null,
+            crops: [],
+            healthScore: null,
+          };
+        }
+        setDashboardData(respData);
+        safeSet(`krishi_dash_cache_${currentUid || 'anonymous'}`, respData);
       }
       if (weatherRes?.data?.success) {
         setWeatherData(weatherRes.data.data);
@@ -278,23 +307,71 @@ export default function FarmerDashboard({ setActiveTab }) {
         setHistoryStats(historyRes);
       }
       if (Array.isArray(monitoringRes)) {
-        setMonitoringSummaries(monitoringRes);
+        if (!isDemo && !hasUserFarms) {
+          setMonitoringSummaries([]);
+        } else {
+          const cleanMonitoring = monitoringRes.filter(m => {
+            if (!m) return false;
+            const mn = (m.fieldName || '').toLowerCase();
+            if (!isDemo && (m.fieldId === 'field_kipm_paddy_01' || mn.includes('kipm'))) {
+              return userFarms.some(uf => uf.id === m.fieldId || uf._id === m.fieldId || uf.fieldName?.toLowerCase() === mn);
+            }
+            return true;
+          });
+          setMonitoringSummaries(cleanMonitoring);
+        }
       }
       if (Array.isArray(actionsRes)) {
-        setFieldActions(actionsRes);
+        if (!isDemo && !hasUserFarms) {
+          setFieldActions([]);
+        } else {
+          setFieldActions(actionsRes);
+        }
       }
-      if (Array.isArray(healthSummaryRes) && healthSummaryRes.length > 0) {
+      if (Array.isArray(healthSummaryRes)) {
         const cleanSummaries = healthSummaryRes.filter(f => {
+          if (!f) return false;
           const n = (f.fieldName || f.name || '').toLowerCase();
-          return !n.includes('plot a') && !n.includes('main wheat') && f.fieldId !== 'field_demo_01' && f._id !== 'field_demo_01';
+          if (n.includes('plot a') && !n.includes('main wheat') && f.fieldId !== 'field_demo_01' && f._id !== 'field_demo_01') return false;
+          if (!isDemo && (f.fieldId === 'field_kipm_paddy_01' || f._id === 'field_kipm_paddy_01' || n.includes('kipm'))) {
+            return userFarms.some(uf => uf.id === f.fieldId || uf._id === f.fieldId || uf.fieldName?.toLowerCase() === n);
+          }
+          return true;
         });
         setHealthFieldsSummary(cleanSummaries);
       }
-      if (latestHealthRes && typeof latestHealthRes.healthScore === 'number') {
-        const lName = (latestHealthRes.fieldName || '').toLowerCase();
-        const lCrop = (latestHealthRes.crop || '').toLowerCase();
-        if (!lName.includes('plot a') && !lCrop.includes('wheat') && latestHealthRes.fieldId !== 'field_demo_01') {
-          setCropHealthData(latestHealthRes);
+      if (!isDemo && !hasUserFarms) {
+        setCropHealthData({
+          hasField: false,
+          healthScore: null,
+          status: 'Insufficient Data',
+          message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
+        });
+      } else if (latestHealthRes) {
+        if (latestHealthRes.hasField === false || latestHealthRes.healthScore === null) {
+          setCropHealthData({
+            hasField: false,
+            healthScore: null,
+            status: 'Insufficient Data',
+            message: latestHealthRes.message || 'Insufficient data to calculate crop health'
+          });
+        } else if (typeof latestHealthRes.healthScore === 'number') {
+          const lName = (latestHealthRes.fieldName || '').toLowerCase();
+          const lCrop = (latestHealthRes.crop || '').toLowerCase();
+          if (!isDemo && (latestHealthRes.fieldId === 'field_kipm_paddy_01' || lName.includes('kipm'))) {
+            if (!userFarms.some(uf => uf.id === latestHealthRes.fieldId || uf.fieldName?.toLowerCase() === lName)) {
+              setCropHealthData({
+                hasField: false,
+                healthScore: null,
+                status: 'Insufficient Data',
+                message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
+              });
+              return;
+            }
+          }
+          if (!lName.includes('plot a') && !lCrop.includes('wheat') && latestHealthRes.fieldId !== 'field_demo_01') {
+            setCropHealthData(latestHealthRes);
+          }
         }
       }
     } catch (e) {
@@ -442,10 +519,11 @@ export default function FarmerDashboard({ setActiveTab }) {
               <span className="text-[9px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-xs truncate max-w-[220px] sm:max-w-none">
                 📍 {(() => {
                   const loc = farm?.location || [profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ');
-                  if (!loc || loc.toLowerCase().includes('pimpalgaon') || loc.toLowerCase().includes('nashik')) {
-                    return 'Sahajanwa, Gorakhpur, Uttar Pradesh, India';
+                  if (loc && !loc.toLowerCase().includes('pimpalgaon') && !loc.toLowerCase().includes('nashik')) {
+                    return loc;
                   }
-                  return loc;
+                  const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
+                  return isDemo ? 'Sahajanwa, Gorakhpur, Uttar Pradesh, India' : (lang === 'hi' ? 'स्थान सेट नहीं है' : 'Location not set');
                 })()}
               </span>
             </div>
@@ -453,10 +531,20 @@ export default function FarmerDashboard({ setActiveTab }) {
               {getGreeting()}{farmer?.name || user?.name ? `, ${farmer?.name || user?.name}` : ''}
             </h2>
             <p className="text-[11px] sm:text-xs text-emerald-100/90 font-medium truncate mt-0.5">
-              {farm?.farmName || farm?.name || 'Kipm paddy'}
-              {farm?.farmSize || farm?.totalArea ? ` • ${farm.farmSize || farm.totalArea} ${farm?.landUnit || 'Acres'}` : ''}
-              {farm?.soilType ? ` (${farm.soilType})` : ''}
-              {` • 🌱 धान / Paddy`}
+              {farm && (farm.farmName || farm.name) ? (
+                <>
+                  {farm.farmName || farm.name || (lang === 'hi' ? 'मेरा खेत' : 'My Farm')}
+                  {farm.farmSize || farm.totalArea ? ` • ${farm.farmSize || farm.totalArea} ${farm.landUnit || 'Acres'}` : ''}
+                  {farm.soilType ? ` (${farm.soilType})` : ''}
+                  {farm.crop ? ` • 🌱 ${tCrop(farm.crop) || farm.crop}` : ''}
+                </>
+              ) : (
+                <span className="text-emerald-200">
+                  {lang === 'hi'
+                    ? 'कोई खेत नहीं जुड़ा • शुरू करने के लिए अपना पहला खेत जोड़ें'
+                    : 'No farm added yet • Add your first farm to begin'}
+                </span>
+              )}
             </p>
           </div>
         </div>
@@ -490,22 +578,32 @@ export default function FarmerDashboard({ setActiveTab }) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span className={`w-2 h-2 rounded-full ${monitoringSummaries.length > 0 ? 'bg-emerald-400 animate-ping' : 'bg-slate-500'}`} />
               <h4 className="font-extrabold text-xs sm:text-sm text-white uppercase tracking-wider">
                 {t('dashboard.autonomousMonitoring')}
               </h4>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold">
                 {monitoringSummaries.length > 0
                   ? `${monitoringSummaries.length} ${t('dashboard.plotsActive')}`
-                  : t('dashboard.onePlotActive')}
+                  : (lang === 'hi' ? 'कोई सक्रिय प्लॉट नहीं' : '0 Plots Active')}
               </span>
             </div>
             <p className="text-[11px] text-slate-300 mt-0.5 flex flex-wrap items-center gap-2">
-              <span>{t('dashboard.lastCheckedToday')}</span>
-              <span>•</span>
-              <span>{t('dashboard.nextCheckIn6h')}</span>
-              <span>•</span>
-              <span className="text-emerald-300 font-semibold">{t('dashboard.dataSourceSummary')}</span>
+              {monitoringSummaries.length > 0 ? (
+                <>
+                  <span>{t('dashboard.lastCheckedToday')}</span>
+                  <span>•</span>
+                  <span>{t('dashboard.nextCheckIn6h')}</span>
+                  <span>•</span>
+                  <span className="text-emerald-300 font-semibold">{t('dashboard.dataSourceSummary')}</span>
+                </>
+              ) : (
+                <span>
+                  {lang === 'hi'
+                    ? 'निगरानी शुरू करने के लिए अपने खेत को मैप करें।'
+                    : 'Map your field to activate autonomous monitoring.'}
+                </span>
+              )}
             </p>
           </div>
         </div>
