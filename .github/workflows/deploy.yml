@@ -44,6 +44,7 @@ jobs:
           touch frontend/dist/.nojekyll
           [ -f frontend/public/sitemap.xml ] && cp frontend/public/sitemap.xml frontend/dist/sitemap.xml
           [ -f frontend/public/robots.txt ] && cp frontend/public/robots.txt frontend/dist/robots.txt
+          cp frontend/public/google*.html frontend/dist/ 2>/dev/null || true
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
