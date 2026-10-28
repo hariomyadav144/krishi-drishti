@@ -20,6 +20,7 @@ build/
 backend/uploads/crop-*
 !backend/uploads/.gitkeep
 *.png
+!frontend/public/*.png
 *.jpg
 *.jpeg
 *.tar

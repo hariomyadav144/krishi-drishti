@@ -503,5 +503,15 @@
     "loadingApp": "FASAL DRISHTI",
     "verifyingSession": "Verifying session...",
     "sessionExpiredNotice": "Your session has safely ended. Please log in again."
+  },
+  "share": {
+    "title": "Share Fasal Drishti",
+    "scanToVisit": "Scan to Visit Fasal Drishti",
+    "description": "Scan this QR code to access our smart agriculture platform.",
+    "download": "Download QR Code",
+    "shareWebsite": "Share Website",
+    "copyLink": "Copy Website Link",
+    "copied": "Copied!",
+    "printReady": "Print & Poster Ready"
   }
 }

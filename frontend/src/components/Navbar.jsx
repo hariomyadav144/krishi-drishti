@@ -14,6 +14,7 @@ import {
   User, 
   Settings, 
   FileText,
+  QrCode,
   X 
 } from 'lucide-react';
 
@@ -154,6 +155,28 @@ export default function Navbar({ activeTab, setActiveTab }) {
               )}
             </button>
 
+            {/* Share Fasal Drishti QR Code Button */}
+            <button
+              id="nav-btn-share-qr"
+              onClick={() => {
+                const el = document.getElementById('share-fasal-drishti');
+                if (el) {
+                  el.scrollIntoView({ behavior: 'smooth' });
+                } else {
+                  setActiveTab('home');
+                  setTimeout(() => {
+                    const el2 = document.getElementById('share-fasal-drishti');
+                    if (el2) el2.scrollIntoView({ behavior: 'smooth' });
+                  }, 250);
+                }
+              }}
+              className="p-2 rounded-xl bg-emerald-950/70 hover:bg-emerald-900/80 text-emerald-100 border border-emerald-700/50 transition active:scale-95 flex items-center gap-1.5"
+              title={lang === 'hi' ? 'फ़सल दृष्टि QR कोड व शेयर' : 'Share Fasal Drishti QR Code'}
+            >
+              <QrCode className="w-4 h-4 text-emerald-300" />
+              <span className="hidden md:inline text-xs font-semibold">{lang === 'hi' ? 'शेयर QR' : 'Share QR'}</span>
+            </button>
+
             {/* 3. Farmer Profile Avatar [ H ] -> Professional Redesign */}
             {user && (
               <div className="relative" ref={menuRef}>
@@ -239,6 +262,27 @@ export default function Navbar({ activeTab, setActiveTab }) {
                       >
                         <Globe className="w-4 h-4 text-sky-700" />
                         <span>{lang === 'hi' ? 'भाषा बदलें (Language)' : 'Change Language'}</span>
+                      </button>
+
+                      <button
+                        id="nav-menu-share-qr"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          const el = document.getElementById('share-fasal-drishti');
+                          if (el) {
+                            el.scrollIntoView({ behavior: 'smooth' });
+                          } else {
+                            setActiveTab('home');
+                            setTimeout(() => {
+                              const el2 = document.getElementById('share-fasal-drishti');
+                              if (el2) el2.scrollIntoView({ behavior: 'smooth' });
+                            }, 250);
+                          }
+                        }}
+                        className="w-full text-left px-4 py-2.5 hover:bg-emerald-50/60 flex items-center gap-3 text-emerald-800 font-bold transition"
+                      >
+                        <QrCode className="w-4 h-4 text-emerald-600" />
+                        <span>{lang === 'hi' ? 'QR कोड व शेयर करें' : 'Share & QR Code'}</span>
                       </button>
 
                       {user.role === 'expert' && (

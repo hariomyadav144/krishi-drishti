@@ -50,6 +50,7 @@ import {
 } from '../services/fieldMonitoringService';
 import CropHealthCircle from '../components/CropHealthCircle';
 import CropHealthModal from '../components/CropHealthModal';
+import ShareFasalDrishti from '../components/ShareFasalDrishti';
 import { 
   fetchLatestCropHealth, 
   fetchCropHealthSummary, 
@@ -1301,6 +1302,9 @@ export default function FarmerDashboard({ setActiveTab }) {
           </div>
         </div>
       </div>
+
+      {/* Share Fasal Drishti QR Code Section */}
+      <ShareFasalDrishti variant="light" className="mt-6" />
 
       {/* Detailed Crop Health Diagnostic Modal */}
       <CropHealthModal

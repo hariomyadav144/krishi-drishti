@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useLanguage } from '../context/LanguageContext';
-import { Phone, Lock, ArrowRight, UserPlus, KeyRound, ShieldCheck, CheckCircle2, RotateCcw, ArrowLeft, Satellite, MapPin, Scan, Sparkles, TrendingUp, CloudRain, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Award } from 'lucide-react';
+import { Phone, Lock, ArrowRight, UserPlus, KeyRound, ShieldCheck, CheckCircle2, RotateCcw, ArrowLeft, Satellite, MapPin, Scan, Sparkles, TrendingUp, CloudRain, HelpCircle, ChevronDown, ChevronUp, ExternalLink, Award, Download, Copy, Check } from 'lucide-react';
 import api, { normalizePhone } from '../services/api';
+import ShareFasalDrishti from '../components/ShareFasalDrishti';
+import { FASAL_DRISHTI_URL, FASAL_DRISHTI_QR_DATA_URL } from '../utils/qrCodeAsset';
 
 export default function Login({ onNavigateRegister }) {
   const { login, demoLogin } = useAuth();
@@ -39,6 +41,33 @@ export default function Login({ onNavigateRegister }) {
   const [cooldown, setCooldown] = useState(0);
   const [successMessage, setSuccessMessage] = useState('');
   const [openFaq, setOpenFaq] = useState(null);
+  const [topQrCopied, setTopQrCopied] = useState(false);
+
+  const handleCopyTopQrLink = async () => {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(FASAL_DRISHTI_URL);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = FASAL_DRISHTI_URL;
+        document.body.appendChild(textArea);
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setTopQrCopied(true);
+      setTimeout(() => setTopQrCopied(false), 2500);
+    } catch (_) {}
+  };
+
+  const handleDownloadTopQr = () => {
+    const link = document.createElement('a');
+    link.href = FASAL_DRISHTI_QR_DATA_URL;
+    link.download = 'fasal-drishti-qr-code.png';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   // Resend cooldown timer
   useEffect(() => {
@@ -257,8 +286,9 @@ export default function Login({ onNavigateRegister }) {
         </div>
       </div>
 
-      <div className="mt-6 sm:mx-auto sm:w-full sm:max-w-md">
-        <div className="bg-white text-slate-900 py-6 px-6 shadow-2xl rounded-3xl sm:px-8 border border-white/10">
+      {/* Top Grid: Authentication Card + Prominent "Scan to Visit Fasal Drishti" Card */}
+      <div className="mt-6 mx-auto w-full max-w-5xl grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+        <div className="lg:col-span-7 bg-white text-slate-900 py-6 px-6 shadow-2xl rounded-3xl sm:px-8 border border-white/10 flex flex-col justify-between">
           
           {error && (
             <div 
@@ -682,6 +712,94 @@ export default function Login({ onNavigateRegister }) {
           )}
 
         </div>
+
+        {/* PROMINENT "Scan to Visit Fasal Drishti" SECTION */}
+        <section
+          id="scan-to-visit-card"
+          aria-label="Scan to Visit Fasal Drishti"
+          className="lg:col-span-5 bg-gradient-to-b from-[#133c23] via-[#0e2a18] to-slate-900 border-2 border-emerald-500/50 rounded-3xl p-6 sm:p-7 shadow-2xl backdrop-blur-md flex flex-col items-center justify-between text-center relative overflow-hidden"
+        >
+          {/* Subtle Ambient Glow */}
+          <div className="absolute -top-12 -right-12 w-32 h-32 bg-emerald-500/20 rounded-full blur-2xl pointer-events-none" />
+          <div className="absolute -bottom-12 -left-12 w-32 h-32 bg-teal-500/15 rounded-full blur-2xl pointer-events-none" />
+
+          {/* Header */}
+          <div className="w-full">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-2xs font-extrabold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-400/30 mb-2.5 shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
+              <span>{lang === 'hi' ? 'सीधा मोबाइल प्रवेश' : 'Direct Mobile Access'}</span>
+            </div>
+
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              {lang === 'hi' ? 'फ़सल दृष्टि देखने के लिए स्कैन करें' : 'Scan to Visit Fasal Drishti'}
+            </h2>
+
+            <p className="text-xs text-slate-300 mt-2 leading-relaxed max-w-xs mx-auto">
+              {lang === 'hi'
+                ? 'अपने मोबाइल कैमरे या क्यूआर स्कैनर से स्कैन करके तुरंत फ़सल दृष्टि प्लेटफॉर्म खोलें।'
+                : 'Scan this QR code with any smartphone camera or QR scanner to open Fasal Drishti directly in your browser.'}
+            </p>
+          </div>
+
+          {/* Actual Visible Scannable QR Code Image */}
+          <div className="my-5 w-full flex flex-col items-center">
+            <div className="p-3.5 bg-white rounded-2xl shadow-2xl border-4 border-emerald-400/60 hover:border-emerald-300 transition-all duration-300 transform hover:scale-102">
+              <img
+                src={FASAL_DRISHTI_QR_DATA_URL}
+                alt="Scan to Visit Fasal Drishti QR Code"
+                className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-xl block mx-auto"
+                loading="eager"
+                decoding="sync"
+              />
+            </div>
+
+            <div className="mt-2.5 flex items-center justify-center gap-2 text-2xs font-bold text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+              <span>{lang === 'hi' ? '100% सत्यापित व चालू' : '100% Genuine & Scannable'}</span>
+            </div>
+          </div>
+
+          {/* Clickable Website Link & Action Buttons */}
+          <div className="w-full space-y-3">
+            <div className="bg-black/40 border border-white/10 rounded-xl p-3 text-left">
+              <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
+                {lang === 'hi' ? 'वेबसाइट लिंक (Clickable Link):' : 'Official Website Link:'}
+              </span>
+              <a
+                href={FASAL_DRISHTI_URL}
+                target="_blank"
+                rel="noreferrer"
+                id="link-scan-to-visit"
+                className="text-xs font-mono font-bold text-emerald-300 hover:text-emerald-200 underline break-all flex items-center justify-between gap-2 transition"
+              >
+                <span className="truncate">{FASAL_DRISHTI_URL}</span>
+                <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+              </a>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                id="btn-scan-card-download"
+                onClick={handleDownloadTopQr}
+                className="py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-500 hover:to-emerald-600 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition shadow-md border border-emerald-400/30"
+              >
+                <Download className="w-3.5 h-3.5" />
+                <span>{lang === 'hi' ? 'QR डाउनलोड' : 'Download QR'}</span>
+              </button>
+
+              <button
+                type="button"
+                id="btn-scan-card-copy"
+                onClick={handleCopyTopQrLink}
+                className="py-2.5 px-3 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition border border-white/20"
+              >
+                {topQrCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{topQrCopied ? (lang === 'hi' ? 'कॉपी हुआ!' : 'Copied!') : (lang === 'hi' ? 'लिंक कॉपी' : 'Copy Link')}</span>
+              </button>
+            </div>
+          </div>
+        </section>
       </div>
 
       {/* ============================================================= */}
@@ -869,6 +987,11 @@ export default function Login({ onNavigateRegister }) {
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Share Fasal Drishti QR Code Section */}
+        <div className="mb-12">
+          <ShareFasalDrishti variant="dark" />
         </div>
 
         {/* Agricultural FAQ Accordion */}
