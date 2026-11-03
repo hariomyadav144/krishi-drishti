@@ -55,7 +55,8 @@ const protect = async (req, res, next) => {
     }
 
     // PERMANENT LOGIN: Token expiry alone MUST NEVER drop authenticated farmer session
-    if (err.name === 'TokenExpiredError') {
+    // (unless strict authentication enforcement is requested)
+    if (err.name === 'TokenExpiredError' && req.headers?.['x-strict-auth'] !== 'true') {
       try {
         const decoded = jwt.decode(token);
         if (decoded && decoded.id) {

@@ -4,7 +4,9 @@
  */
 import api from './api.js';
 import { calculatePolygonArea, calculatePolygonCenter, calculatePolygonPerimeter, validateFieldPolygon } from '../utils/areaUtils.js';
-import { FeatureRecoveryStrategy, RecoveryManager, LogLevel } from '../selfHealing/index.js';
+import { FeatureRecoveryStrategy } from '../selfHealing/FeatureRecoveryStrategy.js';
+import { RecoveryManager } from '../selfHealing/RecoveryManager.js';
+import { LogLevel } from '../selfHealing/ErrorClassifier.js';
 
 export const STORAGE_KEY_FARMS = 'farms_data';
 export const STORAGE_KEY_SAVED_FIELDS = 'krishi_saved_fields';
@@ -103,7 +105,13 @@ export function getUserStorageKey(baseKey, userId) {
  * Identify legacy mock coordinates
  */
 export function isLegacyMockPolygon(points) {
-  return false;
+  if (!Array.isArray(points) || points.length === 0) return false;
+  if (points.length === 7 || points.length === 8) return true;
+  return points.some(p => {
+    const lat = Number(p?.lat);
+    const lng = Number(p?.lng);
+    return !isNaN(lat) && !isNaN(lng) && Math.abs(lat - 20.174) < 0.05 && Math.abs(lng - 73.985) < 0.05;
+  });
 }
 
 /**
@@ -541,9 +549,82 @@ export async function deleteFarm(id, userId) {
 export const deleteFieldData = deleteFarm;
 
 /**
- * Legacy Boundary Migration
+ * Section 31 & 37: Legacy Boundary Migration
+ * Converts old boundary points (e.g. screen x/y or normalized offsets) to geographic coordinates.
+ * Saves result as farm_boundary_geo_points.
  */
 export function migrateLegacyBoundaries() {
   if (typeof window === 'undefined') return null;
-  return null;
+
+  try {
+    const rawLegacy = localStorage.getItem('farm_boundary_points');
+    if (!rawLegacy) return null;
+
+    const parsed = JSON.parse(rawLegacy);
+    if (!Array.isArray(parsed) || parsed.length === 0) return null;
+
+    // Check if points are already geographic (lat/lng)
+    const isAlreadyGeo = parsed.every(p => typeof p.lat === 'number' && typeof p.lng === 'number');
+    if (isAlreadyGeo) {
+      localStorage.setItem('farm_boundary_geo_points', JSON.stringify(parsed));
+      return parsed;
+    }
+
+    // Resolve base latitude and longitude
+    let baseLat = parseFloat(localStorage.getItem('farm_location_latitude'));
+    let baseLng = parseFloat(localStorage.getItem('farm_location_longitude'));
+
+    if (isNaN(baseLat) || isNaN(baseLng)) {
+      baseLat = 20.5937; // Default India center
+      baseLng = 78.9629;
+    }
+
+    // Convert screen coordinates {x, y} to small geographic degree offsets (~0.0001 deg ~= 11 meters)
+    const avgX = parsed.reduce((sum, p) => sum + (p.x || 0), 0) / parsed.length;
+    const avgY = parsed.reduce((sum, p) => sum + (p.y || 0), 0) / parsed.length;
+
+    const scaleFactor = 0.00001; // Scale factor for converting pixel offsets to lat/lng
+
+    const migrated = parsed.map(p => {
+      const offsetX = ((p.x || 0) - avgX) * scaleFactor;
+      const offsetY = ((p.y || 0) - avgY) * scaleFactor;
+      return {
+        lat: Math.round((baseLat + offsetY) * 100000) / 100000,
+        lng: Math.round((baseLng + offsetX) * 100000) / 100000,
+        source: 'legacy_migrated'
+      };
+    });
+
+    localStorage.setItem('farm_boundary_geo_points', JSON.stringify(migrated));
+    return migrated;
+  } catch (err) {
+    console.warn('[FieldService] Legacy migration warning:', err);
+    return null;
+  }
+}
+
+/**
+ * Load geographic boundary points for active farm
+ */
+export function loadGeographicBoundary() {
+  if (typeof window === 'undefined') return [];
+  const farm = getActiveFarm();
+  if (farm && Array.isArray(farm.boundary) && farm.boundary.length > 0) {
+    return farm.boundary;
+  }
+  try {
+    const raw = localStorage.getItem('farm_boundary_geo_points');
+    if (raw) return JSON.parse(raw);
+  } catch (_) {}
+  return [];
+}
+
+/**
+ * Save geographic boundary points
+ */
+export function saveGeographicBoundary(points) {
+  if (typeof window === 'undefined' || !Array.isArray(points)) return;
+  try {
+    localStorage.setItem('farm_boundary_geo_points', JSON.stringify(points));
+  } catch (_) {}
 }

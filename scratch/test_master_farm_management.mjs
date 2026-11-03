@@ -96,6 +96,7 @@ console.log(`✓ Calculated Centroid: Lat ${centroid.lat.toFixed(5)}°, Lng ${ce
 // -------------------------------------------------------------
 console.log('\n--- TEST 3: Multiple Farm Creation & Persistence ---');
 localStorage.clear();
+localStorage.setItem('krishi_user', JSON.stringify({ id: 'usr_test_farmer_01', name: 'Rameshwar' }));
 
 // Create Farm 1 (createNew = true)
 const farm1 = await saveFarm({

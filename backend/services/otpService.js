@@ -24,8 +24,8 @@ const RESEND_COOLDOWN_MS = 60 * 1000;        // 60 seconds cooldown
 const MAX_VERIFY_ATTEMPTS = 5;               // Max 5 attempts
 const RESET_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 minutes to reset password
 
-// Clean expired records every 5 minutes
-setInterval(() => {
+// Clean expired records every 5 minutes (unref so tests/scripts can exit naturally)
+const cleanupTimer = setInterval(() => {
   const now = Date.now();
   for (const [phone, record] of otpStore.entries()) {
     if (record.resetTokenExpiresAt && record.resetTokenExpiresAt < now) {
@@ -35,6 +35,9 @@ setInterval(() => {
     }
   }
 }, 5 * 60 * 1000);
+if (cleanupTimer && cleanupTimer.unref) {
+  cleanupTimer.unref();
+}
 
 /**
  * Normalizes 10-digit mobile number

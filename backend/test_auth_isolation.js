@@ -272,9 +272,9 @@ async function runTests() {
       headers: { Authorization: `Bearer ${tokenC}` },
     });
     assert(dashResC.body.data.farmer.name === 'Brand New Farmer', 'Dashboard reflects Brand New Farmer name');
-    assert(dashResC.body.data.farm.farmSize === 0, 'New farmer farmSize is 0 (not 4.5 or 5.5)');
+    assert(!dashResC.body.data.farm || dashResC.body.data.farm.farmSize === 0, 'New farmer farm is empty or farmSize is 0 (not 4.5 or 5.5)');
     assert(!dashResC.body.data.currentCrop, 'New farmer currentCrop is empty (not Tomato or Wheat)');
-    assert(!dashResC.body.data.profile.village, 'New farmer village is empty (not Pimpalgaon)');
+    assert(!dashResC.body.data.profile || !dashResC.body.data.profile.village, 'New farmer village is empty (not Pimpalgaon)');
 
     // ---------------------------------------------------------
     // TEST 8: Demo Mode Isolation

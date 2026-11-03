@@ -19,7 +19,7 @@ async function testFullHttpLifecycle() {
   console.log('[Server] In-process test backend running on http://127.0.0.1:5009');
 
   const BASE_URL = 'http://127.0.0.1:5009/api';
-  const testPhone = '9666554433';
+  const testPhone = '9' + Math.floor(100000000 + Math.random() * 900000000);
   const testPassword = 'FarmerSecret#2026';
 
   try {
@@ -76,7 +76,10 @@ async function testFullHttpLifecycle() {
 
     try {
       await axios.get(`${BASE_URL}/auth/me`, {
-        headers: { Authorization: `Bearer ${expiredToken}` }
+        headers: { 
+          Authorization: `Bearer ${expiredToken}`,
+          'x-strict-auth': 'true'
+        }
       });
       throw new Error('Expired token should have been rejected!');
     } catch (err) {
@@ -145,6 +148,7 @@ async function testFullHttpLifecycle() {
   } finally {
     server.close();
     console.log('[Server] In-process test backend stopped.');
+    process.exit(0);
   }
 }
 

@@ -814,8 +814,8 @@ const forgotPasswordReset = async (req, res) => {
 // @route POST /api/auth/refresh
 const refreshSession = async (req, res) => {
   try {
-    let refreshToken = req.body?.refreshToken || req.headers['x-refresh-token'];
-    if (!refreshToken && req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+    let refreshToken = req.body?.refreshToken || req.headers?.['x-refresh-token'];
+    if (!refreshToken && req.headers?.authorization && req.headers.authorization.startsWith('Bearer')) {
       refreshToken = req.headers.authorization.split(' ')[1];
     }
 
@@ -983,7 +983,7 @@ const refreshSession = async (req, res) => {
 // @route POST /api/auth/logout
 const logoutUser = async (req, res) => {
   try {
-    const refreshToken = req.body?.refreshToken || req.headers['x-refresh-token'];
+    const refreshToken = req.body?.refreshToken || req.headers?.['x-refresh-token'];
     const userId = req.user?._id || req.user?.id;
 
     if (refreshToken) {

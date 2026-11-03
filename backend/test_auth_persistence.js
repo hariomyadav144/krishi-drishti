@@ -106,7 +106,9 @@ async function runTests() {
   console.log("\n=== ALL AUTH & PERSISTENCE BACKEND TESTS PASSED SUCCESSFULLY! ===");
 }
 
-runTests().catch(err => {
+runTests().then(() => {
+  process.exit(0);
+}).catch(err => {
   console.error("Test failed with error:", err);
   process.exit(1);
 });

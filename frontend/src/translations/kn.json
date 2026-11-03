@@ -164,7 +164,8 @@
     "listenDiagnosis": "ರೋಗ ನಿರ್ಣಯ ಮತ್ತು ಚಿಕಿತ್ಸೆಯನ್ನು ಆಲಿಸಿ:",
     "uploadOrSelectPrompt": "ದಯವಿಟ್ಟು ಸ್ಕ್ಯಾನ್ ಮಾಡಲು ಬೆಳೆಯ ಫೋಟೋವನ್ನು ಆಯ್ಕೆಮಾಡಿ ಅಥವಾ ಅಪ್‌ಲೋಡ್ ಮಾಡಿ.",
     "diagnosisError": "AI ರೋಗ ಪತ್ತೆಯಲ್ಲಿ ದೋಷ ಕಂಡುಬಂದಿದೆ. ದಯವಿಟ್ಟು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.",
-    "compareError": "ಹಿಂದಿನ ಸ್ಕ್ಯಾನ್ ಜೊತೆ ಹೋಲಿಸುವಲ್ಲಿ ದೋಷ ಕಂಡುಬಂದಿದೆ."
+    "compareError": "ಹಿಂದಿನ ಸ್ಕ್ಯಾನ್ ಜೊತೆ ಹೋಲಿಸುವಲ್ಲಿ ದೋಷ ಕಂಡುಬಂದಿದೆ.",
+    "autoCropSubtext": "Upload or capture any crop photo (Wheat, Rice, Tomato, Potato, Cotton, etc.) — AI will detect it automatically."
   },
   "advisor": {
     "title": "ಸ್ವರ (SWAR) — AI ಕೃಷಿ ಸಲಹೆಗಾರ",
@@ -420,7 +421,8 @@
     "chili": "ಮೆಣಸಿನಕಾಯಿ",
     "mango": "ಮಾವಿನಹಣ್ಣು",
     "banana": "ಬಾಳೆಹಣ್ಣು",
-    "general": "ಬೆಳೆ"
+    "general": "ಬೆಳೆ",
+    "paddy": "Paddy / धान"
   },
   "stages": {
     "germination": "ಮೊಳಕೆ ಹಂತ",
@@ -454,5 +456,63 @@
     "drizzle": "ತುಂತುರು",
     "stormy": "ಬಿರುಗಾಳಿ ಮಳೆ",
     "noRain": "ಮಳೆಯಿಲ್ಲ"
+  },
+  "auth": {
+    "switchToEnglish": "Switch to English",
+    "switchToHindi": "हिंदी में जाएँ",
+    "brandTagline": "From Space to Soil – Right Information. Better Decisions. Higher Yield.",
+    "aiSmarterFarming": "AI for Smarter Farming",
+    "mobileNumber": "Mobile Number",
+    "mobilePlaceholder": "Enter 10-digit mobile number",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your password",
+    "fullName": "Full Name",
+    "fullNamePlaceholder": "Enter your full name",
+    "emailOptional": "Email (Optional)",
+    "emailPlaceholder": "farmer@example.com",
+    "loginButton": "Login",
+    "loginToFasal": "Login to Fasal Drishti",
+    "loggingIn": "Logging in...",
+    "registerButton": "Register",
+    "createAccount": "Create Account & Continue",
+    "creatingAccount": "Creating Account...",
+    "demoPersonasTitle": "Instant 1-Click Demo Personas",
+    "farmerDemo": "Farmer Demo",
+    "expertDemo": "Expert Demo",
+    "adminDemo": "Admin Demo",
+    "dontHaveAccount": "Don't have an account?",
+    "registerLink": "Register",
+    "alreadyHaveAccount": "Already have an account?",
+    "loginLink": "Login",
+    "invalidCredentials": "Invalid mobile number or password.",
+    "fillRequiredFields": "Please fill in all required fields.",
+    "enterValidPhone": "Please enter a valid 10-digit mobile number.",
+    "passwordMinLength": "Password must be at least 6 characters long.",
+    "registrationFailed": "Registration failed. Please try again.",
+    "joinTitle": "Join Fasal Drishti",
+    "joinSubtitle": "Register for AI-Powered Smart Farming",
+    "loggingOut": "Logging out...",
+    "phoneAlreadyRegistered": "This mobile number is already registered. Please login.",
+    "emailAlreadyRegistered": "This email is already registered.",
+    "accountNotFound": "No account found with this mobile number. Please register.",
+    "wrongPassword": "Incorrect password. Please check and try again.",
+    "networkError": "Network error. Please check your internet connection.",
+    "timeoutError": "Server response timed out. The server may be waking up, please try again.",
+    "farmNotAddedYet": "Farm information not added yet.",
+    "farmLocationNotSet": "Farm location not set yet",
+    "unableToCreateAccount": "Unable to create your account right now. Please try again.",
+    "loadingApp": "FASAL DRISHTI",
+    "verifyingSession": "Verifying session...",
+    "sessionExpiredNotice": "Your session has safely ended. Please log in again."
+  },
+  "share": {
+    "title": "Share Fasal Drishti",
+    "scanToVisit": "Scan to Visit Fasal Drishti",
+    "description": "Scan this QR code to access our smart agriculture platform.",
+    "download": "Download QR Code",
+    "shareWebsite": "Share Website",
+    "copyLink": "Copy Website Link",
+    "copied": "Copied!",
+    "printReady": "Print & Poster Ready"
   }
 }

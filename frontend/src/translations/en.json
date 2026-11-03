@@ -374,6 +374,7 @@
     "goodCondition": "✓ Good Condition",
     "moderateCondition": "⚡ Moderate Condition",
     "needsAttention": "⚠️ Needs Attention",
+    "needsAttentionLabel": "Needs Attention",
     "criticalCondition": "🚨 Critical Condition",
     "problemResolved": "✅ PROBLEM RESOLVED",
     "urgentAction": "🔴 URGENT ACTION",

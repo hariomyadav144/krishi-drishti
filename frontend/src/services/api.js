@@ -23,7 +23,8 @@ import {
   getDynamicSatelliteNDVI,
 } from './mockFallback.js';
 import { fetchOpenMeteoWeather } from './weatherService.js';
-import { RecoveryManager, LogLevel } from '../selfHealing/index.js';
+import { RecoveryManager } from '../selfHealing/RecoveryManager.js';
+import { LogLevel } from '../selfHealing/ErrorClassifier.js';
 
 export const DEFAULT_PRODUCTION_API_URL = 'https://krishi-drishti-pykj.onrender.com/api';
 

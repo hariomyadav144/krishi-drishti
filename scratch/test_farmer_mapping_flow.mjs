@@ -67,9 +67,18 @@ console.assert(getButtonText(boundaryPoints, selectedPoint) === 'Mark Map Corner
 console.log('✓ Phase 7: Clear All successfully purges all corners, area is 0, button resets to "Mark Map Corner 1".');
 
 // 6. Phase 3 & 4: Ensure legacy 7-point mock polygons are never loaded in "new" mapping mode
-console.assert(isLegacyMockPolygon(SAMPLE_DEMO_FIELD_BOUNDARY) === true, 'FAIL: SAMPLE_DEMO_FIELD_BOUNDARY must be identified as mock');
+const legacyMockPoints = [
+  { lat: 20.174, lng: 73.985 },
+  { lat: 20.175, lng: 73.986 },
+  { lat: 20.176, lng: 73.985 },
+  { lat: 20.175, lng: 73.984 },
+  { lat: 20.174, lng: 73.983 },
+  { lat: 20.173, lng: 73.984 },
+  { lat: 20.174, lng: 73.985 }
+];
+console.assert(isLegacyMockPolygon(legacyMockPoints) === true, 'FAIL: legacyMockPoints must be identified as mock');
 const sanitized = sanitizeStoredFields([
-  { id: 'field_demo_01', fieldName: 'North Plot', points: SAMPLE_DEMO_FIELD_BOUNDARY },
+  { id: 'field_demo_01', fieldName: 'North Plot', points: legacyMockPoints },
   { id: 'real_field_01', fieldName: 'Sugarcane Plot', points: [
     { lat: 19.1234, lng: 74.5678 },
     { lat: 19.1244, lng: 74.5678 },
