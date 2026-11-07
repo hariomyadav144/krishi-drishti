@@ -1478,7 +1478,7 @@ export default function FieldMonitoringPage({ setActiveTab }) {
               🛰️
             </div>
             <p className="font-bold text-slate-800 text-sm">
-              {lang === 'hi' ? 'Historical satellite data fetch ho raha hai...' : 'Fetching historical satellite data...'}
+              {lang === 'hi' ? 'ऐतिहासिक उपग्रह डेटा लोड हो रहा है...' : 'Fetching historical satellite data...'}
             </p>
             <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
               {lang === 'hi'
@@ -1770,7 +1770,7 @@ export default function FieldMonitoringPage({ setActiveTab }) {
           <div className="p-8 text-center text-xs text-slate-500 bg-slate-50 rounded-2xl border border-slate-200/80 space-y-2">
             <span className="text-2xl block">🛰️</span>
             <p className="font-bold text-slate-700 text-sm">
-              {comparisonData?.message || (lang === 'hi' ? 'No suitable observation found for this period' : 'No suitable observation found for this period')}
+              {comparisonData?.message || (lang === 'hi' ? 'इस अवधि के लिए कोई उपयुक्त उपग्रह अवलोकन उपलब्ध नहीं है।' : 'No suitable observation found for this period')}
             </p>
             <p className="text-[11px] text-slate-400 max-w-md mx-auto leading-relaxed">
               {lang === 'hi'
