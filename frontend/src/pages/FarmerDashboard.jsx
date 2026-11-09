@@ -136,34 +136,51 @@ const getInitialDashboardData = (user) => {
   }
 
   // Demo Persona (phone === '9876543210')
-  const cached = safeParse('krishi_dash_cache');
-  if (cached) {
-    return cached;
-  }
+  const currentDemoUid = 'usr_farmer_demo_01';
+  const demoActiveFarm = typeof window !== 'undefined' ? getActiveFarm(currentDemoUid) : null;
+  const demoFarms = typeof window !== 'undefined' ? getFarms(currentDemoUid) : [];
+  const activeDemoMappedFarm = demoActiveFarm || (demoFarms.length > 0 ? demoFarms[0] : null);
+
+  const effectiveFarm = activeDemoMappedFarm || {
+    ...MOCK_FARM,
+    farmName: 'Kipm paddy',
+    name: 'Kipm paddy',
+    crop: 'Paddy',
+    location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+  };
+
+  const effectiveCrop = activeDemoMappedFarm ? {
+    name: activeDemoMappedFarm.crop || 'Paddy',
+    cropName: activeDemoMappedFarm.crop || 'Paddy',
+    stage: activeDemoMappedFarm.cropStage || 'Vegetative Stage'
+  } : {
+    ...MOCK_CURRENT_CROP,
+    cropName: 'Paddy',
+    name: 'Paddy',
+  };
+
+  const effectiveHealthScore = activeDemoMappedFarm
+    ? calculateCropHealth(activeDemoMappedFarm.id || 'default', {
+        farm: activeDemoMappedFarm,
+        currentCrop: effectiveCrop,
+        userId: currentDemoUid,
+        weatherData: safeParse('krishi_weather_cache') || MOCK_WEATHER
+      }).healthScore
+    : 88;
 
   return {
-    farmer: { name: 'Hariom yadav' },
+    farmer: { name: user?.name || 'Hariom yadav' },
     profile: {
       ...MOCK_PROFILE,
-      village: 'Sahajanwa',
-      district: 'Gorakhpur',
-      state: 'Uttar Pradesh',
-      location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
+      village: activeDemoMappedFarm?.village || 'Sahajanwa',
+      district: activeDemoMappedFarm?.district || 'Gorakhpur',
+      state: activeDemoMappedFarm?.state || 'Uttar Pradesh',
+      location: activeDemoMappedFarm?.location || 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
     },
-    farm: {
-      ...MOCK_FARM,
-      farmName: 'Kipm paddy',
-      name: 'Kipm paddy',
-      crop: 'Paddy',
-      location: 'Sahajanwa, Gorakhpur, Uttar Pradesh, India',
-    },
-    currentCrop: {
-      ...MOCK_CURRENT_CROP,
-      cropName: 'Paddy',
-      name: 'Paddy',
-    },
-    crops: MOCK_CROPS,
-    healthScore: 88,
+    farm: effectiveFarm,
+    currentCrop: effectiveCrop,
+    crops: [effectiveCrop],
+    healthScore: effectiveHealthScore,
     pendingTasks: (MOCK_ACTION_PLANS?.tasks || []).filter((p) => !p.isCompleted),
     recentAnalyses: [generateMockScanResult('Paddy').data],
     recentRecommendations: [
@@ -631,7 +648,7 @@ export default function FarmerDashboard({ setActiveTab }) {
               </span>
             </div>
             <h2 className="text-base sm:text-2xl font-black tracking-tight leading-snug truncate">
-              {getGreeting()}, {farmer?.name || user?.name || (lang === 'hi' ? 'किसान भाई' : 'Farmer')} 👋
+              {getGreeting()}
             </h2>
             {farm && (farm.name || farm.fieldName || farm.farmName) ? (
               <div className="mt-1 space-y-0.5">
