@@ -181,86 +181,8 @@ const getInitialDashboardData = (user) => {
 export default function FarmerDashboard({ setActiveTab }) {
   const { user } = useAuth();
   const { lang, t, tCrop, tStage, tSoil, tMoisture, tWeather } = useLanguage();
+  
   const [dashboardData, setDashboardData] = useState(() => getInitialDashboardData(user));
-
-  // Re-sync dashboard state immediately when authenticated user changes
-  useEffect(() => {
-    const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
-    const newDash = getInitialDashboardData(user);
-    setDashboardData(newDash);
-
-    if (!isDemo) {
-      const uid = user?.id || user?._id || getCurrentUserId();
-      const userFarms = getFarms(uid);
-      const activeFarm = getActiveFarm(uid) || (userFarms.length > 0 ? userFarms[0] : null);
-      if (activeFarm) {
-        const calculated = calculateCropHealth(activeFarm.id || 'default', {
-          farm: activeFarm,
-          currentCrop: { name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' },
-          userId: uid,
-          weatherData
-        });
-        setCropHealthData(calculated);
-      } else {
-        setCropHealthData({
-          hasField: false,
-          healthScore: null,
-          status: 'Insufficient Data',
-          message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
-        });
-        setMonitoringSummaries([]);
-        setFieldActions([]);
-        setHealthFieldsSummary([]);
-      }
-    }
-  }, [user?.id, user?._id]);
-
-  // Instant real-time listener for mapped farm updates
-  useEffect(() => {
-    const handleFarmSync = (event) => {
-      const currentUid = user?.id || user?._id || getCurrentUserId();
-      const updatedFarm = event?.detail || getActiveFarm(currentUid);
-      if (updatedFarm) {
-        setDashboardData(prev => ({
-          ...prev,
-          farm: updatedFarm,
-          currentCrop: { 
-            name: updatedFarm.crop || 'Paddy', 
-            cropName: updatedFarm.crop || 'Paddy', 
-            stage: updatedFarm.cropStage || 'Vegetative Stage' 
-          },
-          crops: [{ 
-            name: updatedFarm.crop || 'Paddy', 
-            cropName: updatedFarm.crop || 'Paddy', 
-            stage: updatedFarm.cropStage || 'Vegetative Stage' 
-          }]
-        }));
-
-        const newHealth = calculateCropHealth(updatedFarm.id || 'default', {
-          farm: updatedFarm,
-          currentCrop: { 
-            name: updatedFarm.crop || 'Paddy', 
-            cropName: updatedFarm.crop || 'Paddy', 
-            stage: updatedFarm.cropStage || 'Vegetative Stage' 
-          },
-          userId: currentUid,
-          weatherData
-        });
-        setCropHealthData(newHealth);
-      }
-      fetchDashboard();
-    };
-
-    window.addEventListener('fasal_farm_updated', handleFarmSync);
-    window.addEventListener('storage', handleFarmSync);
-    window.addEventListener('focus', handleFarmSync);
-    return () => {
-      window.removeEventListener('fasal_farm_updated', handleFarmSync);
-      window.removeEventListener('storage', handleFarmSync);
-      window.removeEventListener('focus', handleFarmSync);
-    };
-  }, [user?.id, user?._id, weatherData]);
-
   const [weatherData, setWeatherData] = useState(() => safeParse('krishi_weather_cache') || MOCK_WEATHER);
   const [mandiSpotlight, setMandiSpotlight] = useState(() => safeParse('krishi_mandi_cache') || null);
   const [outbreakAlerts, setOutbreakAlerts] = useState(() => safeParse('krishi_outbreak_cache') || MOCK_OUTBREAKS);
@@ -465,6 +387,84 @@ export default function FarmerDashboard({ setActiveTab }) {
       setLoading(false);
     }
   }, [selectedHealthFieldId]);
+
+  // Re-sync dashboard state immediately when authenticated user changes
+  useEffect(() => {
+    const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
+    const newDash = getInitialDashboardData(user);
+    setDashboardData(newDash);
+
+    if (!isDemo) {
+      const uid = user?.id || user?._id || getCurrentUserId();
+      const userFarms = getFarms(uid);
+      const activeFarm = getActiveFarm(uid) || (userFarms.length > 0 ? userFarms[0] : null);
+      if (activeFarm) {
+        const calculated = calculateCropHealth(activeFarm.id || 'default', {
+          farm: activeFarm,
+          currentCrop: { name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' },
+          userId: uid,
+          weatherData
+        });
+        setCropHealthData(calculated);
+      } else {
+        setCropHealthData({
+          hasField: false,
+          healthScore: null,
+          status: 'Insufficient Data',
+          message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
+        });
+        setMonitoringSummaries([]);
+        setFieldActions([]);
+        setHealthFieldsSummary([]);
+      }
+    }
+  }, [user?.id, user?._id, weatherData]);
+
+  // Instant real-time listener for mapped farm updates
+  useEffect(() => {
+    const handleFarmSync = (event) => {
+      const currentUid = user?.id || user?._id || getCurrentUserId();
+      const updatedFarm = event?.detail || getActiveFarm(currentUid);
+      if (updatedFarm) {
+        setDashboardData(prev => ({
+          ...prev,
+          farm: updatedFarm,
+          currentCrop: { 
+            name: updatedFarm.crop || 'Paddy', 
+            cropName: updatedFarm.crop || 'Paddy', 
+            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+          },
+          crops: [{ 
+            name: updatedFarm.crop || 'Paddy', 
+            cropName: updatedFarm.crop || 'Paddy', 
+            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+          }]
+        }));
+
+        const newHealth = calculateCropHealth(updatedFarm.id || 'default', {
+          farm: updatedFarm,
+          currentCrop: { 
+            name: updatedFarm.crop || 'Paddy', 
+            cropName: updatedFarm.crop || 'Paddy', 
+            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+          },
+          userId: currentUid,
+          weatherData
+        });
+        setCropHealthData(newHealth);
+      }
+      fetchDashboard();
+    };
+
+    window.addEventListener('fasal_farm_updated', handleFarmSync);
+    window.addEventListener('storage', handleFarmSync);
+    window.addEventListener('focus', handleFarmSync);
+    return () => {
+      window.removeEventListener('fasal_farm_updated', handleFarmSync);
+      window.removeEventListener('storage', handleFarmSync);
+      window.removeEventListener('focus', handleFarmSync);
+    };
+  }, [user?.id, user?._id, weatherData, fetchDashboard]);
 
   useEffect(() => {
     fetchDashboard();
