@@ -132,10 +132,10 @@ export function validateGpsQuality(position) {
     };
   }
 
-  // Reject readings older than 20 seconds
+  // Check for readings older than 60 seconds (1 minute window for mobile devices)
   const now = Date.now();
-  const positionTime = position.timestamp || now;
-  const isStale = (now - positionTime) > 20000;
+  const positionTime = typeof position.timestamp === 'number' ? (position.timestamp > 1e11 ? position.timestamp : position.timestamp * 1000) : now;
+  const isStale = (now - positionTime) > 60000;
   if (isStale) {
     return {
       isValid: false,
@@ -144,7 +144,7 @@ export function validateGpsQuality(position) {
       quality: 'poor',
       accuracyTier: 'poor',
       accuracy: position.accuracy,
-      message: 'GPS reading is stale (> 20s old). Waiting for fresh satellite update.'
+      message: 'GPS reading is stale (> 60s old). Waiting for fresh satellite update.'
     };
   }
 

@@ -181,3 +181,4 @@ module.exports = {
   CROP_CALENDARS,
   classifySatelliteCropCondition
 };
+

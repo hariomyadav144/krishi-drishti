@@ -343,3 +343,4 @@ export async function evaluateMappedFarmSatelliteStatus(farm, options = {}) {
 
   return result;
 }
+

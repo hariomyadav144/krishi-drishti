@@ -210,3 +210,4 @@ export function evaluateHarvestCondition({
     explanationHi: `उपग्रह सेंटिनल-2 द्वारा स्वस्थ प्रकाश संश्लेषक फसल आच्छादन सत्यापित (NDVI: ${currentNdvi.toFixed(2)})।`
   };
 }
+

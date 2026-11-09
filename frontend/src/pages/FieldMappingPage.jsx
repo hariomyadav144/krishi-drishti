@@ -320,9 +320,10 @@ export default function FieldMappingPage({ setActiveTab }) {
             onBoundaryChange={setBoundaryPoints}
             onClearAll={handleClearAll}
             gpsPosition={gpsPosition}
-            onGpsPositionChange={(pos) => {
+            onGpsPositionChange={(pos, accuracy) => {
               setGpsPosition(pos);
-              setGpsAccuracy(isDemoLocation ? 12 : 18);
+              const acc = typeof accuracy === 'number' ? accuracy : (typeof pos?.accuracy === 'number' ? pos.accuracy : (isDemoLocation ? 12 : 15));
+              setGpsAccuracy(acc);
             }}
             gpsStatus={gpsStatus}
             onGpsStatusChange={setGpsStatus}

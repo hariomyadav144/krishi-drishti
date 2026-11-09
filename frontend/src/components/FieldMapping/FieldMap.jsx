@@ -191,6 +191,107 @@ const SATELLITE_TILE_URL = (typeof import.meta !== 'undefined' && import.meta.en
   'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
 const SATELLITE_ATTRIBUTION = 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community';
 
+// High-Performance Map Layer Providers (Google Hybrid Satellite, Google Pure Satellite, Google Roads, Esri L2A Fallback, OSM)
+export const MAP_LAYERS = {
+  satellite: {
+    id: 'satellite',
+    name: 'Google Satellite (हाइब्रिड + रास्ते)',
+    shortName: 'Satellite',
+    icon: '🛰️',
+    url: 'https://mt{s}.google.com/vt/lyrs=y&x={x}&y={y}&z={z}',
+    subdomains: ['0', '1', '2', '3'],
+    maxNativeZoom: 19,
+    maxZoom: 22,
+    attribution: 'Imagery &copy; Google Maps'
+  },
+  pure_satellite: {
+    id: 'pure_satellite',
+    name: 'Google Satellite (केवल सैटेलाइट)',
+    shortName: 'Pure Satellite',
+    icon: '🌐',
+    url: 'https://mt{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}',
+    subdomains: ['0', '1', '2', '3'],
+    maxNativeZoom: 19,
+    maxZoom: 22,
+    attribution: 'Imagery &copy; Google Maps'
+  },
+  map: {
+    id: 'map',
+    name: 'Google Map (सड़क / सामान्य नक्शा)',
+    shortName: 'Road Map',
+    icon: '🗺️',
+    url: 'https://mt{s}.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+    subdomains: ['0', '1', '2', '3'],
+    maxNativeZoom: 19,
+    maxZoom: 22,
+    attribution: 'Map data &copy; Google Maps'
+  },
+  esri: {
+    id: 'esri',
+    name: 'Esri World Imagery',
+    shortName: 'Esri Satellite',
+    icon: '🌍',
+    url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    maxNativeZoom: 18, // Fixed: Max native zoom 18 completely prevents "Map data not yet available" placeholder tiles
+    maxZoom: 22,
+    attribution: 'Tiles &copy; Esri &mdash; Source: Esri, Maxar'
+  },
+  osm: {
+    id: 'osm',
+    name: 'OpenStreetMap',
+    shortName: 'OpenStreetMap',
+    icon: '📍',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    maxNativeZoom: 19,
+    maxZoom: 22,
+    attribution: '&copy; OpenStreetMap contributors'
+  }
+};
+
+// Search Target Marker Icon for found villages, towns, PIN codes
+const createSearchLocationIcon = () => {
+  return L.divIcon({
+    className: 'field-search-target-icon',
+    html: `
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center;">
+        <div style="
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #dc2626;
+          border: 2.5px solid #ffffff;
+          box-shadow: 0 4px 14px rgba(220, 38, 38, 0.55);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 15px;
+          color: white;
+          animation: bounce 1.8s ease infinite;
+        ">
+          🎯
+        </div>
+        <div style="
+          margin-top: 2px;
+          background: #991b1b;
+          color: #ffffff;
+          font-size: 8px;
+          font-weight: 800;
+          padding: 1.5px 6px;
+          border-radius: 9999px;
+          white-space: nowrap;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.35);
+          letter-spacing: 0.5px;
+          border: 1px solid rgba(255,255,255,0.7);
+        ">
+          TARGET LOCATION
+        </div>
+      </div>
+    `,
+    iconSize: [80, 50],
+    iconAnchor: [40, 16]
+  });
+};
+
 // Neutral center for India overview if GPS is not yet acquired
 const INDIA_OVERVIEW_COORDINATE = { lat: 20.5937, lng: 78.9629 };
 
@@ -242,11 +343,14 @@ export default function FieldMap({
 
   const savedFarm = getSavedRealFarmCoords();
 
-  const [activeLayer, setActiveLayer] = useState('satellite'); // 'satellite' | 'map'
+  const [activeLayer, setActiveLayer] = useState('satellite'); // 'satellite' | 'pure_satellite' | 'map' | 'esri' | 'osm'
   const [isLocating, setIsLocating] = useState(false);
   const [locationError, setLocationError] = useState('');
   const [gpsQualityMessage, setGpsQualityMessage] = useState('');
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [showPermissionGuide, setShowPermissionGuide] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isTileLoading, setIsTileLoading] = useState(false);
   const [selectedPoint, setSelectedPoint] = useState(null); // Farmer Phase 6: temporary candidate map point
 
   // Real Farmer Land Discovery & Place Search States
@@ -258,6 +362,7 @@ export default function FieldMap({
   // Ref to hold latest GPS reading for validation
   const latestGpsRef = useRef(null);
   const locationWatchCleanupRef = useRef(null);
+  const searchMarkerRef = useRef(null);
 
   // Calculate center: 1) Active boundary, 2) Current GPS, 3) Saved Real Farm, 4) Demo if chosen, 5) India center
   const centerCoord = boundaryPoints.length > 0 
@@ -277,14 +382,25 @@ export default function FieldMap({
       zoomControl: false // custom controls for cleaner AgriTech UX
     });
 
-    // Default to Satellite Imagery layer
-    const initialTileUrl = activeLayer === 'satellite' ? SATELLITE_TILE_URL : OSM_TILE_URL;
-    const initialAttribution = activeLayer === 'satellite' ? SATELLITE_ATTRIBUTION : OSM_ATTRIBUTION;
+    // Default to Google Hybrid layer with maxZoom 22
+    const initialLayerCfg = MAP_LAYERS[activeLayer] || MAP_LAYERS.satellite;
+    const initialOptions = {
+      maxNativeZoom: initialLayerCfg.maxNativeZoom || 19,
+      maxZoom: initialLayerCfg.maxZoom || 22,
+      attribution: initialLayerCfg.attribution
+    };
+    if (initialLayerCfg.subdomains) {
+      initialOptions.subdomains = initialLayerCfg.subdomains;
+    }
 
-    const tileLayer = L.tileLayer(initialTileUrl, {
-      maxZoom: 19,
-      attribution: initialAttribution
-    }).addTo(map);
+    const tileLayer = L.tileLayer(initialLayerCfg.url, initialOptions).addTo(map);
+
+    tileLayer.on('loading', () => setIsTileLoading(true));
+    tileLayer.on('load', () => setIsTileLoading(false));
+    tileLayer.on('tileerror', () => {
+      setIsTileLoading(false);
+      console.warn('[MAP TILE LOAD WARNING]: Tile unavailable, using fallback scaling');
+    });
 
     tileLayerRef.current = tileLayer;
     mapInstanceRef.current = map;
@@ -323,7 +439,7 @@ export default function FieldMap({
         (loc) => {
           latestGpsRef.current = loc;
           if (onGpsPositionChange) {
-            onGpsPositionChange({ lat: loc.lat, lng: loc.lng });
+            onGpsPositionChange({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy }, loc.accuracy);
           }
           if (onGpsStatusChange) {
             onGpsStatusChange(`GPS Connected (±${Math.round(loc.accuracy || 10)}m)`);
@@ -356,22 +472,66 @@ export default function FieldMap({
     };
   }, [boundaryPoints.length, isDemoLocation]);
 
-  // Update Tile Layer when user toggles Map vs Satellite
+  // Update Tile Layer when user toggles any layer
   useEffect(() => {
-    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+    if (!mapInstanceRef.current) return;
 
-    mapInstanceRef.current.removeLayer(tileLayerRef.current);
+    if (tileLayerRef.current) {
+      try {
+        mapInstanceRef.current.removeLayer(tileLayerRef.current);
+      } catch (_) {}
+    }
 
-    const nextUrl = activeLayer === 'satellite' ? SATELLITE_TILE_URL : OSM_TILE_URL;
-    const nextAttr = activeLayer === 'satellite' ? SATELLITE_ATTRIBUTION : OSM_ATTRIBUTION;
+    const layerCfg = MAP_LAYERS[activeLayer] || MAP_LAYERS.satellite;
+    const layerOptions = {
+      maxNativeZoom: layerCfg.maxNativeZoom || 19,
+      maxZoom: layerCfg.maxZoom || 22,
+      attribution: layerCfg.attribution
+    };
+    if (layerCfg.subdomains) {
+      layerOptions.subdomains = layerCfg.subdomains;
+    }
 
-    const newLayer = L.tileLayer(nextUrl, {
-      maxZoom: 19,
-      attribution: nextAttr
-    }).addTo(mapInstanceRef.current);
+    const newLayer = L.tileLayer(layerCfg.url, layerOptions).addTo(mapInstanceRef.current);
+    newLayer.on('loading', () => setIsTileLoading(true));
+    newLayer.on('load', () => setIsTileLoading(false));
+    newLayer.on('tileerror', () => {
+      setIsTileLoading(false);
+      console.warn('[MAP TILE LOAD WARNING]: Tile unavailable, using fallback scaling');
+    });
 
     tileLayerRef.current = newLayer;
   }, [activeLayer]);
+
+  // Invalidate map size on fullscreen toggle
+  useEffect(() => {
+    if (mapInstanceRef.current) {
+      setTimeout(() => {
+        mapInstanceRef.current.invalidateSize();
+      }, 150);
+    }
+  }, [isFullscreen]);
+
+  // Live Debounced Place & Village Search (triggers as farmer types)
+  useEffect(() => {
+    if (!searchQuery || searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const res = await searchPlaces(searchQuery);
+        setSearchResults(res);
+      } catch (err) {
+        console.warn('Live search error:', err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 350);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   // Synchronize Boundary Points, Polyline, Polygon, and Markers
   useEffect(() => {
@@ -706,6 +866,10 @@ export default function FieldMap({
         try { map.removeLayer(tempMarkerRef.current); } catch (_) {}
         tempMarkerRef.current = null;
       }
+      if (searchMarkerRef.current) {
+        try { map.removeLayer(searchMarkerRef.current); } catch (_) {}
+        searchMarkerRef.current = null;
+      }
       cornerMarkersRef.current.forEach(m => {
         try { map.removeLayer(m); } catch (_) {}
       });
@@ -736,7 +900,7 @@ export default function FieldMap({
   // Center on Me (GPS Re-center Button)
   const handleCenterOnMe = () => {
     if (gpsPosition && mapInstanceRef.current) {
-      mapInstanceRef.current.setView([gpsPosition.lat, gpsPosition.lng], 18);
+      mapInstanceRef.current.flyTo([gpsPosition.lat, gpsPosition.lng], 18, { duration: 1.0 });
     } else {
       handleFindMyGps();
     }
@@ -765,29 +929,38 @@ export default function FieldMap({
     setGpsQualityMessage('');
   };
 
-  // Real Device Geolocation Request
+  // Real Device Geolocation Request with friendly error handling
   const handleFindMyGps = async () => {
     setIsLocating(true);
     setLocationError('');
     setGpsQualityMessage('');
+    setShowPermissionGuide(false);
     if (onGpsStatusChange) onGpsStatusChange('Detecting GPS...');
 
     try {
-      const loc = await getDeviceLocation({ timeout: 15000 });
+      const loc = await getDeviceLocation({ timeout: 15000, enableHighAccuracy: true });
       setIsLocating(false);
       if (setIsDemoLocation) setIsDemoLocation(false);
 
       latestGpsRef.current = loc;
 
       if (onGpsPositionChange) {
-        onGpsPositionChange({ lat: loc.lat, lng: loc.lng });
+        onGpsPositionChange({ lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy }, loc.accuracy);
       }
       if (onGpsStatusChange) {
         onGpsStatusChange(`GPS Connected (±${Math.round(loc.accuracy || 10)}m)`);
       }
 
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.setView([loc.lat, loc.lng], 17);
+        mapInstanceRef.current.flyTo([loc.lat, loc.lng], 18, { duration: 1.2 });
+      }
+
+      if (loc.accuracy > 40) {
+        setGpsQualityMessage(
+          lang === 'hi'
+            ? `⚠️ GPS सटीकता ±${Math.round(loc.accuracy)}m है। बेहतर सिग्नल के लिए खुले आसमान के नीचे जाएं।`
+            : `⚠️ GPS accuracy is ±${Math.round(loc.accuracy)}m. Move outdoors for higher precision.`
+        );
       }
 
       // Reverse geocode
@@ -807,7 +980,26 @@ export default function FieldMap({
       } catch (_) {}
     } catch (err) {
       setIsLocating(false);
-      setLocationError(lang === 'hi' ? 'GPS अनुपलब्ध है — कृपया बाहर खुले में जाएं या नक्शे से चुनें।' : 'GPS unavailable — move outdoors or use map selection.');
+      if (err.code === 1) { // PERMISSION_DENIED
+        setShowPermissionGuide(true);
+        setLocationError(
+          lang === 'hi'
+            ? '📍 लोकेशन अनुमति अस्वीकृत (Permission Denied)। कृपया ब्राउज़र सेटिंग्स में Location Allow करें।'
+            : '📍 Location permission was denied. Please allow location access in browser settings.'
+        );
+      } else if (err.code === 3) {
+        setLocationError(
+          lang === 'hi'
+            ? 'GPS टाइमआउट हुआ। कृपया खुले आसमान के नीचे जाएं और पुनः प्रयास करें।'
+            : 'GPS request timed out. Please try again outdoors.'
+        );
+      } else {
+        setLocationError(
+          lang === 'hi' 
+            ? 'GPS अनुपलब्ध है — कृपया बाहर खुले में जाएं या ऊपर दिए गए सर्च बार से गाँव खोजें।' 
+            : 'GPS unavailable — move outdoors or search village using the search bar above.'
+        );
+      }
       if (onGpsStatusChange) onGpsStatusChange('GPS Waiting');
     }
   };
@@ -822,7 +1014,7 @@ export default function FieldMap({
       const results = await searchPlaces(searchQuery.trim());
       setSearchResults(results);
       if (results.length === 0) {
-        setLocationError(lang === 'hi' ? 'कोई स्थान नहीं मिला। कृपया गाँव या जिला पुनः जांचें।' : 'No matching locations found.');
+        setLocationError(lang === 'hi' ? 'कोई स्थान नहीं मिला। कृपया गाँव, तहसील या जिला पुनः जांचें।' : 'No matching locations found. Check spelling or try nearby district.');
       }
     } catch (err) {
       console.warn('Search error:', err);
@@ -831,10 +1023,12 @@ export default function FieldMap({
     }
   };
 
-  // Select Place Search Result
+  // Select Place Search Result (e.g. Sahajanwa, Gorakhpur or Karchana, Prayagraj)
   const handleSelectSearchResult = (item) => {
     const lat = parseFloat(item.lat);
-    const lng = parseFloat(item.lon);
+    const lng = parseFloat(item.lng || item.lon);
+    if (isNaN(lat) || isNaN(lng)) return;
+
     const name = item.display_name.split(',').slice(0, 3).join(', ');
 
     setFocusedPlaceName(name);
@@ -847,6 +1041,30 @@ export default function FieldMap({
       onGpsPositionChange({ lat, lng });
     }
 
+    // Place or move search target marker
+    const map = mapInstanceRef.current;
+    if (map) {
+      if (searchMarkerRef.current) {
+        try { map.removeLayer(searchMarkerRef.current); } catch (_) {}
+        searchMarkerRef.current = null;
+      }
+      const marker = L.marker([lat, lng], {
+        icon: createSearchLocationIcon(),
+        zIndexOffset: 950
+      }).addTo(map);
+
+      marker.bindPopup(`
+        <div style="font-family: inherit; font-size: 12px; line-height: 1.4; padding: 2px;">
+          <b style="color: #dc2626;">🎯 खोजा गया स्थान (Target Field)</b><br/>
+          <span style="color: #1e293b; font-weight: 600;">${name}</span><br/>
+          <span style="color: #047857; font-weight: 700; font-size: 11px;">👉 यहाँ से खेत की सीमा (Point 1) बनाना शुरू करें</span>
+        </div>
+      `).openPopup();
+
+      searchMarkerRef.current = marker;
+      map.flyTo([lat, lng], 17, { duration: 1.2 });
+    }
+
     try {
       localStorage.setItem('krishi_farm_coords', JSON.stringify({
         lat,
@@ -856,10 +1074,6 @@ export default function FieldMap({
         savedAt: new Date().toISOString()
       }));
     } catch (_) {}
-
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.flyTo([lat, lng], 17, { duration: 1.2 });
-    }
   };
 
   // Zoom In / Out
@@ -878,44 +1092,39 @@ export default function FieldMap({
   };
 
   return (
-    <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+    <div className={`transition-all duration-300 ${
+      isFullscreen 
+        ? 'fixed inset-0 z-[9999] w-screen h-screen bg-slate-900 flex flex-col' 
+        : 'bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col'
+    }`}>
       {/* Top Map Action Bar */}
       <div className="p-3 sm:p-3.5 bg-slate-50/95 border-b border-slate-200 space-y-2.5 text-xs">
         
-        {/* Row 1: Layer toggle, Land Search Bar, GPS locate, Demo button */}
+        {/* Row 1: Layer toggle, Land Search Bar, GPS locate, Demo button, Fullscreen */}
         <div className="flex flex-wrap items-center justify-between gap-2.5">
           
-          {/* Layer Switcher */}
-          <div className="inline-flex rounded-xl bg-slate-200/80 p-0.5 border border-slate-300 shadow-inner shrink-0">
-            <button
-              type="button"
-              id="btn-layer-satellite"
-              onClick={() => setActiveLayer('satellite')}
-              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
-                activeLayer === 'satellite'
-                  ? 'bg-emerald-700 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <span>🛰️</span>
-              <span>Satellite</span>
-            </button>
-            <button
-              type="button"
-              id="btn-layer-map"
-              onClick={() => setActiveLayer('map')}
-              className={`px-3 py-1.5 rounded-lg font-bold flex items-center gap-1.5 transition ${
-                activeLayer === 'map'
-                  ? 'bg-emerald-700 text-white shadow-xs'
-                  : 'text-slate-700 hover:text-slate-900'
-              }`}
-            >
-              <span>🗺️</span>
-              <span>Map</span>
-            </button>
+          {/* Layer Switcher: Google Hybrid, Google Satellite, Google Road Map, Esri, OSM */}
+          <div className="inline-flex rounded-xl bg-slate-200/80 p-0.5 border border-slate-300 shadow-inner shrink-0 overflow-x-auto max-w-full">
+            {Object.values(MAP_LAYERS).map((layer) => (
+              <button
+                key={layer.id}
+                type="button"
+                id={`btn-layer-${layer.id}`}
+                onClick={() => setActiveLayer(layer.id)}
+                className={`px-2.5 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 transition ${
+                  activeLayer === layer.id
+                    ? 'bg-emerald-700 text-white shadow-xs'
+                    : 'text-slate-700 hover:text-slate-900 hover:bg-slate-300/40'
+                }`}
+                title={layer.name}
+              >
+                <span>{layer.icon}</span>
+                <span className="hidden sm:inline">{layer.shortName}</span>
+              </button>
+            ))}
           </div>
 
-          {/* Land / Village Search Input */}
+          {/* Land / Village / PIN Code Search Input */}
           <div className="relative flex-1 min-w-[200px] max-w-md">
             <form onSubmit={handleSearchSubmit} className="relative flex items-center">
               <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
@@ -924,7 +1133,7 @@ export default function FieldMap({
                 id="input-farm-location-search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={lang === 'hi' ? 'गाँव, तहसील, पिन कोड या खेत खोजें...' : 'Search village, tehsil, PIN code, or land...'}
+                placeholder={lang === 'hi' ? 'गाँव, कस्बा, पिन कोड (उदा. 273209) या खेत खोजें...' : 'Search village, town, PIN code (e.g. 273209)...'}
                 className="w-full pl-8 pr-16 py-1.5 bg-white border border-slate-300 rounded-xl text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs"
               />
               {searchQuery && (
@@ -978,7 +1187,7 @@ export default function FieldMap({
             )}
           </div>
 
-          {/* GPS Action Buttons */}
+          {/* GPS Action Buttons & Fullscreen */}
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Center on Me */}
             <button
@@ -986,7 +1195,7 @@ export default function FieldMap({
               id="btn-center-on-me"
               onClick={handleCenterOnMe}
               className="p-1.5 rounded-xl border border-slate-300 bg-white hover:bg-slate-100 text-slate-700 shadow-2xs transition active:scale-95"
-              title="Center on Me"
+              title="Center on GPS (मेरा स्थान)"
             >
               <Crosshair className="w-4 h-4 text-emerald-600" />
             </button>
@@ -1017,7 +1226,22 @@ export default function FieldMap({
               title="Use current map center as demo location for desktop testing"
             >
               <span>🧪</span>
-              <span className="hidden sm:inline">Use Map Center as Demo</span>
+              <span className="hidden sm:inline">Demo Center</span>
+            </button>
+
+            {/* Fullscreen Map Toggle */}
+            <button
+              type="button"
+              id="btn-toggle-fullscreen"
+              onClick={() => setIsFullscreen(prev => !prev)}
+              className={`p-1.5 rounded-xl border font-bold text-xs flex items-center gap-1 transition active:scale-95 shadow-2xs ${
+                isFullscreen 
+                  ? 'bg-amber-500 text-white border-amber-600' 
+                  : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-300'
+              }`}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Map (बड़ा नक्शा)'}
+            >
+              <Maximize className="w-4 h-4 text-slate-700" />
             </button>
           </div>
         </div>
@@ -1101,11 +1325,19 @@ export default function FieldMap({
       )}
 
       {/* Map Canvas Container */}
-      <div className="relative w-full h-[380px] sm:h-[460px] lg:h-[500px] bg-slate-900">
+      <div className={`relative w-full ${isFullscreen ? 'flex-1 h-full' : 'h-[380px] sm:h-[460px] lg:h-[520px]'} bg-slate-900`}>
         <div 
           ref={mapContainerRef} 
           className="w-full h-full z-10"
         />
+
+        {/* Tile Loading Indicator */}
+        {isTileLoading && (
+          <div className="absolute top-16 right-3 z-20 bg-slate-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1.5 rounded-xl border border-slate-700 shadow flex items-center gap-2 pointer-events-none">
+            <div className="w-2.5 h-2.5 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin" />
+            <span>{lang === 'hi' ? 'नक्शा लोड हो रहा है...' : 'Loading Tiles...'}</span>
+          </div>
+        )}
 
         {/* Floating In-Map Corner Controls (Top Right) */}
         <div className="absolute top-3 right-3 z-20 flex flex-col gap-2 max-w-[260px]">
@@ -1244,6 +1476,60 @@ export default function FieldMap({
         </div>
       </div>
 
+      {/* Location Permission Denied Guide Modal */}
+      {showPermissionGuide && (
+        <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center text-2xl shrink-0">
+                📍
+              </div>
+              <div>
+                <h3 className="font-black text-slate-900 text-base">
+                  {lang === 'hi' ? 'लोकेशन अनुमति कैसे चालू करें?' : 'How to Enable GPS Location?'}
+                </h3>
+                <p className="text-xs text-slate-500">
+                  {lang === 'hi' ? 'ब्राउज़र में GPS परमिशन सक्षम करें' : 'Browser location permission required'}
+                </p>
+              </div>
+            </div>
+            <div className="space-y-2.5 text-xs text-slate-700 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+              <div className="flex items-start gap-2">
+                <span className="font-bold text-emerald-600 bg-emerald-100 rounded-full w-5 h-5 flex items-center justify-center shrink-0">1</span>
+                <span>{lang === 'hi' ? 'अपने ब्राउज़र के सबसे ऊपर URL बार में लॉक (🔒) या सेटिंग्स आइकन पर टैप करें।' : 'Click the Lock (🔒) or Tune/Settings icon in the browser URL bar.'}</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="font-bold text-emerald-600 bg-emerald-100 rounded-full w-5 h-5 flex items-center justify-center shrink-0">2</span>
+                <span>{lang === 'hi' ? 'Location (स्थान) के विकल्प को "Allow" (अनुमति दें) पर सेट करें।' : 'Set Location permissions from "Blocked" to "Allow".'}</span>
+              </div>
+              <div className="flex items-start gap-2">
+                <span className="font-bold text-emerald-600 bg-emerald-100 rounded-full w-5 h-5 flex items-center justify-center shrink-0">3</span>
+                <span>{lang === 'hi' ? 'नीचे "पुनः प्रयास करें" बटन दबाएं।' : 'Click "Try Again" below to fetch your real field GPS coordinates.'}</span>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setShowPermissionGuide(false)}
+                className="px-4 py-2 rounded-xl text-xs font-bold text-slate-600 hover:bg-slate-100 transition"
+              >
+                {lang === 'hi' ? 'बंद करें' : 'Close'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPermissionGuide(false);
+                  handleFindMyGps();
+                }}
+                className="px-4 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition"
+              >
+                {lang === 'hi' ? '🔄 पुनः प्रयास करें' : '🔄 Try Again'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Section 11: Clear Confirmation Modal */}
       {showClearConfirm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
@@ -1289,7 +1575,7 @@ export default function FieldMap({
           </span>
           <span className="text-slate-400">|</span>
           <span className="text-slate-600">
-            {boundaryPoints.length === 0 && 'Walk along boundary corners and tap "MARK MY LOCATION"'}
+            {boundaryPoints.length === 0 && 'Walk along boundary corners and tap "MARK MY LOCATION" or click map'}
             {boundaryPoints.length === 1 && 'Walk to next corner and mark Point 2'}
             {boundaryPoints.length === 2 && 'Walk to 3rd corner to generate closed polygon'}
             {boundaryPoints.length >= 3 && '✓ Closed Field Polygon Generated'}
@@ -1298,8 +1584,8 @@ export default function FieldMap({
 
         <div className="text-[11px] text-slate-500 flex items-center gap-1.5">
           <span>Layer:</span>
-          <span className="font-bold text-slate-700 capitalize">
-            {activeLayer === 'satellite' ? 'Esri Satellite Imagery' : 'OpenStreetMap Standard'}
+          <span className="font-bold text-slate-700">
+            {MAP_LAYERS[activeLayer]?.name || activeLayer}
           </span>
         </div>
       </div>

@@ -156,3 +156,4 @@ module.exports = {
   FIELD_CONDITIONS,
   evaluateHarvestCondition
 };
+
