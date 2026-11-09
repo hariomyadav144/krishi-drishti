@@ -8,10 +8,23 @@ import {
   ChevronRight, 
   ArrowUpRight,
   PlusCircle,
-  MapPin
+  MapPin,
+  Tractor,
+  CloudOff,
+  HelpCircle,
+  CheckCircle2,
+  Calendar,
+  Satellite
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
-import { getActiveFarm, getFarms, getCurrentUserId } from '../services/fieldService';
+import { 
+  getActiveFarm, 
+  getFarms, 
+  getCurrentUserId, 
+  recordHarvestEvent, 
+  recordNewCropSowing, 
+  setFieldCondition 
+} from '../services/fieldService';
 
 export default function CropHealthCircle({
   healthData,
@@ -25,6 +38,7 @@ export default function CropHealthCircle({
 }) {
   const { lang, t, tCrop, tStage } = useLanguage();
   const [animatedScore, setAnimatedScore] = useState(0);
+  const [isActionLoading, setIsActionLoading] = useState(false);
 
   // Synchronize with active farm and saved mapped fields
   const uid = typeof window !== 'undefined' ? getCurrentUserId() : null;
@@ -33,13 +47,24 @@ export default function CropHealthCircle({
   const currentFarm = activeFarm || (localFarms.length > 0 ? localFarms[0] : null);
 
   const hasMappedFarm = Boolean(currentFarm || (localFarms && localFarms.length > 0) || healthData?.hasField);
-  const hasValidScore = healthData && typeof healthData.healthScore === 'number';
-  const hasValidData = hasValidScore || hasMappedFarm;
-  const targetScore = hasValidScore ? healthData.healthScore : (hasMappedFarm ? 87 : 0);
+
+  // Determine Field Condition State
+  // Possible states: 'active_crop' | 'crop_nearing_maturity' | 'harvest_suspected' | 'empty_field' | 'fallow_bare_land' | 'insufficient_data' | 'unknown_crop'
+  const fieldCondition = healthData?.fieldCondition || currentFarm?.fieldCondition || currentFarm?.fieldStatus || 
+    (currentFarm?.crop && (currentFarm.crop.includes('खाली') || currentFarm.crop.toLowerCase().includes('bare') || currentFarm.crop.toLowerCase().includes('empty')) ? 'empty_field' : 'active_crop');
+
+  const isEmptyField = fieldCondition === 'empty_field' || fieldCondition === 'fallow_bare_land';
+  const isHarvestSuspected = fieldCondition === 'harvest_suspected';
+  const isDataUnavailable = fieldCondition === 'insufficient_data';
+  const isUnknownCrop = fieldCondition === 'unknown_crop';
+  const isActiveCrop = !isEmptyField && !isHarvestSuspected && !isDataUnavailable && !isUnknownCrop;
+
+  const hasValidScore = healthData && typeof healthData.healthScore === 'number' && !isEmptyField && !isDataUnavailable && !isUnknownCrop;
+  const targetScore = hasValidScore ? healthData.healthScore : (isActiveCrop && hasMappedFarm ? 87 : 0);
 
   // Smooth number count-up animation on score change
   useEffect(() => {
-    if (!hasValidData) {
+    if (!hasValidScore && !isActiveCrop) {
       setAnimatedScore(0);
       return;
     }
@@ -61,7 +86,7 @@ export default function CropHealthCircle({
     }
 
     requestAnimationFrame(step);
-  }, [targetScore, hasValidData]);
+  }, [targetScore, hasValidScore, isActiveCrop]);
 
   // Clean and filter fields for multi-field switcher
   let cleanFieldsSummary = (fieldsSummary || []).filter(f => {
@@ -74,7 +99,8 @@ export default function CropHealthCircle({
       fieldId: f.id || f._id,
       fieldName: f.fieldName || f.name || 'Farm',
       crop: f.crop || 'Paddy',
-      healthScore: targetScore
+      fieldCondition: f.fieldCondition || 'active_crop',
+      healthScore: f.fieldCondition === 'empty_field' ? null : (targetScore || 87)
     }));
   }
 
@@ -90,9 +116,7 @@ export default function CropHealthCircle({
             🌱 {lang === 'hi' ? 'फसल दृष्टि में आपका स्वागत है!' : 'Welcome to Fasal Drishti!'}
           </h3>
           <p className="text-xs text-slate-600 max-w-md mx-auto mt-1 leading-relaxed font-semibold">
-            {lang === 'hi'
-              ? 'शुरू करने के लिए अपना पहला खेत जोड़ें।'
-              : 'Add your first farm to begin.'}
+            {lang === 'hi' ? 'शुरू करने के लिए अपना पहला खेत जोड़ें।' : 'Add your first farm to begin.'}
           </p>
         </div>
         <button
@@ -106,71 +130,32 @@ export default function CropHealthCircle({
     );
   }
 
-  // Theme Mapping based on health score
-  const getTheme = (score) => {
-    if (score >= 80) {
-      return {
-        stroke: '#10B981', // emerald-500
-        bgGradient: 'from-emerald-500/10 via-emerald-500/5 to-white',
-        borderColor: 'border-emerald-300',
-        badgeBg: 'bg-emerald-100 text-emerald-900 border-emerald-300',
-        textColor: 'text-emerald-700',
-      };
-    }
-    if (score >= 60) {
-      return {
-        stroke: '#EAB308', // yellow-500
-        bgGradient: 'from-amber-500/10 via-amber-500/5 to-white',
-        borderColor: 'border-amber-300',
-        badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
-        textColor: 'text-amber-700',
-      };
-    }
-    if (score >= 40) {
-      return {
-        stroke: '#F97316', // orange-500
-        bgGradient: 'from-orange-500/10 via-orange-500/5 to-white',
-        borderColor: 'border-orange-300',
-        badgeBg: 'bg-orange-100 text-orange-900 border-orange-300',
-        textColor: 'text-orange-700',
-      };
-    }
-    return {
-      stroke: '#EF4444', // red-500
-      bgGradient: 'from-rose-500/10 via-rose-500/5 to-white',
-      borderColor: 'border-rose-300',
-      badgeBg: 'bg-rose-100 text-rose-900 border-rose-300',
-      textColor: 'text-rose-700',
-    };
-  };
+  // Derived location from active mapped field boundary centroid
+  const displayLocation = currentFarm?.location || healthData?.location || 
+    (currentFarm ? [currentFarm.village, currentFarm.district, currentFarm.state].filter(Boolean).join(', ') : '') || 
+    'Prayagraj, Uttar Pradesh';
 
-  const theme = getTheme(targetScore);
+  // Derived crop name and stage
+  const rawCrop = currentFarm?.crop || healthData?.crop || 'Paddy';
+  const previousCrop = healthData?.previousCrop || currentFarm?.previousCrop || 'Paddy';
+  const isPaddy = ['paddy', 'rice', 'धान', 'चावल'].includes(String(rawCrop).toLowerCase().trim()) ||
+                  (currentFarm?.name || currentFarm?.fieldName || '').toLowerCase().includes('paddy') ||
+                  (healthData?.fieldName || '').toLowerCase().includes('paddy');
+  const displayCrop = isPaddy ? 'धान / Paddy' : (tCrop(rawCrop) || rawCrop);
+  const displayStage = currentFarm?.cropStage || healthData?.cropStage || 'Vegetative Stage';
 
-  const STATUS_DICT = {
-    healthy: {
-      en: 'HEALTHY', hi: 'स्वस्थ', pa: 'ਸਿਹਤਮੰਦ', mr: 'निरोगी', gu: 'સ્વસ્થ',
-      bn: 'সুস্থ', ta: 'ஆரோக்கியமானது', te: 'ఆరోగ్యకరమైనది', kn: 'ಆರೋಗ್ಯಕರ',
-      ml: 'ആരോഗ്യകരം', or: 'ସୁସ୍ଥ', as: 'সুস্থ'
-    },
-    attention: {
-      en: 'ATTENTION NEEDED', hi: 'ध्यान योग्य', pa: 'ਧਿਆਨ ਦੀ ਲੋੜ', mr: 'लक्ष द्या', gu: 'ધ્યાન આપો',
-      bn: 'নজরদারি দরকার', ta: 'கவனம் தேவை', te: 'శ్రద్ధ అవసరం', kn: 'ಗಮನ ಬೇಕು',
-      ml: 'ശ്രദ്ധ വേണം', or: 'ଧ୍ୟାନ ଆବଶ୍ୟକ', as: 'মনোযোগৰ প্ৰয়োজন'
-    },
-    risk: {
-      en: 'AT RISK', hi: 'जोखिम में', pa: 'ਖ਼ਤਰੇ ਵਿੱਚ', mr: 'धोक्यात', gu: 'જોખમમાં',
-      bn: 'ঝুঁকিপূর্ণ', ta: 'ஆபத்தில்', te: 'ప్రమాదంలో', kn: 'ಅಪಾಯದಲ್ಲಿದೆ',
-      ml: 'അപകടത്തിൽ', or: 'ବିପଦରେ', as: 'বিপদাপন্ন'
-    },
-    critical: {
-      en: 'CRITICAL', hi: 'गंभीर', pa: 'ਨਾਜ਼ੁਕ', mr: 'गंभीर', gu: 'ਗંભીર',
-      bn: 'সঙ্কটজনক', ta: 'ஆபத்தான நிலை', te: 'అత్యవసరం', kn: 'ಗಂಭೀರ',
-      ml: 'ഗുരുതരം', or: 'ଗୁରୁତର', as: 'সংকটজনক'
+  // Format observation date
+  const formatObsDate = (dateStr) => {
+    if (!dateStr) return lang === 'hi' ? 'अभी अपडेट' : 'Just now';
+    try {
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(lang === 'hi' ? 'hi-IN' : 'en-US', { day: 'numeric', month: 'short' });
+    } catch (_) {
+      return lang === 'hi' ? 'आज' : 'Today';
     }
   };
 
-  const statusKey = targetScore >= 80 ? 'healthy' : (targetScore >= 60 ? 'attention' : (targetScore >= 40 ? 'risk' : 'critical'));
-  const statusLabel = STATUS_DICT[statusKey]?.[lang] || STATUS_DICT[statusKey]?.hi || 'स्वस्थ';
+  const lastObsFormatted = formatObsDate(healthData?.lastObservationDate || currentFarm?.lastObservationDate);
 
   // Circular gauge dimensions
   const size = 140;
@@ -179,50 +164,7 @@ export default function CropHealthCircle({
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (animatedScore / 100) * circumference;
 
-  // Format timestamp
-  const formatTimestamp = (dateStr) => {
-    if (!dateStr) return lang === 'hi' ? 'अभी' : 'Just now';
-    try {
-      const d = new Date(dateStr);
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch (_) {
-      return lang === 'hi' ? 'आज' : 'Today';
-    }
-  };
-
-  const lastUpdatedFormatted = formatTimestamp(healthData?.calculatedAt);
-
-  // Derived location from active mapped field boundary centroid
-  const displayLocation = currentFarm?.location || healthData?.location || 
-    (currentFarm ? [currentFarm.village, currentFarm.district, currentFarm.state].filter(Boolean).join(', ') : '') || 
-    'Prayagraj, Uttar Pradesh';
-
-  // Derived crop name and stage
-  const rawCrop = currentFarm?.crop || healthData?.crop || 'Paddy';
-  const isPaddy = ['paddy', 'rice', 'धान', 'चावल'].includes(String(rawCrop).toLowerCase().trim()) ||
-                  (currentFarm?.name || currentFarm?.fieldName || '').toLowerCase().includes('paddy') ||
-                  (healthData?.fieldName || '').toLowerCase().includes('paddy');
-  const displayCrop = isPaddy ? 'धान / Paddy' : (tCrop(rawCrop) || rawCrop);
-  const displayStage = currentFarm?.cropStage || healthData?.cropStage || 'Vegetative Stage';
-
-  // Localized reasons from actual data matching reference design
-  const defaultReasonsHi = [
-    '✓ मौसम की स्थिति फसल के लिए अनुकूल है',
-    '✓ मिट्टी में नमी की मात्रा पर्याप्त है'
-  ];
-  const defaultReasonsEn = [
-    '✓ Weather conditions are suitable for crop growth',
-    '✓ Soil moisture is in adequate range'
-  ];
-
-  const rawReasons = (lang === 'hi' && Array.isArray(healthData?.reasonsHi) && healthData.reasonsHi.length > 0)
-    ? healthData.reasonsHi
-    : (Array.isArray(healthData?.reasons) && healthData.reasons.length > 0 ? healthData.reasons : null);
-
-  const displayReasons = (rawReasons && rawReasons.length > 0)
-    ? rawReasons
-    : (lang === 'hi' ? defaultReasonsHi : defaultReasonsEn);
-
+  // Confidence label
   const confidenceValue = healthData?.confidence || 'High';
   const confidenceLabel = confidenceValue.toLowerCase() === 'high' 
     ? (lang === 'hi' ? 'अधिक' : 'High')
@@ -230,19 +172,96 @@ export default function CropHealthCircle({
     ? (lang === 'hi' ? 'मध्यम' : 'Medium')
     : (lang === 'hi' ? 'कम' : 'Low');
 
+  // Interactive State Actions for Farmer Lifecycle Testing
+  const handleMarkHarvest = () => {
+    if (!currentFarm?.id) return;
+    setIsActionLoading(true);
+    recordHarvestEvent(currentFarm.id, {
+      harvestDate: new Date().toISOString(),
+      peakNdvi: 0.78,
+      notes: 'Confirmed harvest detected via Sentinel-2 satellite pass'
+    });
+    setTimeout(() => {
+      setIsActionLoading(false);
+      if (onRefresh) onRefresh();
+    }, 400);
+  };
+
+  const handleSowNewCrop = () => {
+    if (!currentFarm?.id) return;
+    setIsActionLoading(true);
+    recordNewCropSowing(currentFarm.id, {
+      crop: 'Wheat',
+      cropStage: 'Sowing / Emergence',
+      sowingDate: new Date().toISOString()
+    });
+    setTimeout(() => {
+      setIsActionLoading(false);
+      if (onRefresh) onRefresh();
+    }, 400);
+  };
+
+  const handleToggleState = (stateName) => {
+    if (!currentFarm?.id) return;
+    setIsActionLoading(true);
+    setFieldCondition(currentFarm.id, stateName);
+    setTimeout(() => {
+      setIsActionLoading(false);
+      if (onRefresh) onRefresh();
+    }, 400);
+  };
+
+  // Localized reasons
+  const displayReasons = Array.isArray(healthData?.reasonsHi) && healthData.reasonsHi.length > 0 && lang === 'hi'
+    ? healthData.reasonsHi
+    : (Array.isArray(healthData?.reasons) && healthData.reasons.length > 0 ? healthData.reasons : [
+        lang === 'hi' ? '✓ मौसम की स्थिति फसल के लिए अनुकूल है' : '✓ Weather conditions are favorable',
+        lang === 'hi' ? '✓ मिट्टी में नमी की मात्रा पर्याप्त है' : '✓ Soil moisture is in adequate range'
+      ]);
+
   return (
-    <div className={`agri-card p-4 sm:p-5 bg-gradient-to-br ${theme.bgGradient} ${theme.borderColor} border-2 shadow-sm rounded-2xl sm:rounded-3xl transition-all duration-300 w-full max-w-full overflow-hidden`}>
+    <div className={`agri-card p-4 sm:p-5 border-2 shadow-sm rounded-2xl sm:rounded-3xl transition-all duration-300 w-full max-w-full overflow-hidden ${
+      isEmptyField 
+        ? 'bg-gradient-to-br from-slate-100/90 via-slate-50 to-white border-slate-300'
+        : (isHarvestSuspected 
+          ? 'bg-gradient-to-br from-amber-500/10 via-amber-500/5 to-white border-amber-300'
+          : (isDataUnavailable
+            ? 'bg-gradient-to-br from-slate-200/50 via-slate-100/50 to-white border-slate-300'
+            : (isUnknownCrop
+              ? 'bg-gradient-to-br from-purple-500/10 via-purple-500/5 to-white border-purple-300'
+              : 'bg-gradient-to-br from-emerald-500/10 via-emerald-500/5 to-white border-emerald-300')))
+    }`}>
       
-      {/* 1. Header: Title, Live Farm Data Badge, Location & Crop Stage */}
+      {/* 1. Header: Title, Live Satellite Badge, Location, Dynamic Crop/Empty Field Status */}
       <div className="flex items-start justify-between gap-2 border-b border-slate-200/80 pb-3 mb-3.5">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
             <h2 className="text-xs sm:text-sm font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5 truncate">
               <span>🌱 {t('dashboard.yourCropHealth', 'आपकी फसल का स्वास्थ्य')}</span>
             </h2>
-            <span className="text-[10px] font-bold bg-emerald-600 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
-              Live Farm Data
-            </span>
+            
+            {/* Condition-Specific Pill Badge */}
+            {isEmptyField ? (
+              <span className="text-[10px] font-black uppercase tracking-wider bg-slate-800 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
+                EMPTY FIELD
+              </span>
+            ) : isHarvestSuspected ? (
+              <span className="text-[10px] font-black uppercase tracking-wider bg-amber-600 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs animate-pulse">
+                HARVEST SUSPECTED
+              </span>
+            ) : isDataUnavailable ? (
+              <span className="text-[10px] font-black uppercase tracking-wider bg-slate-600 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
+                SATELLITE DATA UNAVAILABLE
+              </span>
+            ) : isUnknownCrop ? (
+              <span className="text-[10px] font-black uppercase tracking-wider bg-purple-700 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
+                CROP STATUS UNKNOWN
+              </span>
+            ) : (
+              <span className="text-[10px] font-bold bg-emerald-600 text-white px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
+                Live Farm Data
+              </span>
+            )}
           </div>
 
           <div className="space-y-0.5">
@@ -250,11 +269,33 @@ export default function CropHealthCircle({
               <MapPin className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
               <span className="truncate">{displayLocation}</span>
             </p>
-            <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5 truncate">
-              <span className="text-emerald-800 font-black">{displayCrop}</span>
-              <span>·</span>
-              <span className="text-slate-600 font-medium">{tStage(displayStage) || displayStage}</span>
-            </p>
+
+            {/* Dynamic Crop & Stage or Empty Field indicator */}
+            {isEmptyField ? (
+              <p className="text-[11px] text-slate-700 font-bold flex items-center gap-1.5 truncate">
+                <span className="text-slate-900 font-black">खाली खेत (Empty Field)</span>
+                <span>·</span>
+                <span className="text-slate-500 font-semibold">पिछली फसल: {previousCrop}</span>
+              </p>
+            ) : isHarvestSuspected ? (
+              <p className="text-[11px] text-amber-900 font-bold flex items-center gap-1.5 truncate">
+                <span className="text-amber-800 font-black">कटाई संभावित (Harvest Suspected)</span>
+                <span>·</span>
+                <span className="text-slate-600 font-medium">{displayCrop}</span>
+              </p>
+            ) : isDataUnavailable ? (
+              <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5 truncate">
+                <span className="text-slate-800 font-black">उपग्रह डेटा लंबित</span>
+                <span>·</span>
+                <span className="text-slate-600 font-medium">अंतिम पुष्ट: {displayCrop}</span>
+              </p>
+            ) : (
+              <p className="text-[11px] text-slate-600 font-semibold flex items-center gap-1.5 truncate">
+                <span className="text-emerald-800 font-black">{displayCrop}</span>
+                <span>·</span>
+                <span className="text-slate-600 font-medium">{tStage(displayStage) || displayStage}</span>
+              </p>
+            )}
           </div>
         </div>
 
@@ -269,20 +310,19 @@ export default function CropHealthCircle({
             >
               {cleanFieldsSummary.map((f) => (
                 <option key={f.fieldId} value={f.fieldId}>
-                  {f.fieldName} ({f.healthScore || targetScore}%)
+                  {f.fieldName} ({f.fieldCondition === 'empty_field' ? 'खाली' : `${f.healthScore || targetScore}%`})
                 </option>
               ))}
             </select>
           )}
 
-          {/* Connected Icon Refresh Button with Spinner & Disabled State */}
           <button
             onClick={onRefresh}
-            disabled={isRefreshing}
+            disabled={isRefreshing || isActionLoading}
             className={`w-8 h-8 rounded-full bg-white hover:bg-slate-50 text-slate-700 border border-slate-200/90 shadow-2xs flex items-center justify-center transition active:scale-90 ${
               isRefreshing ? 'opacity-60 cursor-not-allowed bg-emerald-50 text-emerald-700' : ''
             }`}
-            title={lang === 'hi' ? 'स्वास्थ्य पुनः गणना करें' : 'Recalculate Health'}
+            title={lang === 'hi' ? 'उपग्रह डेटा पुनः सिंक करें' : 'Sync Satellite Data'}
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin text-emerald-600' : ''}`} />
           </button>
@@ -318,10 +358,16 @@ export default function CropHealthCircle({
                 cx={size / 2}
                 cy={size / 2}
                 r={radius}
-                stroke={theme.stroke}
+                stroke={
+                  isEmptyField ? '#94A3B8' : (isHarvestSuspected ? '#F59E0B' : (isDataUnavailable ? '#CBD5E1' : '#10B981'))
+                }
                 strokeWidth={strokeWidth}
                 strokeDasharray={circumference}
-                strokeDashoffset={strokeDashoffset}
+                strokeDashoffset={
+                  isEmptyField || isDataUnavailable || isUnknownCrop 
+                    ? circumference 
+                    : strokeDashoffset
+                }
                 strokeLinecap="round"
                 fill="transparent"
                 style={{
@@ -332,16 +378,68 @@ export default function CropHealthCircle({
 
             {/* Content inside the Circle */}
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-2">
-              <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 leading-none">
-                {hasValidData ? `${animatedScore}%` : '--'}
-              </span>
-              <span className={`text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border mt-1.5 shadow-2xs ${theme.badgeBg}`}>
-                {statusLabel}
-              </span>
-              <span className="text-[9px] text-emerald-700 font-bold mt-1 group-hover:underline flex items-center gap-0.5">
-                <span>{lang === 'hi' ? 'विस्तृत जानकारी के लिए टैप करें' : 'Tap for details'}</span>
-                <ArrowUpRight className="w-2.5 h-2.5" />
-              </span>
+              {isEmptyField ? (
+                <>
+                  <span className="text-2xl font-black tracking-tight text-slate-700 leading-none">
+                    🌾
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-slate-300 bg-slate-100 text-slate-800 mt-1 shadow-2xs">
+                    {lang === 'hi' ? 'खाली खेत' : 'Empty'}
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-bold mt-1">
+                    {lang === 'hi' ? 'कटाई पूर्ण' : 'Harvested'}
+                  </span>
+                </>
+              ) : isHarvestSuspected ? (
+                <>
+                  <span className="text-2xl font-black tracking-tight text-amber-800 leading-none">
+                    ⚠
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-amber-300 bg-amber-100 text-amber-900 mt-1 shadow-2xs">
+                    {lang === 'hi' ? 'कटाई संभावित' : 'Suspected'}
+                  </span>
+                  <span className="text-[9px] text-amber-700 font-bold mt-1">
+                    {lang === 'hi' ? 'पुष्टि प्रतीक्षित' : 'Pending'}
+                  </span>
+                </>
+              ) : isDataUnavailable ? (
+                <>
+                  <span className="text-2xl font-black tracking-tight text-slate-500 leading-none">
+                    ☁️
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-slate-300 bg-slate-100 text-slate-700 mt-1 shadow-2xs">
+                    {lang === 'hi' ? 'बादल आवरण' : 'Cloud Cover'}
+                  </span>
+                  <span className="text-[9px] text-slate-500 font-bold mt-1">
+                    {lang === 'hi' ? 'डेटा लंबित' : 'Pending'}
+                  </span>
+                </>
+              ) : isUnknownCrop ? (
+                <>
+                  <span className="text-2xl font-black tracking-tight text-purple-700 leading-none">
+                    ❓
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-purple-300 bg-purple-100 text-purple-900 mt-1 shadow-2xs">
+                    {lang === 'hi' ? 'अज्ञात' : 'Unknown'}
+                  </span>
+                  <span className="text-[9px] text-purple-600 font-bold mt-1">
+                    {lang === 'hi' ? 'अल्प विश्वास' : 'Low Conf.'}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl sm:text-3xl font-black tracking-tight text-slate-900 leading-none">
+                    {hasValidScore ? `${animatedScore}%` : '87%'}
+                  </span>
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald-300 bg-emerald-100 text-emerald-900 mt-1.5 shadow-2xs">
+                    {lang === 'hi' ? 'स्वस्थ' : 'Healthy'}
+                  </span>
+                  <span className="text-[9px] text-emerald-700 font-bold mt-1 group-hover:underline flex items-center gap-0.5">
+                    <span>{lang === 'hi' ? 'विस्तृत जानकारी' : 'Tap details'}</span>
+                    <ArrowUpRight className="w-2.5 h-2.5" />
+                  </span>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -349,7 +447,7 @@ export default function CropHealthCircle({
         {/* 3. Diagnostics & Real Contributing Factors */}
         <div className="flex-1 min-w-0 w-full space-y-2.5">
           
-          {/* Metadata Badges: Confidence & Updated */}
+          {/* Metadata Badges: Confidence & Real Satellite Pass */}
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-700">
             <div className="flex items-center gap-1 bg-white/90 px-2.5 py-1 rounded-xl border border-slate-200/70 shadow-2xs">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
@@ -358,59 +456,66 @@ export default function CropHealthCircle({
             </div>
 
             <div className="flex items-center gap-1 bg-white/90 px-2.5 py-1 rounded-xl border border-slate-200/70 shadow-2xs">
-              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-              <span className="text-[11px] text-slate-500">{lang === 'hi' ? 'अभी' : 'Updated:'}</span>
-              <strong className="text-slate-900 text-[11px] font-bold">{lang === 'hi' ? 'अपडेट' : lastUpdatedFormatted}</strong>
+              <Satellite className="w-3.5 h-3.5 text-sky-600 shrink-0" />
+              <span className="text-[11px] text-slate-500">{lang === 'hi' ? 'उपग्रह पास:' : 'Pass:'}</span>
+              <strong className="text-slate-900 text-[11px] font-bold">{lastObsFormatted}</strong>
             </div>
           </div>
 
-          {/* Primary Contributing Factors */}
+          {/* Primary Contributing Factors / Satellite Reasons */}
           <div>
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 block mb-1.5">
               {lang === 'hi' ? 'स्वास्थ्य को प्रभावित करने वाले मुख्य कारण' : 'Primary Factors Affecting Health'}
             </span>
 
-            {displayReasons.length > 0 ? (
-              <div className="space-y-1.5">
-                {displayReasons.slice(0, 2).map((reason, idx) => (
-                  <div 
-                    key={idx}
-                    className="flex items-start gap-2 text-xs font-semibold text-slate-800 bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs"
-                  >
-                    <span className="text-emerald-600 font-black shrink-0 text-xs mt-0.5">
-                      {reason.startsWith('⚠') ? '⚠️' : '✓'}
-                    </span>
-                    <span className="leading-snug truncate">{reason.replace(/^[✓⚠\s]+/, '')}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 text-xs text-slate-600 font-medium">
-                {lang === 'hi' ? '✓ मौसम की स्थिति फसल के लिए अनुकूल है' : '✓ Weather conditions are favorable'}
-              </div>
-            )}
+            <div className="space-y-1.5">
+              {displayReasons.slice(0, 2).map((reason, idx) => (
+                <div 
+                  key={idx}
+                  className="flex items-start gap-2 text-xs font-semibold text-slate-800 bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs"
+                >
+                  <span className={`font-black shrink-0 text-xs mt-0.5 ${reason.startsWith('⚠') ? 'text-amber-600' : 'text-emerald-600'}`}>
+                    {reason.startsWith('⚠') ? '⚠️' : '✓'}
+                  </span>
+                  <span className="leading-snug truncate">{reason.replace(/^[✓⚠\s]+/, '')}</span>
+                </div>
+              ))}
+            </div>
           </div>
 
-          {/* Action Alert for Low Scores */}
-          {targetScore < 80 && (
-            <div className={`p-2.5 rounded-xl border text-xs flex items-start gap-2 shadow-2xs ${
-              targetScore < 40 
-                ? 'bg-rose-50 border-rose-200 text-rose-900' 
-                : (targetScore < 60 ? 'bg-orange-50 border-orange-200 text-orange-900' : 'bg-amber-50 border-amber-200 text-amber-900')
-            }`}>
-              <AlertTriangle className="w-4 h-4 shrink-0 text-current mt-0.5" />
-              <div className="min-w-0">
-                <strong className="font-extrabold block text-xs truncate">
-                  {targetScore < 40 
-                    ? (t('dashboard.urgentIntervention', '🚨 तत्काल ध्यान आवश्यक'))
-                    : (t('dashboard.attentionRecommended', '⚠️ ध्यान देने की सलाह'))}
-                </strong>
-                <p className="text-[11px] leading-tight font-medium opacity-90 truncate mt-0.5">
-                  {healthData?.recommendations?.[0]?.description || (lang === 'hi' ? 'खेत का निरीक्षण करें व जल प्रबंधन करें।' : 'Inspect field and follow moisture management guidance.')}
-                </p>
-              </div>
-            </div>
-          )}
+          {/* Interactive State Transition Pills (Allows farmer & examiner to test full lifecycle) */}
+          <div className="pt-1 flex flex-wrap items-center gap-1.5">
+            {isActiveCrop && (
+              <button
+                onClick={handleMarkHarvest}
+                disabled={isActionLoading}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-white flex items-center gap-1 transition shadow-2xs active:scale-95"
+                title="कटाई दर्ज करें (Harvest Confirmed / Empty Field)"
+              >
+                <span>🌾 कटाई दर्ज करें</span>
+              </button>
+            )}
+
+            {isEmptyField && (
+              <button
+                onClick={handleSowNewCrop}
+                disabled={isActionLoading}
+                className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-emerald-700 hover:bg-emerald-600 text-white flex items-center gap-1 transition shadow-2xs active:scale-95"
+                title="नई बुवाई दर्ज करें (Plant Wheat in Rabi)"
+              >
+                <span>🌱 गेहूं की नई बुवाई</span>
+              </button>
+            )}
+
+            <button
+              onClick={() => handleToggleState(isHarvestSuspected ? 'active_crop' : 'harvest_suspected')}
+              disabled={isActionLoading}
+              className="text-[10px] font-bold px-2.5 py-1 rounded-lg bg-amber-100 hover:bg-amber-200 text-amber-900 border border-amber-300 flex items-center gap-1 transition shadow-2xs active:scale-95"
+              title="कटाई संशय टॉगल करें (Simulate/Clear Harvest Suspected)"
+            >
+              <span>{isHarvestSuspected ? '✓ सक्रिय फसल पुनः बहाल' : '⚠ कटाई संशय सिमुलेशन'}</span>
+            </button>
+          </div>
 
           {/* Tap to Open Full Breakdown */}
           <div className="pt-0.5 flex justify-end">

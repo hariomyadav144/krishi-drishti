@@ -5,6 +5,8 @@ const FieldMonitoringObservation = require('../models/FieldMonitoringObservation
 const FieldAlert = require('../models/FieldAlert');
 const FieldActionItem = require('../models/FieldActionItem');
 const { getCopernicusAccessToken } = require('./copernicusService');
+const { classifySatelliteCropCondition } = require('./cropClassificationEngine');
+const { evaluateHarvestCondition, FIELD_CONDITIONS } = require('./harvestDetectionService');
 const { GoogleGenAI } = require('@google/genai');
 const persistentStore = require('../utils/persistentStore');
 const {
@@ -219,22 +221,26 @@ async function scanLandParcelSatellite({ lat, lng, polygon, fieldName = 'Parcel'
     agronomicAdviceEn = `Satellite Scan: No active crop canopy detected on this parcel (Bare / Fallow Land). Prepare soil with deep ploughing for upcoming Rabi sowing (${agroZone.likelyRabiCrops[0]}).`;
   } else {
     isCultivated = true;
-    landStatus = 'Active Crop Canopy (सक्रिय फसल)';
-    landStatusHi = 'सक्रिय फसल';
 
-    // If crop is passed and valid, use it; otherwise detect from agro-zone and season
-    if (crop && !isExplicitlyBare) {
-      detectedCrop = crop;
-      cropConfidence = 96;
-    } else {
-      const candidates = isKharifSeason ? agroZone.likelyKharifCrops : agroZone.likelyRabiCrops;
-      const cropIndex = Math.floor(microVar * candidates.length);
-      detectedCrop = candidates[cropIndex];
-      cropConfidence = Math.round(82 + microVar * 12);
-    }
-
-    // Realistic continuous NDVI proportional to actual soil moisture and coordinates
+    // Continuous NDVI proportional to actual soil moisture and coordinates
     ndviMean = Math.min(0.86, Math.max(0.42, Math.round((0.46 + rawMoisture * 0.85 + microVar * 0.12) * 100) / 100));
+
+    // Scientific Satellite Crop Classification & Harvest Evaluation
+    const classification = classifySatelliteCropCondition({
+      currentNdvi: ndviMean,
+      ndwi: rawMoisture > 0.22 ? 0.25 : -0.05,
+      declaredCrop: crop,
+      observationDate: new Date(),
+      isCloudObscured: false
+    });
+
+    detectedCrop = classification.detectedCrop || crop || 'Paddy';
+    cropConfidence = classification.confidence || 85;
+    landStatus = classification.statusEn;
+    landStatusHi = classification.statusHi;
+    cropStage = classification.cropStage;
+    cropStageHi = classification.cropStageHi;
+
     healthScore = Math.min(96, Math.max(52, Math.round(ndviMean * 105)));
 
     if (ndviMean >= 0.72) {
@@ -248,8 +254,6 @@ async function scanLandParcelSatellite({ lat, lng, polygon, fieldName = 'Parcel'
       healthStatusHi = 'हल्का तनाव / नमी की कमी';
     }
 
-    cropStage = isKharifSeason ? 'Vegetative Stage (वानस्पतिक अवस्था)' : 'Sowing / Emergence (अंकुरण अवस्था)';
-    cropStageHi = isKharifSeason ? 'वानस्पतिक अवस्था' : 'अंकुरण अवस्था';
     soilConditionHi = rawMoisture >= 0.24 ? 'पर्याप्त नमी' : (rawMoisture >= 0.18 ? 'नमी कम हो रही है' : 'सूखने की स्थिति');
     agronomicAdviceHi = `उपग्रह विश्लेषण: ${detectedCrop} की फसल में वानस्पतिक स्वास्थ्य सूचकांक (NDVI) ${ndviMean} है। वर्तमान तापमान (${weather.temperature}°C) के अनुसार नमी स्तर बनाए रखें।`;
     agronomicAdviceEn = `Satellite Analysis: ${detectedCrop} crop canopy shows NDVI ${ndviMean}. Maintain recommended soil moisture under current ambient temperature (${weather.temperature}°C).`;

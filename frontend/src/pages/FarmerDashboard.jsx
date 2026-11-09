@@ -443,18 +443,19 @@ export default function FarmerDashboard({ setActiveTab }) {
       const currentUid = user?.id || user?._id || getCurrentUserId();
       const updatedFarm = event?.detail || getActiveFarm(currentUid);
       if (updatedFarm) {
+        const isFarmEmpty = updatedFarm.fieldCondition === 'empty_field' || updatedFarm.fieldStatus === 'empty_field';
         setDashboardData(prev => ({
           ...prev,
           farm: updatedFarm,
           currentCrop: { 
-            name: updatedFarm.crop || 'Paddy', 
-            cropName: updatedFarm.crop || 'Paddy', 
-            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+            name: isFarmEmpty ? 'खाली खेत (Empty Field)' : (updatedFarm.crop || 'Paddy'), 
+            cropName: isFarmEmpty ? 'खाली खेत (Empty Field)' : (updatedFarm.crop || 'Paddy'), 
+            stage: isFarmEmpty ? 'Bare Soil / Post-Harvest' : (updatedFarm.cropStage || 'Vegetative Stage') 
           },
           crops: [{ 
-            name: updatedFarm.crop || 'Paddy', 
-            cropName: updatedFarm.crop || 'Paddy', 
-            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+            name: isFarmEmpty ? 'खाली खेत (Empty Field)' : (updatedFarm.crop || 'Paddy'), 
+            cropName: isFarmEmpty ? 'खाली खेत (Empty Field)' : (updatedFarm.crop || 'Paddy'), 
+            stage: isFarmEmpty ? 'Bare Soil / Post-Harvest' : (updatedFarm.cropStage || 'Vegetative Stage') 
           }]
         }));
 
@@ -643,7 +644,9 @@ export default function FarmerDashboard({ setActiveTab }) {
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
                 {farm && (farm.name || farm.fieldName || farm.farmName)
-                  ? 'Mapped Farm'
+                  ? (farm.fieldCondition === 'empty_field' || farm.fieldStatus === 'empty_field'
+                    ? 'MAPPED FARM · EMPTY FIELD'
+                    : (farm.fieldCondition === 'harvest_suspected' ? 'MAPPED FARM · HARVEST SUSPECTED' : 'Mapped Farm'))
                   : (lang === 'hi' ? 'खेत नहीं जुड़ा' : 'Unmapped')}
               </span>
             </div>
@@ -657,6 +660,9 @@ export default function FarmerDashboard({ setActiveTab }) {
                 </p>
                 <p className="text-[11px] sm:text-xs text-emerald-200/90 font-medium truncate">
                   {farmArea} Acres · {soilType}
+                  {(farm.fieldCondition === 'empty_field' || farm.fieldStatus === 'empty_field')
+                    ? ' · खाली खेत (कटाई पूर्ण)'
+                    : (farm.fieldCondition === 'harvest_suspected' ? ' · कटाई संभावित' : '')}
                 </p>
               </div>
             ) : (

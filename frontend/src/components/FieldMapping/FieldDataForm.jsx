@@ -173,27 +173,6 @@ export default function FieldDataForm({
     if (onCropChange) {
       onCropChange(selectedCrop);
     }
-    if (satelliteScan?.satellite) {
-      const isBare = selectedCrop.includes('खाली') || selectedCrop.toLowerCase().includes('bare');
-      setSatelliteScan(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          satellite: {
-            ...prev.satellite,
-            isCultivated: !isBare,
-            detectedCrop: isBare ? 'खाली / परती भूमि (Bare Soil)' : selectedCrop,
-            landStatus: isBare ? 'Bare Soil / Fallow Land' : 'Active Crop Cultivation',
-            landStatusHi: isBare ? 'खाली / परती जमीन' : 'सक्रिय फसल',
-            ndviMean: isBare ? 0.18 : Math.max(0.68, prev.satellite.ndviMean || 0.72),
-            soilConditionHi: isBare ? 'परती मिट्टी' : (prev.satellite.soilConditionHi || 'अनुकूल नमी'),
-            agronomicAdviceHi: isBare
-              ? 'वर्तमान में इस भूखंड पर कोई सक्रिय फसल आच्छादन नहीं है। बुवाई से पूर्व गहरी जुताई व गोबर की खाद (FYM) का प्रयोग करें।'
-              : `उपग्रह द्वारा स्वस्थ ${selectedCrop} फसल आच्छादन सत्यापित। जड़ क्षेत्र में मिट्टी की नमी अनुकूल है।`
-          }
-        };
-      });
-    }
   };
 
   const handleSubmit = async (e) => {

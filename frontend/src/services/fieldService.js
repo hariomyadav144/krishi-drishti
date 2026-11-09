@@ -510,6 +510,19 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
     cornersCount: points.length,
     crop: farmPayload.crop || existingRecord?.crop || 'Paddy',
     cropStage: farmPayload.cropStage || existingRecord?.cropStage || 'Vegetative Stage',
+    fieldCondition: farmPayload.fieldCondition || existingRecord?.fieldCondition || 'active_crop',
+    fieldStatus: farmPayload.fieldStatus || existingRecord?.fieldStatus || 'active_crop',
+    activeCrop: farmPayload.activeCrop !== undefined ? farmPayload.activeCrop : (existingRecord?.activeCrop !== undefined ? existingRecord.activeCrop : (farmPayload.crop || 'Paddy')),
+    previousCrop: farmPayload.previousCrop || existingRecord?.previousCrop || null,
+    cropHistory: Array.isArray(farmPayload.cropHistory) ? farmPayload.cropHistory : (Array.isArray(existingRecord?.cropHistory) ? existingRecord.cropHistory : []),
+    currentCycle: farmPayload.currentCycle || existingRecord?.currentCycle || {
+      fieldCondition: farmPayload.fieldCondition || 'active_crop',
+      activeCrop: farmPayload.crop || 'Paddy',
+      sowingDate: farmPayload.sowingDate || new Date().toISOString()
+    },
+    lastObservationDate: farmPayload.lastObservationDate || existingRecord?.lastObservationDate || null,
+    harvestConfirmedDate: farmPayload.harvestConfirmedDate || existingRecord?.harvestConfirmedDate || null,
+    harvestSuspectedDate: farmPayload.harvestSuspectedDate || existingRecord?.harvestSuspectedDate || null,
     cropStatus: existingRecord?.cropStatus || 'pending_detection',
     varietyStatus: existingRecord?.varietyStatus || 'pending_detection',
     soilStatus: existingRecord?.soilStatus || 'pending_fetch',
@@ -692,4 +705,127 @@ export function saveGeographicBoundary(points) {
   try {
     localStorage.setItem('farm_boundary_geo_points', JSON.stringify(points));
   } catch (_) {}
+}
+
+/**
+ * Record a confirmed harvest event for a farm (Transitions state to Empty Field)
+ */
+export function recordHarvestEvent(farmId, harvestDetails = {}, userId) {
+  if (typeof window === 'undefined') return null;
+  const uid = userId || getCurrentUserId();
+  const farm = getFarmById(farmId, uid);
+  if (!farm) return null;
+
+  const currentCrop = farm.activeCrop || (farm.crop && !farm.crop.includes('खाली') ? farm.crop : 'Paddy');
+  const harvestDate = harvestDetails.harvestDate || new Date().toISOString();
+  const existingHistory = Array.isArray(farm.cropHistory) ? farm.cropHistory : [];
+
+  const newCycleEntry = {
+    cycleId: `cycle_${(currentCrop || 'crop').toLowerCase()}_${Date.now()}`,
+    cropName: currentCrop,
+    sowingDate: farm.sowingDate || farm.createdAt || '2026-07-15',
+    harvestConfirmedDate: harvestDate,
+    peakNdvi: harvestDetails.peakNdvi || 0.78,
+    finalStatus: 'Harvest Confirmed',
+    detectedBy: 'Copernicus Sentinel-2B MSI (Level-2A)',
+    notes: harvestDetails.notes || 'Crop harvesting confirmed via multi-pass satellite analysis'
+  };
+
+  const updatedFarm = {
+    ...farm,
+    fieldCondition: 'empty_field',
+    fieldStatus: 'empty_field',
+    activeCrop: null,
+    crop: 'खाली खेत (Empty Field)',
+    previousCrop: currentCrop,
+    cropStage: 'Bare Soil / Post-Harvest',
+    harvestConfirmedDate: harvestDate,
+    cropHistory: [newCycleEntry, ...existingHistory],
+    currentCycle: {
+      fieldCondition: 'empty_field',
+      activeCrop: null,
+      previousCrop: currentCrop,
+      harvestConfirmedDate: harvestDate,
+      lastObservationDate: harvestDate
+    },
+    updatedAt: new Date().toISOString()
+  };
+
+  const userKey = getUserStorageKey(STORAGE_KEY_FARMS, uid);
+  const allFarms = getFarms(uid);
+  const updatedList = allFarms.map(f => (f.id === farmId || f._id === farmId) ? updatedFarm : f);
+  localStorage.setItem(userKey, JSON.stringify(updatedList));
+
+  activateFarm(farmId, uid);
+  return updatedFarm;
+}
+
+/**
+ * Record planting/sowing of a new crop in an existing field
+ */
+export function recordNewCropSowing(farmId, newCropData = {}, userId) {
+  if (typeof window === 'undefined') return null;
+  const uid = userId || getCurrentUserId();
+  const farm = getFarmById(farmId, uid);
+  if (!farm) return null;
+
+  const cropName = newCropData.crop || 'Wheat';
+  const sowingDate = newCropData.sowingDate || new Date().toISOString();
+
+  const updatedFarm = {
+    ...farm,
+    fieldCondition: 'active_crop',
+    fieldStatus: 'active_crop',
+    activeCrop: cropName,
+    crop: cropName,
+    cropStage: newCropData.cropStage || 'Sowing / Emergence',
+    sowingDate,
+    harvestConfirmedDate: null,
+    harvestSuspectedDate: null,
+    currentCycle: {
+      fieldCondition: 'active_crop',
+      activeCrop: cropName,
+      sowingDate,
+      previousCrop: farm.previousCrop || null
+    },
+    updatedAt: new Date().toISOString()
+  };
+
+  const userKey = getUserStorageKey(STORAGE_KEY_FARMS, uid);
+  const allFarms = getFarms(uid);
+  const updatedList = allFarms.map(f => (f.id === farmId || f._id === farmId) ? updatedFarm : f);
+  localStorage.setItem(userKey, JSON.stringify(updatedList));
+
+  activateFarm(farmId, uid);
+  return updatedFarm;
+}
+
+/**
+ * Set explicit field condition (e.g. harvest_suspected, empty_field, active_crop, insufficient_data, unknown_crop)
+ */
+export function setFieldCondition(farmId, condition, details = {}, userId) {
+  if (typeof window === 'undefined') return null;
+  const uid = userId || getCurrentUserId();
+  const farm = getFarmById(farmId, uid);
+  if (!farm) return null;
+
+  if (condition === 'empty_field') {
+    return recordHarvestEvent(farmId, details, uid);
+  }
+
+  const updatedFarm = {
+    ...farm,
+    fieldCondition: condition,
+    fieldStatus: condition,
+    ...details,
+    updatedAt: new Date().toISOString()
+  };
+
+  const userKey = getUserStorageKey(STORAGE_KEY_FARMS, uid);
+  const allFarms = getFarms(uid);
+  const updatedList = allFarms.map(f => (f.id === farmId || f._id === farmId) ? updatedFarm : f);
+  localStorage.setItem(userKey, JSON.stringify(updatedList));
+
+  activateFarm(farmId, uid);
+  return updatedFarm;
 }

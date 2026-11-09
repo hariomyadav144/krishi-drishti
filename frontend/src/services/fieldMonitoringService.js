@@ -284,12 +284,17 @@ export async function fetchLatestObservation(fieldId) {
 
     const sat = scan.data.satellite;
     const weather = scan.data.weather;
-    const isBare = !sat.isCultivated;
-    const cropName = safeFarm.crop && !safeFarm.crop.includes('Other') && !safeFarm.crop.includes('खाली') ? safeFarm.crop : sat.detectedCrop;
+    const isFarmHarvestedOrEmpty = safeFarm.fieldCondition === 'empty_field' || 
+                                  safeFarm.fieldStatus === 'empty_field' || 
+                                  (safeFarm.crop && (safeFarm.crop.includes('खाली') || safeFarm.crop.toLowerCase().includes('bare') || safeFarm.crop.toLowerCase().includes('empty')));
+    const isBare = !sat.isCultivated || isFarmHarvestedOrEmpty;
+    const cropName = isFarmHarvestedOrEmpty 
+      ? 'खाली खेत (Empty Field)'
+      : (safeFarm.crop && !safeFarm.crop.includes('Other') && !safeFarm.crop.includes('खाली') ? safeFarm.crop : sat.detectedCrop);
     const areaAcres = Number(safeFarm.areaAcres || safeFarm.farmArea || 1.2);
     const soilMoisture = weather.soilMoisturePercent || 28;
-    const ndvi = Number(sat.ndviMean || (isBare ? 0.18 : 0.72));
-    const healthScore = isBare ? 40 : (sat.vegetationHealthScore || Math.round(75 + ndvi * 20));
+    const ndvi = Number(isFarmHarvestedOrEmpty ? 0.16 : (sat.ndviMean || (isBare ? 0.18 : 0.72)));
+    const healthScore = isFarmHarvestedOrEmpty ? 0 : (isBare ? 40 : (sat.vegetationHealthScore || Math.round(75 + ndvi * 20)));
 
     // Determine moisture status & badges
     let moistureStatusText = 'Adequate Moisture';
@@ -837,7 +842,9 @@ export async function fetchMonitoringDashboardSummary() {
 
   // 1. Prioritize all farms mapped by the farmer in Field Mapping
   for (const f of localFarms) {
-    const isBare = f.crop && (f.crop.includes('खाली') || f.crop.toLowerCase().includes('bare'));
+    const isFarmEmpty = f.fieldCondition === 'empty_field' || f.fieldStatus === 'empty_field' || (f.crop && (f.crop.includes('खाली') || f.crop.toLowerCase().includes('bare') || f.crop.toLowerCase().includes('empty')));
+    const isSuspected = f.fieldCondition === 'harvest_suspected';
+    const isBare = isFarmEmpty || (f.crop && (f.crop.includes('खाली') || f.crop.toLowerCase().includes('bare')));
     const fieldId = String(f.id || f._id || `field_${Date.now()}`);
     const fieldName = f.fieldName || f.name || 'खेत';
     const isKipm = fieldId === 'field_kipm_paddy_01' || fieldName.toLowerCase().includes('kipm');
@@ -857,7 +864,9 @@ export async function fetchMonitoringDashboardSummary() {
     merged.push({
       fieldId,
       fieldName,
-      crop: f.crop || (isKipm ? 'Paddy' : 'Paddy'),
+      crop: isFarmEmpty ? null : (f.crop || (isKipm ? 'Paddy' : 'Paddy')),
+      previousCrop: f.previousCrop || (isFarmEmpty ? (f.crop && !f.crop.includes('खाली') ? f.crop : 'Paddy') : null),
+      fieldCondition: f.fieldCondition || (isFarmEmpty ? 'empty_field' : (isSuspected ? 'harvest_suspected' : 'active_crop')),
       areaAcres: Number(f.areaAcres || f.farmArea || (isKipm ? 3.85 : 1.2)),
       areaUnit: 'Acres',
       soilType: f.soilType || (isKipm ? 'Alluvial Loam / बलुई दोमट मिट्टी' : 'Alluvial Soil'),
@@ -865,12 +874,12 @@ export async function fetchMonitoringDashboardSummary() {
       boundary: points,
       latitude: lat,
       longitude: lng,
-      healthScore: isBare ? 40 : (isKipm ? 94 : 84),
-      ndviMean: isBare ? 0.18 : (isKipm ? 0.82 : 0.74),
-      status: isBare ? 'खाली जमीन' : (isKipm ? 'सक्रिय फसल (कल्ले फूट रहे हैं)' : 'सक्रिय फसल'),
-      statusColor: isBare ? '#F59E0B' : '#10B981',
+      healthScore: isFarmEmpty ? null : (isSuspected ? 30 : (isBare ? 40 : (isKipm ? 94 : 84))),
+      ndviMean: isFarmEmpty ? 0.16 : (isSuspected ? 0.28 : (isBare ? 0.18 : (isKipm ? 0.82 : 0.74))),
+      status: isFarmEmpty ? 'खाली खेत (कटाई पूर्ण)' : (isSuspected ? 'कटाई संभावित' : (isBare ? 'खाली जमीन' : (isKipm ? 'सक्रिय फसल (कल्ले फूट रहे हैं)' : 'सक्रिय फसल'))),
+      statusColor: isFarmEmpty ? '#64748B' : (isSuspected ? '#F59E0B' : (isBare ? '#F59E0B' : '#10B981')),
       lastScan: 'आज, लाइव उपग्रह',
-      soilMoisture: isBare ? '22%' : (isKipm ? '72%' : '34%')
+      soilMoisture: isFarmEmpty ? '20%' : (isBare ? '22%' : (isKipm ? '72%' : '34%'))
     });
   }
 

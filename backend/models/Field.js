@@ -198,6 +198,36 @@ const fieldSchema = new mongoose.Schema({
   fertilizerHistory: [fertilizerHistoryItemSchema],
   pesticideHistory: [pesticideHistoryItemSchema],
   cropHealthHistory: [cropHealthHistoryItemSchema],
+  fieldCondition: {
+    type: String,
+    enum: ['active_crop', 'crop_nearing_maturity', 'harvest_suspected', 'empty_field', 'fallow_bare_land', 'insufficient_data', 'unknown_crop'],
+    default: 'active_crop'
+  },
+  activeCrop: {
+    type: String,
+    default: null
+  },
+  previousCrop: {
+    type: String,
+    default: null
+  },
+  harvestConfirmedDate: {
+    type: Date,
+    default: null
+  },
+  harvestSuspectedDate: {
+    type: Date,
+    default: null
+  },
+  cropCycleHistory: [{
+    cycleId: String,
+    cropName: String,
+    sowingDate: Date,
+    harvestConfirmedDate: Date,
+    peakNdvi: Number,
+    finalStatus: String,
+    notes: String
+  }],
   uploadedImages: [fieldImageSchema],
   sensorData: [sensorDataPointSchema],
   monitoringActive: {

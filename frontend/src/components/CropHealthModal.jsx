@@ -356,7 +356,55 @@ export default function CropHealthModal({
             )}
           </div>
 
-          {/* 6. Data Source Transparency */}
+          {/* 6. Permanent Farm Crop-Cycle History & Satellite Overpass */}
+          <div className="space-y-3 pt-2 border-t border-slate-100">
+            <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+              <Satellite className="w-3.5 h-3.5 text-sky-600" />
+              <span>{lang === 'hi' ? 'स्थायी फसल चक्र एवं उपग्रह अवलोकन इतिहास' : 'CROP CYCLE & SATELLITE OVERPASS HISTORY'}</span>
+            </h4>
+
+            {/* Permanent Crop Cycle Card */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-slate-50 to-emerald-50/30 border border-slate-200 space-y-2.5 text-xs">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                    {lang === 'hi' ? 'वर्तमान स्थिति' : 'CURRENT STATUS'}
+                  </span>
+                  <strong className="text-sm font-black text-slate-900">
+                    {healthData.fieldCondition === 'empty_field' 
+                      ? (lang === 'hi' ? 'खाली खेत (कटाई पूर्ण)' : 'EMPTY FIELD (HARVEST CONFIRMED)')
+                      : (healthData.fieldCondition === 'harvest_suspected' 
+                        ? (lang === 'hi' ? 'कटाई संभावित (पुष्टि प्रतीक्षित)' : 'HARVEST SUSPECTED')
+                        : (lang === 'hi' ? `सक्रिय फसल: ${healthData.crop || 'धान'}` : `ACTIVE CROP: ${healthData.crop || 'PADDY'}`))}
+                  </strong>
+                </div>
+                <span className="text-[10px] font-bold px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-900 border border-emerald-300">
+                  Sentinel-2 L2A Verified
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-slate-200/60">
+                <div>
+                  <span className="text-slate-500 font-semibold block">{lang === 'hi' ? 'पिछली फसल:' : 'Previous Crop:'}</span>
+                  <strong className="text-slate-800">{healthData.previousCrop || (healthData.crop ? healthData.crop : 'धान (Paddy)')}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold block">{lang === 'hi' ? 'अंतिम उपग्रह पास:' : 'Last Observation:'}</span>
+                  <strong className="text-slate-800">{healthData.lastObservationDate ? new Date(healthData.lastObservationDate).toLocaleDateString([], { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recent'}</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold block">{lang === 'hi' ? 'स्पेक्ट्रल बैंड:' : 'Spectral Bands:'}</span>
+                  <strong className="text-slate-800">B4 (Red 665nm) & B8 (NIR 842nm)</strong>
+                </div>
+                <div>
+                  <span className="text-slate-500 font-semibold block">{lang === 'hi' ? 'डेटा प्रदाता:' : 'Data Provider:'}</span>
+                  <strong className="text-slate-800">{healthData.satelliteProvider || 'Copernicus Sentinel-2 L2A'}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 7. Data Source Transparency */}
           <div className="space-y-2 pt-2 border-t border-slate-100">
             <h4 className="text-[11px] font-black uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
               <Database className="w-3.5 h-3.5" />

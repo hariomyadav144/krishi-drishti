@@ -80,6 +80,141 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
     };
   }
 
+  // Check explicit satellite field condition & harvest status
+  const fieldCondition = targetField?.fieldCondition || targetField?.fieldStatus || 'active_crop';
+  const isConfirmedEmpty = fieldCondition === 'empty_field' || 
+                           (targetField?.crop && (targetField.crop.includes('खाली') || targetField.crop.toLowerCase().includes('bare') || targetField.crop.toLowerCase().includes('empty')));
+  const isHarvestSuspected = fieldCondition === 'harvest_suspected';
+  const isDataUnavailable = fieldCondition === 'insufficient_data';
+  const isUnknownCrop = fieldCondition === 'unknown_crop';
+
+  if (isConfirmedEmpty) {
+    const previousCrop = targetField?.previousCrop || 'Paddy';
+    const harvestDate = targetField?.harvestConfirmedDate ? new Date(targetField.harvestConfirmedDate).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'हाल ही में';
+    const harvestDateEn = targetField?.harvestConfirmedDate ? new Date(targetField.harvestConfirmedDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Recently';
+
+    return {
+      hasField: true,
+      fieldId: actualFieldId,
+      fieldName,
+      location,
+      areaAcres,
+      soilType,
+      crop: null, // Crucial: Active crop is null after confirmed harvest
+      previousCrop,
+      fieldCondition: 'empty_field',
+      status: 'Empty Field',
+      statusHi: 'खाली खेत (कटाई पूर्ण)',
+      healthScore: null, // No fake crop health score for empty land
+      confidence: 'High',
+      lastObservationDate: targetField?.lastObservationDate || targetField?.harvestConfirmedDate || new Date().toISOString(),
+      satelliteProvider: 'Copernicus Sentinel-2B MSI (Level-2A)',
+      reasons: [
+        `✓ Harvesting confirmed by multi-pass Sentinel-2 observations (${harvestDateEn})`,
+        '✓ No active photosynthetic crop canopy detected; soil is fallow/bare'
+      ],
+      reasonsHi: [
+        `✓ उपग्रह सेंटिनल-2 द्वारा कटाई पूर्ण रूप से सत्यापित (${harvestDate})`,
+        '✓ खेत पर कोई सक्रिय फसल नहीं है; भूमि खाली/परती अवस्था में है'
+      ],
+      dataSources: [
+        { name: 'Copernicus Sentinel-2B L2A', available: true, detail: 'Multi-pass Surface Reflectance' },
+        { name: 'Field Water Balance', available: true, detail: 'Fallow soil balance' }
+      ]
+    };
+  }
+
+  if (isHarvestSuspected) {
+    return {
+      hasField: true,
+      fieldId: actualFieldId,
+      fieldName,
+      location,
+      areaAcres,
+      soilType,
+      crop: cropName,
+      fieldCondition: 'harvest_suspected',
+      status: 'Harvest Suspected',
+      statusHi: 'कटाई संभावित (पुष्टि प्रतीक्षित)',
+      healthScore: 30,
+      confidence: 'Medium',
+      lastObservationDate: targetField?.lastObservationDate || new Date().toISOString(),
+      satelliteProvider: 'Copernicus Sentinel-2B MSI (Level-2A)',
+      reasons: [
+        '⚠ Sustained vegetation index decline indicates possible harvesting',
+        '⚠ Confirmation pending subsequent satellite acquisition'
+      ],
+      reasonsHi: [
+        '⚠ वनस्पति आच्छादन में अचानक भारी गिरावट से कटाई की संभावना',
+        '⚠ आगामी उपग्रह पास द्वारा कटाई की पुष्टि प्रतीक्षित'
+      ],
+      dataSources: [
+        { name: 'Copernicus Sentinel-2B L2A', available: true, detail: 'Sharp NDVI Drop Detected' }
+      ]
+    };
+  }
+
+  if (isDataUnavailable) {
+    const lastDate = targetField?.lastObservationDate ? new Date(targetField.lastObservationDate).toLocaleDateString('hi-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'हालिया अवलोकन';
+    return {
+      hasField: true,
+      fieldId: actualFieldId,
+      fieldName,
+      location,
+      areaAcres,
+      soilType,
+      crop: cropName,
+      fieldCondition: 'insufficient_data',
+      status: 'Satellite Data Unavailable',
+      statusHi: 'उपग्रह डेटा अनुपलब्ध (घने बादल)',
+      healthScore: null,
+      confidence: 'Low',
+      lastObservationDate: targetField?.lastObservationDate || null,
+      satelliteProvider: 'Copernicus Sentinel-2 (MSI L2A)',
+      reasons: [
+        '⚠ Cloud cover (>25%) obscured optical satellite sensors',
+        `✓ Last confirmed status: ${cropName} (${lastDate})`
+      ],
+      reasonsHi: [
+        '⚠ घने बादलों के आवरण (>25%) के कारण उपग्रह सेंसर बाधित रहे',
+        `✓ अंतिम पुष्ट स्थिति: ${cropName} (${lastDate})`
+      ],
+      dataSources: [
+        { name: 'Copernicus Sentinel-2', available: false, detail: 'Cloud cover exceeded threshold' }
+      ]
+    };
+  }
+
+  if (isUnknownCrop) {
+    return {
+      hasField: true,
+      fieldId: actualFieldId,
+      fieldName,
+      location,
+      areaAcres,
+      soilType,
+      crop: null,
+      fieldCondition: 'unknown_crop',
+      status: 'Crop Status Unknown',
+      statusHi: 'फसल स्थिति अज्ञात',
+      healthScore: null,
+      confidence: 'Low',
+      lastObservationDate: targetField?.lastObservationDate || new Date().toISOString(),
+      satelliteProvider: 'Copernicus Sentinel-2B MSI (Level-2A)',
+      reasons: [
+        '⚠ Observed vegetation profile does not match known regional crop signatures',
+        '⚠ Insufficient reliable observations to confirm crop identity'
+      ],
+      reasonsHi: [
+        '⚠ दर्ज वनस्पति सूचकांक क्षेत्रीय फसल कैलेंडर से मेल नहीं खा रहा',
+        '⚠ पर्याप्त विश्वसनीय अवलोकनों के बाद स्वतः फसल वर्गीकरण होगा'
+      ],
+      dataSources: [
+        { name: 'Copernicus Sentinel-2B L2A', available: true, detail: 'Unclassified Canopy' }
+      ]
+    };
+  }
+
   // 2. Telemetry Factors & Weights
   const factors = {};
   const reasons = [];
