@@ -7,6 +7,7 @@ import { calculatePolygonArea, calculatePolygonCenter, calculatePolygonPerimeter
 import { FeatureRecoveryStrategy } from '../selfHealing/FeatureRecoveryStrategy.js';
 import { RecoveryManager } from '../selfHealing/RecoveryManager.js';
 import { LogLevel } from '../selfHealing/ErrorClassifier.js';
+import { reverseGeocode } from './geocodingService.js';
 
 export const STORAGE_KEY_FARMS = 'farms_data';
 export const STORAGE_KEY_SAVED_FIELDS = 'krishi_saved_fields';
@@ -34,6 +35,11 @@ export function getCurrentUserId() {
       if (u?.id || u?._id) {
         return String(u.id || u._id);
       }
+    }
+  } catch (_) {}
+  try {
+    if (localStorage.getItem('krishi_demo_role') === 'farmer') {
+      return 'usr_farmer_demo_01';
     }
   } catch (_) {}
   return null;
@@ -366,6 +372,20 @@ export function activateFarm(farmId, userId) {
     const userActiveFieldKey = getUserStorageKey(STORAGE_KEY_ACTIVE_FIELD, uid);
     localStorage.setItem(userActiveKey, farm.id);
     localStorage.setItem(userActiveFieldKey, JSON.stringify(farm));
+
+    // Also synchronize active session in fasal_user_session
+    const rawFasal = localStorage.getItem('fasal_user_session');
+    if (rawFasal) {
+      try {
+        const sess = JSON.parse(rawFasal);
+        sess.farm = farm;
+        sess.currentCrop = { name: farm.crop, cropName: farm.crop, stage: farm.cropStage || 'Vegetative Stage' };
+        localStorage.setItem('fasal_user_session', JSON.stringify(sess));
+      } catch (_) {}
+    }
+
+    // Broadcast update event so homepage & components refresh instantly
+    window.dispatchEvent(new CustomEvent('fasal_farm_updated', { detail: farm }));
   } catch (_) {}
 
   return farm;
@@ -436,6 +456,30 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
   // Preserve existing metadata when updating
   const existingRecord = isExisting ? existingFarms.find(f => f.id === id) : null;
 
+  // Resolve geographical address from boundary centroid
+  let location = farmPayload.location || existingRecord?.location || '';
+  let village = farmPayload.village || existingRecord?.village || '';
+  let district = farmPayload.district || existingRecord?.district || '';
+  let state = farmPayload.state || existingRecord?.state || '';
+
+  if (!location && center?.lat && center?.lng) {
+    try {
+      const geo = await reverseGeocode(center.lat, center.lng);
+      if (geo?.formatted) {
+        location = geo.formatted;
+        village = geo.village || village;
+        district = geo.district || district;
+        state = geo.state || state;
+      }
+    } catch (err) {
+      console.warn('[FieldService] Reverse geocode note:', err.message);
+    }
+  }
+
+  if (!location && center?.lat && center?.lng) {
+    location = `${center.lat.toFixed(4)}°N, ${center.lng.toFixed(4)}°E`;
+  }
+
   const farmToSave = {
     id,
     _id: id,
@@ -456,11 +500,16 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
     latitude: center.lat,
     longitude: center.lng,
     center,
+    location,
+    village,
+    district,
+    state,
     fieldSource: farmPayload.fieldSource || 'gps_polygon',
     boundary: points,
     points,
     cornersCount: points.length,
     crop: farmPayload.crop || existingRecord?.crop || 'Paddy',
+    cropStage: farmPayload.cropStage || existingRecord?.cropStage || 'Vegetative Stage',
     cropStatus: existingRecord?.cropStatus || 'pending_detection',
     varietyStatus: existingRecord?.varietyStatus || 'pending_detection',
     soilStatus: existingRecord?.soilStatus || 'pending_fetch',
@@ -487,6 +536,22 @@ export async function saveFarm(farmPayload, createNew = false, userId) {
     localStorage.setItem(userKey, JSON.stringify(updatedList));
     FeatureRecoveryStrategy.storage.createShadowBackup(userKey, updatedList);
     activateFarm(id, uid);
+
+    // Sync active session farm in fasal_user_session
+    const rawFasal = localStorage.getItem('fasal_user_session');
+    if (rawFasal) {
+      try {
+        const sess = JSON.parse(rawFasal);
+        sess.farm = farmToSave;
+        sess.currentCrop = { name: farmToSave.crop, cropName: farmToSave.crop, stage: farmToSave.cropStage };
+        localStorage.setItem('fasal_user_session', JSON.stringify(sess));
+      } catch (_) {}
+    }
+
+    // Broadcast instant update event
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('fasal_farm_updated', { detail: farmToSave }));
+    }
   } catch (err) {
     console.warn('[FieldService] LocalStorage error:', err);
   }

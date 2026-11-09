@@ -1,5 +1,5 @@
-import api from './api';
-import { getFarms } from './fieldService';
+import api from './api.js';
+import { getFarms, getActiveFarm, getCurrentUserId } from './fieldService.js';
 
 const safeParse = (key) => {
   if (typeof window === 'undefined') return null;
@@ -24,7 +24,8 @@ const safeSet = (key, val) => {
  */
 export function calculateCropHealth(fieldId = 'default', contextData = {}) {
   // 1. Get field & crop info - prioritizing farmer mapped farms
-  const userFields = typeof window !== 'undefined' ? getFarms() : [];
+  const uid = contextData.userId || (typeof window !== 'undefined' ? getCurrentUserId() : null);
+  const userFields = typeof window !== 'undefined' ? getFarms(uid) : [];
   const farm = contextData.farm || {};
   const currentCrop = contextData.currentCrop || {};
   const profile = contextData.profile || {};
@@ -34,20 +35,27 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
     if (fieldId && fieldId !== 'default') {
       targetField = userFields.find(f => f.id === fieldId || f._id === fieldId) || userFields[0];
     } else {
-      targetField = userFields[0];
+      const active = typeof window !== 'undefined' ? getActiveFarm(uid) : null;
+      targetField = active || userFields[0];
     }
+  } else if (contextData.farm && (contextData.farm.name || contextData.farm.fieldName)) {
+    targetField = contextData.farm;
   }
 
   // Determine crop name and field name from available real data
-  const cropName = targetField?.crop || currentCrop?.cropName || currentCrop?.name || farm?.mainCrop || farm?.crop || '';
+  const cropName = targetField?.crop || currentCrop?.cropName || currentCrop?.name || farm?.mainCrop || farm?.crop || 'Paddy';
   const cropStage = targetField?.cropStage || currentCrop?.stage || 'Vegetative Stage';
   const fieldName = targetField?.fieldName || targetField?.name || (farm?.farmName || farm?.name || '');
   const actualFieldId = targetField?.id || targetField?._id || (fieldId !== 'default' ? fieldId : null);
+  const location = targetField?.location || farm?.location || [profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ') || '';
+  const areaAcres = targetField?.areaAcres || farm?.areaAcres || farm?.farmArea || farm?.farmSize || 0;
+  const soilType = targetField?.soilType || farm?.soilType || 'Alluvial Soil';
 
   // Check if farmer has at least farm/field or crop information
   const hasFarmOrField = Boolean(
     targetField || 
     (farm?.farmSize && Number(farm.farmSize) > 0) || 
+    (areaAcres && Number(areaAcres) > 0) ||
     currentCrop?.name || 
     currentCrop?.cropName
   );
@@ -57,6 +65,9 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
       hasField: false,
       fieldId: null,
       fieldName: null,
+      location: '',
+      areaAcres: 0,
+      soilType: '',
       crop: null,
       healthScore: null,
       status: null,
@@ -139,7 +150,7 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
     weatherNoteHi = 'ठंड का हल्का प्रभाव';
   } else {
     reasons.push('✓ Weather conditions are suitable for crop growth');
-    reasonsHi.push('✓ मौसम की स्थिति फसल के विकास के लिए उत्तम है');
+    reasonsHi.push('✓ मौसम की स्थिति फसल के लिए अनुकूल है');
   }
 
   if (currentHumidity > 85) {
@@ -158,7 +169,7 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
   dataSources.push({ name: 'Local Weather Station', available: true, detail: `${currentTemp}°C, ${currentHumidity}% RH` });
 
   // Factor C: Soil Moisture & Soil Type
-  const soilType = targetField?.soilType || farm?.soilType || 'Black Soil / Regur';
+  const fieldSoil = soilType || targetField?.soilType || farm?.soilType || 'Alluvial Soil';
   const monitoringData = safeParse('krishi_monitoring_cache') || {};
   const moistureScore = typeof monitoringData?.moistureScore === 'number' ? monitoringData.moistureScore : 82;
 
@@ -180,7 +191,7 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
     score: moistureScore,
     weight: soilWeight,
     status: moistureScore >= 75 ? 'Adequate' : (moistureScore >= 55 ? 'Moderate' : 'Low Moisture'),
-    detail: `${soilNoteEn} (${soilType})`
+    detail: `${soilNoteEn} (${fieldSoil})`
   };
   weightedScoreTotal += moistureScore * soilWeight;
   availableWeightTotal += soilWeight;
@@ -250,6 +261,9 @@ export function calculateCropHealth(fieldId = 'default', contextData = {}) {
     hasField: true,
     fieldId: actualFieldId,
     fieldName,
+    location,
+    areaAcres,
+    soilType,
     crop: cropName,
     cropStage,
     healthScore,
@@ -326,9 +340,9 @@ export async function fetchLatestCropHealth(fieldId = 'default', contextData = {
 /**
  * Fetch multi-field crop health summaries
  */
-export async function fetchCropHealthSummary() {
-  const localFarms = typeof window !== 'undefined' ? getFarms() : [];
-  const uid = typeof window !== 'undefined' ? (safeParse('fasal_user_session')?.user?.id || safeParse('krishi_user')?.id || safeParse('krishi_user')?._id) : null;
+export async function fetchCropHealthSummary(userId) {
+  const uid = userId || (typeof window !== 'undefined' ? (getCurrentUserId() || safeParse('fasal_user_session')?.user?.id || safeParse('krishi_user')?.id || safeParse('krishi_user')?._id) : null);
+  const localFarms = typeof window !== 'undefined' ? getFarms(uid) : [];
   const isDemo = uid === 'usr_farmer_demo_01';
   let backendSummaries = [];
 
@@ -342,12 +356,16 @@ export async function fetchCropHealthSummary() {
   }
 
   // Synthesize multi-field summaries from user's registered mapped fields
-  const localSummaries = localFarms.map((f, idx) => {
-    const h = calculateCropHealth(f.id || f._id, { targetField: f });
+  const localSummaries = localFarms.map((f) => {
+    const h = calculateCropHealth(f.id || f._id, { targetField: f, userId: uid });
     return {
       fieldId: f.id || f._id,
       fieldName: f.fieldName || f.name || 'Farm',
       crop: f.crop || '',
+      cropStage: f.cropStage || 'Vegetative Stage',
+      location: f.location || '',
+      areaAcres: f.areaAcres || f.farmArea || 0,
+      soilType: f.soilType || 'Alluvial Soil',
       healthScore: h.healthScore,
       status: h.status,
       confidence: h.confidence,

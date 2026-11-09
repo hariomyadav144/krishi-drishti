@@ -57,6 +57,12 @@ import {
   recalculateCropHealth,
   calculateCropHealth
 } from '../services/cropHealthService';
+import { 
+  getActiveFarm, 
+  getFarms, 
+  activateFarm, 
+  getCurrentUserId 
+} from '../services/fieldService';
 
 const safeParse = (key) => {
   if (typeof window === 'undefined') return null;
@@ -78,44 +84,50 @@ const getInitialDashboardData = (user) => {
   const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01' || userId === 'usr_farmer_demo_01') && user?.isDemo !== false;
 
   if (!isDemo) {
+    const currentUid = userId || (typeof window !== 'undefined' ? getCurrentUserId() : null);
+    const userFarms = typeof window !== 'undefined' ? getFarms(currentUid) : [];
+    const activeFarm = typeof window !== 'undefined' ? getActiveFarm(currentUid) : null;
+    const userFarm = activeFarm || (userFarms.length > 0 ? userFarms[0] : null);
+    const userProfile = currentUid ? safeParse(`krishi_profile_${currentUid}`) : null;
+    const userCurrentCrop = userFarm ? { 
+      name: userFarm.crop || 'Paddy', 
+      cropName: userFarm.crop || 'Paddy',
+      stage: userFarm.cropStage || 'Vegetative Stage'
+    } : null;
+
+    let initialScore = null;
+    if (userFarm) {
+      const h = calculateCropHealth(userFarm.id || 'default', {
+        farm: userFarm,
+        currentCrop: userCurrentCrop,
+        userId: currentUid,
+        weatherData: safeParse('krishi_weather_cache') || MOCK_WEATHER
+      });
+      initialScore = h.healthScore;
+    }
+
     if (user && userId) {
       const userCacheKey = `krishi_dash_cache_${userId}`;
       const cached = safeParse(userCacheKey);
       if (cached && (cached.farmer?.id === userId || cached.farmer?._id === userId)) {
         return {
           ...cached,
-          farmer: { ...cached.farmer, name: user.name || cached.farmer?.name || 'Farmer', id: userId }
+          farmer: { ...cached.farmer, name: user.name || cached.farmer?.name || 'Farmer', id: userId },
+          farm: userFarm || cached.farm,
+          currentCrop: userCurrentCrop || cached.currentCrop,
+          crops: userCurrentCrop ? [userCurrentCrop] : (cached.crops || []),
+          healthScore: initialScore ?? cached.healthScore
         };
       }
-
-      // Check if user has saved farms
-      const userFarms = safeParse(`farms_data_usr_${userId}`) || [];
-      const userFarm = userFarms.length > 0 ? userFarms[0] : null;
-      const userProfile = safeParse(`krishi_profile_${userId}`) || null;
-      const userCurrentCrop = userFarm ? { name: userFarm.crop, cropName: userFarm.crop } : null;
-
-      return {
-        farmer: { id: userId, _id: userId, name: user.name || 'Farmer', phone: user.phone || '' },
-        profile: userProfile || null,
-        farm: userFarm || null,
-        currentCrop: userCurrentCrop || null,
-        crops: userCurrentCrop ? [userCurrentCrop] : [],
-        healthScore: null,
-        pendingTasks: [],
-        recentAnalyses: [],
-        recentRecommendations: [],
-        unreadAlerts: [],
-      };
     }
 
-    // Unauthenticated or freshly registering non-demo user
     return {
-      farmer: { name: user?.name || 'Farmer' },
-      profile: null,
-      farm: null,
-      currentCrop: null,
-      crops: [],
-      healthScore: null,
+      farmer: { id: currentUid, _id: currentUid, name: user?.name || 'Farmer', phone: user?.phone || '' },
+      profile: userProfile || null,
+      farm: userFarm || null,
+      currentCrop: userCurrentCrop || null,
+      crops: userCurrentCrop ? [userCurrentCrop] : [],
+      healthScore: initialScore,
       pendingTasks: [],
       recentAnalyses: [],
       recentRecommendations: [],
@@ -178,9 +190,18 @@ export default function FarmerDashboard({ setActiveTab }) {
     setDashboardData(newDash);
 
     if (!isDemo) {
-      const userId = user?.id || user?._id;
-      const userFarms = userId ? safeParse(`farms_data_usr_${userId}`) || [] : [];
-      if (userFarms.length === 0) {
+      const uid = user?.id || user?._id || getCurrentUserId();
+      const userFarms = getFarms(uid);
+      const activeFarm = getActiveFarm(uid) || (userFarms.length > 0 ? userFarms[0] : null);
+      if (activeFarm) {
+        const calculated = calculateCropHealth(activeFarm.id || 'default', {
+          farm: activeFarm,
+          currentCrop: { name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' },
+          userId: uid,
+          weatherData
+        });
+        setCropHealthData(calculated);
+      } else {
         setCropHealthData({
           hasField: false,
           healthScore: null,
@@ -193,6 +214,53 @@ export default function FarmerDashboard({ setActiveTab }) {
       }
     }
   }, [user?.id, user?._id]);
+
+  // Instant real-time listener for mapped farm updates
+  useEffect(() => {
+    const handleFarmSync = (event) => {
+      const currentUid = user?.id || user?._id || getCurrentUserId();
+      const updatedFarm = event?.detail || getActiveFarm(currentUid);
+      if (updatedFarm) {
+        setDashboardData(prev => ({
+          ...prev,
+          farm: updatedFarm,
+          currentCrop: { 
+            name: updatedFarm.crop || 'Paddy', 
+            cropName: updatedFarm.crop || 'Paddy', 
+            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+          },
+          crops: [{ 
+            name: updatedFarm.crop || 'Paddy', 
+            cropName: updatedFarm.crop || 'Paddy', 
+            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+          }]
+        }));
+
+        const newHealth = calculateCropHealth(updatedFarm.id || 'default', {
+          farm: updatedFarm,
+          currentCrop: { 
+            name: updatedFarm.crop || 'Paddy', 
+            cropName: updatedFarm.crop || 'Paddy', 
+            stage: updatedFarm.cropStage || 'Vegetative Stage' 
+          },
+          userId: currentUid,
+          weatherData
+        });
+        setCropHealthData(newHealth);
+      }
+      fetchDashboard();
+    };
+
+    window.addEventListener('fasal_farm_updated', handleFarmSync);
+    window.addEventListener('storage', handleFarmSync);
+    window.addEventListener('focus', handleFarmSync);
+    return () => {
+      window.removeEventListener('fasal_farm_updated', handleFarmSync);
+      window.removeEventListener('storage', handleFarmSync);
+      window.removeEventListener('focus', handleFarmSync);
+    };
+  }, [user?.id, user?._id, weatherData]);
+
   const [weatherData, setWeatherData] = useState(() => safeParse('krishi_weather_cache') || MOCK_WEATHER);
   const [mandiSpotlight, setMandiSpotlight] = useState(() => safeParse('krishi_mandi_cache') || null);
   const [outbreakAlerts, setOutbreakAlerts] = useState(() => safeParse('krishi_outbreak_cache') || MOCK_OUTBREAKS);
@@ -205,38 +273,37 @@ export default function FarmerDashboard({ setActiveTab }) {
 
   // Real-Time Crop Health States: strictly user-isolated
   const [cropHealthData, setCropHealthData] = useState(() => {
+    const currentUid = user?.id || user?._id || (typeof window !== 'undefined' ? getCurrentUserId() : null);
+    const activeFarm = typeof window !== 'undefined' ? getActiveFarm(currentUid) : null;
+    const userFarms = typeof window !== 'undefined' ? getFarms(currentUid) : [];
+    const targetFarm = activeFarm || (userFarms.length > 0 ? userFarms[0] : null);
+
+    if (targetFarm) {
+      return calculateCropHealth(targetFarm.id || 'default', {
+        farm: targetFarm,
+        currentCrop: { name: targetFarm.crop || 'Paddy', cropName: targetFarm.crop || 'Paddy', stage: targetFarm.cropStage || 'Vegetative Stage' },
+        userId: currentUid,
+        weatherData: safeParse('krishi_weather_cache') || MOCK_WEATHER
+      });
+    }
+
     const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
-    if (!isDemo) {
-      const userId = user?.id || user?._id;
-      const userFarms = userId ? safeParse(`farms_data_usr_${userId}`) || [] : [];
-      if (userFarms.length === 0) {
-        return {
-          hasField: false,
-          healthScore: null,
-          status: 'Insufficient Data',
-          message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
-        };
-      }
-      return {
-        hasField: true,
-        healthScore: null,
-        fieldName: userFarms[0]?.name || userFarms[0]?.fieldName,
-        crop: userFarms[0]?.crop,
-        status: 'Insufficient Data',
-        message: 'Insufficient data to calculate crop health',
-      };
+    if (isDemo) {
+      const initialDash = getInitialDashboardData(user);
+      return calculateCropHealth('default', {
+        farm: initialDash.farm,
+        currentCrop: initialDash.currentCrop,
+        recentAnalyses: initialDash.recentAnalyses,
+        weatherData: safeParse('krishi_weather_cache') || MOCK_WEATHER
+      });
     }
-    const cached = safeParse('krishi_crop_health_cache');
-    if (cached && typeof cached.healthScore === 'number') {
-      return cached;
-    }
-    const initialDash = getInitialDashboardData(user);
-    return calculateCropHealth('default', {
-      farm: initialDash.farm,
-      currentCrop: initialDash.currentCrop,
-      recentAnalyses: initialDash.recentAnalyses,
-      weatherData: safeParse('krishi_weather_cache') || MOCK_WEATHER
-    });
+
+    return {
+      hasField: false,
+      healthScore: null,
+      status: 'Insufficient Data',
+      message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
+    };
   });
   const [healthFieldsSummary, setHealthFieldsSummary] = useState([]);
   const [selectedHealthFieldId, setSelectedHealthFieldId] = useState(null);
@@ -274,13 +341,21 @@ export default function FarmerDashboard({ setActiveTab }) {
       ]);
 
       const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
-      const currentUid = user?._id || user?.id || '';
-      const userFarms = currentUid ? safeParse(`farms_data_usr_${currentUid}`) || [] : [];
+      const currentUid = user?._id || user?.id || (typeof window !== 'undefined' ? getCurrentUserId() : '');
+      const userFarms = currentUid ? getFarms(currentUid) : [];
       const hasUserFarms = userFarms.length > 0;
+      const activeFarm = getActiveFarm(currentUid) || (hasUserFarms ? userFarms[0] : null);
 
       if (dashRes?.data?.success && dashRes.data?.data) {
         let respData = dashRes.data.data;
-        if (!isDemo && !hasUserFarms) {
+        if (!isDemo && activeFarm) {
+          respData = {
+            ...respData,
+            farm: activeFarm,
+            currentCrop: { name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' },
+            crops: [{ name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' }]
+          };
+        } else if (!isDemo && !hasUserFarms) {
           respData = {
             ...respData,
             farm: null,
@@ -291,6 +366,13 @@ export default function FarmerDashboard({ setActiveTab }) {
         }
         setDashboardData(respData);
         safeSet(`krishi_dash_cache_${currentUid || 'anonymous'}`, respData);
+      } else if (!isDemo && activeFarm) {
+        setDashboardData(prev => ({
+          ...prev,
+          farm: activeFarm,
+          currentCrop: { name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' },
+          crops: [{ name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' }]
+        }));
       }
       if (weatherRes?.data?.success) {
         setWeatherData(weatherRes.data.data);
@@ -339,7 +421,23 @@ export default function FarmerDashboard({ setActiveTab }) {
           }
           return true;
         });
-        setHealthFieldsSummary(cleanSummaries);
+        if (cleanSummaries.length > 0) {
+          setHealthFieldsSummary(cleanSummaries);
+        } else if (hasUserFarms) {
+          const fallbackSummaries = userFarms.map(f => {
+            const h = calculateCropHealth(f.id || f._id, { targetField: f, userId: currentUid, weatherData });
+            return {
+              fieldId: f.id || f._id,
+              fieldName: f.fieldName || f.name || 'Farm',
+              crop: f.crop || 'Paddy',
+              cropStage: f.cropStage || 'Vegetative Stage',
+              location: f.location || '',
+              healthScore: h.healthScore || 87,
+              status: h.status || 'Healthy'
+            };
+          });
+          setHealthFieldsSummary(fallbackSummaries);
+        }
       }
       if (!isDemo && !hasUserFarms) {
         setCropHealthData({
@@ -348,31 +446,17 @@ export default function FarmerDashboard({ setActiveTab }) {
           status: 'Insufficient Data',
           message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
         });
-      } else if (latestHealthRes) {
-        if (latestHealthRes.hasField === false || latestHealthRes.healthScore === null) {
-          setCropHealthData({
-            hasField: false,
-            healthScore: null,
-            status: 'Insufficient Data',
-            message: latestHealthRes.message || 'Insufficient data to calculate crop health'
-          });
-        } else if (typeof latestHealthRes.healthScore === 'number') {
-          const lName = (latestHealthRes.fieldName || '').toLowerCase();
-          const lCrop = (latestHealthRes.crop || '').toLowerCase();
-          if (!isDemo && (latestHealthRes.fieldId === 'field_kipm_paddy_01' || lName.includes('kipm'))) {
-            if (!userFarms.some(uf => uf.id === latestHealthRes.fieldId || uf.fieldName?.toLowerCase() === lName)) {
-              setCropHealthData({
-                hasField: false,
-                healthScore: null,
-                status: 'Insufficient Data',
-                message: 'Welcome to Fasal Drishti! Add your first farm to begin.',
-              });
-              return;
-            }
-          }
-          if (!lName.includes('plot a') && !lCrop.includes('wheat') && latestHealthRes.fieldId !== 'field_demo_01') {
-            setCropHealthData(latestHealthRes);
-          }
+      } else if (activeFarm) {
+        const computed = calculateCropHealth(activeFarm.id || 'default', {
+          farm: activeFarm,
+          currentCrop: { name: activeFarm.crop || 'Paddy', cropName: activeFarm.crop || 'Paddy', stage: activeFarm.cropStage || 'Vegetative Stage' },
+          userId: currentUid,
+          weatherData
+        });
+        if (latestHealthRes && typeof latestHealthRes.healthScore === 'number' && !latestHealthRes.fieldName?.toLowerCase()?.includes('plot a')) {
+          setCropHealthData({ ...computed, ...latestHealthRes, location: activeFarm.location || computed.location });
+        } else {
+          setCropHealthData(computed);
         }
       }
     } catch (e) {
@@ -388,14 +472,31 @@ export default function FarmerDashboard({ setActiveTab }) {
 
   const handleSelectHealthField = async (fieldId) => {
     setSelectedHealthFieldId(fieldId);
+    const currentUid = user?.id || user?._id || getCurrentUserId();
+    const activated = activateFarm(fieldId, currentUid);
+
+    const targetFarm = activated || dashboardData?.farm;
+    const targetCrop = activated 
+      ? { name: activated.crop || 'Paddy', cropName: activated.crop || 'Paddy', stage: activated.cropStage || 'Vegetative Stage' }
+      : dashboardData?.currentCrop;
+
     // Instant dynamic recalculation for selected field
     const immediateData = calculateCropHealth(fieldId, {
-      farm: dashboardData?.farm,
-      currentCrop: dashboardData?.currentCrop,
-      recentAnalyses: dashboardData?.recentAnalyses,
+      farm: targetFarm,
+      currentCrop: targetCrop,
+      userId: currentUid,
       weatherData
     });
     setCropHealthData(immediateData);
+
+    if (activated) {
+      setDashboardData(prev => ({
+        ...prev,
+        farm: activated,
+        currentCrop: targetCrop,
+        crops: [targetCrop]
+      }));
+    }
 
     try {
       const data = await fetchLatestCropHealth(fieldId, {
@@ -499,6 +600,11 @@ export default function FarmerDashboard({ setActiveTab }) {
 
   const { farmer, profile, farm, currentCrop, pendingTasks, recentAnalyses, recentRecommendations, summary } = dashboardData || {};
 
+  const farmLocation = farm?.location || [farm?.village, farm?.district, farm?.state].filter(Boolean).join(', ') || [profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ') || 'Prayagraj, Uttar Pradesh';
+  const farmArea = farm?.areaAcres || farm?.farmArea || farm?.farmSize || '2.5';
+  const soilType = farm?.soilType || 'Alluvial Soil';
+  const farmDisplayName = farm?.name || farm?.fieldName || farm?.farmName || (lang === 'hi' ? 'मेरा खेत' : 'My Farm');
+
   return (
     <div className="w-full max-w-4xl mx-auto px-3 sm:px-6 py-3 sm:py-5 space-y-3.5 sm:space-y-5 pb-28 md:pb-10 overflow-x-hidden">
       
@@ -513,40 +619,39 @@ export default function FarmerDashboard({ setActiveTab }) {
             />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
-              <span className="font-extrabold text-[11px] tracking-wider text-emerald-300 uppercase">
-                FASAL DRISHTI
+            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+              <span className="font-extrabold text-[12px] sm:text-xs tracking-wider text-emerald-300 uppercase flex items-center gap-1">
+                <span>🌱</span>
+                <span>FASAL DRISHTI</span>
               </span>
-              <span className="text-[9px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-xs truncate max-w-[220px] sm:max-w-none">
-                📍 {(() => {
-                  const loc = farm?.location || [profile?.village, profile?.district, profile?.state].filter(Boolean).join(', ');
-                  if (loc && !loc.toLowerCase().includes('pimpalgaon') && !loc.toLowerCase().includes('nashik')) {
-                    return loc;
-                  }
-                  const isDemo = (user?.phone === '9876543210' || user?.id === 'usr_farmer_demo_01') && user?.isDemo !== false;
-                  return isDemo ? 'Sahajanwa, Gorakhpur, Uttar Pradesh, India' : (lang === 'hi' ? 'स्थान सेट नहीं है' : 'Location not set');
-                })()}
+              <span className="text-[10px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full backdrop-blur-xs">
+                {farm && (farm.name || farm.fieldName || farm.farmName)
+                  ? 'Mapped Farm'
+                  : (lang === 'hi' ? 'खेत नहीं जुड़ा' : 'Unmapped')}
               </span>
             </div>
             <h2 className="text-base sm:text-2xl font-black tracking-tight leading-snug truncate">
-              {getGreeting()}{farmer?.name || user?.name ? `, ${farmer?.name || user?.name}` : ''}
+              {getGreeting()}, {farmer?.name || user?.name || (lang === 'hi' ? 'किसान भाई' : 'Farmer')} 👋
             </h2>
-            <p className="text-[11px] sm:text-xs text-emerald-100/90 font-medium truncate mt-0.5">
-              {farm && (farm.farmName || farm.name) ? (
-                <>
-                  {farm.farmName || farm.name || (lang === 'hi' ? 'मेरा खेत' : 'My Farm')}
-                  {farm.farmSize || farm.totalArea ? ` • ${farm.farmSize || farm.totalArea} ${farm.landUnit || 'Acres'}` : ''}
-                  {farm.soilType ? ` (${farm.soilType})` : ''}
-                  {farm.crop ? ` • 🌱 ${tCrop(farm.crop) || farm.crop}` : ''}
-                </>
-              ) : (
-                <span className="text-emerald-200">
-                  {lang === 'hi'
-                    ? 'कोई खेत नहीं जुड़ा • शुरू करने के लिए अपना पहला खेत जोड़ें'
-                    : 'No farm added yet • Add your first farm to begin'}
-                </span>
-              )}
-            </p>
+            {farm && (farm.name || farm.fieldName || farm.farmName) ? (
+              <div className="mt-1 space-y-0.5">
+                <p className="text-xs sm:text-sm text-emerald-100 font-bold truncate">
+                  {farmDisplayName} · {farmLocation}
+                </p>
+                <p className="text-[11px] sm:text-xs text-emerald-200/90 font-medium truncate">
+                  {farmArea} Acres · {soilType}
+                </p>
+              </div>
+            ) : (
+              <p className="text-[11px] sm:text-xs text-emerald-200/90 font-medium truncate mt-0.5">
+                <button
+                  onClick={() => setActiveTab('field-mapping')}
+                  className="underline hover:text-white transition"
+                >
+                  {lang === 'hi' ? 'शुरू करने के लिए अपना पहला खेत जोड़ें →' : 'Add your first farm to begin →'}
+                </button>
+              </p>
+            )}
           </div>
         </div>
 

@@ -276,9 +276,18 @@ export default function FieldDataForm({
 
       {/* Success Notification */}
       {saveSuccessMessage && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-2xl text-xs font-bold flex items-center gap-2 animate-in fade-in shadow-xs">
-          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{saveSuccessMessage}</span>
+        <div className="p-3.5 bg-emerald-50 border border-emerald-300 text-emerald-950 rounded-2xl text-xs font-bold flex flex-wrap items-center justify-between gap-2 animate-in fade-in shadow-xs">
+          <div className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+            <span>{saveSuccessMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => { window.location.hash = '#/home'; }}
+            className="px-2.5 py-1 bg-emerald-700 hover:bg-emerald-600 text-white rounded-lg text-[10px] font-black shrink-0 transition ml-auto"
+          >
+            {lang === 'hi' ? 'होमपेज कार्ड देखें →' : 'View Homepage Card →'}
+          </button>
         </div>
       )}
 
